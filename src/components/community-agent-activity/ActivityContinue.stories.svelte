@@ -165,3 +165,33 @@
     />
   {/snippet}
 </Story>
+
+<Story
+  name="Completed work can explicitly continue with feedback"
+  args={{ onContinueTurn: fn(async () => {}) }}
+  play={async ({ canvas, args }) => {
+    await userEvent.click(canvas.getByRole("tab", { name: "Turns" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Continue", exact: true }),
+    );
+    await expect(args.onContinueTurn).toHaveBeenCalledWith(
+      storyAgentPubkey,
+      "scope/original",
+      { requestId: "request", sessionId: "session", turnId: "turn" },
+    );
+    await expect(
+      canvas.getByRole("status", { name: "Agent control status" }),
+    ).toHaveTextContent("Continue acknowledged");
+  }}
+>
+  {#snippet template(args)}<CommunityAgentActivity
+      model={storyAgentState({
+        activityAgent: storyAgentPubkey,
+        conversationScopes: { request: { ...stopped, state: "completed" } },
+      })}
+      onLatest={() => {}}
+      onLoadOlder={() => {}}
+      onClearHistory={async () => {}}
+      onContinueTurn={args.onContinueTurn}
+    />{/snippet}
+</Story>

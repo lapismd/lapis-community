@@ -1,9 +1,8 @@
-import type { CommunityAgentActivityItem } from "../../community/agent-contracts.js";
 import type {
   RepositoryAgentCheckpoint,
   RepositoryAgentContextRecord,
 } from "../../projects/repository-agent-context.js";
-import { checkpointRecordEntry } from "./repository-context-entry.js";
+import { checkpointActivity } from "./repository-context-activity.js";
 
 export function repositoryContextTurns(
   checkpoints: readonly RepositoryAgentCheckpoint[],
@@ -47,30 +46,5 @@ export function repositoryContextTurns(
       };
     });
     return { latest, segments };
-  });
-}
-
-function checkpointActivity(
-  checkpoint: RepositoryAgentCheckpoint,
-  records: readonly RepositoryAgentContextRecord[],
-): CommunityAgentActivityItem[] {
-  return records.flatMap((record) => {
-    const entry = checkpointRecordEntry(checkpoint, record);
-    if (!entry) return [];
-    return [
-      {
-        id: record.id,
-        agentPubkey: checkpoint.authorPubkey,
-        createdAt: record.sequence,
-        frame: {
-          version: 2,
-          seq: record.sequence,
-          timestamp: new Date(record.createdAt).toISOString(),
-          turnId: checkpoint.spanId,
-          kind: record.kind,
-          payload: { entry },
-        },
-      },
-    ];
   });
 }

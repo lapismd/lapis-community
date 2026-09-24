@@ -1316,8 +1316,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscript.svelte": {
-      "countedLines": 248,
-      "physicalLines": 258,
+      "countedLines": 241,
+      "physicalLines": 251,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscriptPlan.svelte": {
@@ -1506,8 +1506,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-conversation/context.svelte.ts": {
-      "countedLines": 230,
-      "physicalLines": 231,
+      "countedLines": 160,
+      "physicalLines": 161,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-conversation/message-actions.test.ts": {
@@ -3520,8 +3520,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/repository-context-transcript.ts": {
-      "countedLines": 74,
-      "physicalLines": 76,
+      "countedLines": 49,
+      "physicalLines": 50,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/repository-log-story-fixtures.ts": {
@@ -3676,8 +3676,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-review-reference/CommunityReviewReference.svelte": {
-      "countedLines": 101,
-      "physicalLines": 103,
+      "countedLines": 98,
+      "physicalLines": 100,
       "forbiddenImportCount": 0
     },
     "src/components/community-room-browser/CommunityRoomBrowser.stories.svelte": {
@@ -5140,8 +5140,8 @@
       "physicalLines": 66
     },
     "src/components/community-agent-activity/ActivityTurnList.svelte": {
-      "countedLines": 213,
-      "physicalLines": 217
+      "countedLines": 195,
+      "physicalLines": 199
     },
     "src/components/community-agent-activity/activity-place.ts": {
       "countedLines": 36,

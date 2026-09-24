@@ -1,20 +1,15 @@
+import { createTranscriptCommentDrafts } from "./transcript-comment-drafts.svelte.js";
+import { resolveCheckpointReview } from "../../projects/checkpoint-reviews.js";
 import { getContext, setContext } from "svelte";
-import { verifyEvent } from "nostr-tools/pure";
+import { createConversationEvents } from "./conversation-events.svelte.js";
 import type { ProjectForgeSession } from "../../projects/data-source.js";
 import type { NostrEvent, NostrEventTemplate } from "../../protocol/index.js";
 import type {
   CommunityMemberModel,
   CommunityRoomModel,
 } from "../../community/workspace-model.js";
-import { buildRepositoryAgentContexts } from "../../projects/repository-agent-context.js";
-import { retainLiveContext } from "../../projects/repository-live-context.js";
 import { discussionEdit, discussionDeletion } from "./message-actions.js";
-import {
-  conversationMessage,
-  eventTag,
-  eventRoot,
-  visibleEvents,
-} from "./model.js";
+import { conversationMessage, eventTag, eventRoot } from "./model.js";
 
 const key = Symbol("agent-conversation");
 export function provideAgentConversation(owner: {
@@ -24,73 +19,10 @@ export function provideAgentConversation(owner: {
   rooms(): readonly CommunityRoomModel[];
   openThread(roomId: string, root: string, reply?: string): void;
 }) {
-  let events = $state.raw<NostrEvent[]>([]);
-  let channels = $state.raw<string[]>([]);
-  let loading = $state(false);
-  let error = $state("");
   let replyCommentId = $state<string>();
-  const watchers = new Map<string, number>();
-  function receive(event: NostrEvent) {
-    if (!verifyEvent(event)) return;
-    events =
-      event.kind === 23908
-        ? [
-            ...events.filter((item) => item.kind !== 23908),
-            ...retainLiveContext(
-              events.filter((item) => item.kind === 23908),
-              event,
-            ),
-          ]
-        : [...events.filter((item) => item.id !== event.id), event];
-  }
-  $effect(() => {
-    const session = owner.session(),
-      ids = channels;
-    error = "";
-    if (!session || !ids.length) {
-      loading = false;
-      if (!session) events = [];
-      return;
-    }
-    const abort = new AbortController();
-    const filters = [
-      {
-        kinds: [1, 5, 7, 9, 11, 1111, 40003, 3907, 3908],
-        "#h": ids,
-        limit: 2000,
-      },
-    ];
-    loading = true;
-    void session
-      .queryHttp(filters, abort.signal)
-      .then((items) => {
-        if (!abort.signal.aborted) items.forEach(receive);
-      })
-      .catch((cause) => {
-        if (!abort.signal.aborted) error = String(cause);
-      })
-      .finally(() => {
-        if (!abort.signal.aborted) loading = false;
-      });
-    let stop: (() => void) | undefined;
-    void session
-      .subscribe(
-        [...filters, { kinds: [23908], "#h": ids }],
-        (item) => {
-          if (!abort.signal.aborted && item.event) receive(item.event);
-        },
-        abort.signal,
-      )
-      .then((dispose) => {
-        if (abort.signal.aborted) dispose();
-        else stop = dispose;
-      })
-      .catch(() => {});
-    return () => {
-      abort.abort();
-      stop?.();
-    };
-  });
+  const stream = createConversationEvents(owner.session);
+  const events = $derived(stream.all);
+  const receive = stream.receive;
   async function publish(template: NostrEventTemplate) {
     if (!owner.memberId() || !owner.session())
       throw new Error("Sign in to participate");
@@ -99,17 +31,24 @@ export function provideAgentConversation(owner: {
     return event;
   }
   const api = {
+    transcriptDrafts: createTranscriptCommentDrafts(),
+    get reviewIndex() {
+      return stream.reviewIndex;
+    },
+    get transcriptComments() {
+      return stream.transcriptComments;
+    },
     get events() {
-      return visibleEvents(events);
+      return stream.visible;
     },
     get checkpoints() {
-      return buildRepositoryAgentContexts(events);
+      return stream.checkpoints;
     },
     get loading() {
-      return loading;
+      return stream.loading;
     },
     get error() {
-      return error;
+      return stream.error;
     },
     get memberId() {
       return owner.memberId();
@@ -120,19 +59,7 @@ export function provideAgentConversation(owner: {
     get rooms() {
       return owner.rooms();
     },
-    watch(channel: string) {
-      const first = !watchers.has(channel);
-      watchers.set(channel, (watchers.get(channel) ?? 0) + 1);
-      if (first) channels = [...watchers.keys()];
-      return () => {
-        const count = (watchers.get(channel) ?? 1) - 1;
-        if (count) watchers.set(channel, count);
-        else {
-          watchers.delete(channel);
-          channels = [...watchers.keys()];
-        }
-      };
-    },
+    watch: stream.watch,
     message(id: string) {
       const event = api.events.find((event) => event.id === id);
       return event
@@ -173,10 +100,13 @@ export function provideAgentConversation(owner: {
       replyCommentId = undefined;
     },
     openComment(event: NostrEvent) {
+      const target = resolveCheckpointReview(event, api.reviewIndex);
       const room = owner
         .rooms()
-        .find((room) => (room.groupId ?? room.id) === eventTag(event, "h"));
-      const root = eventTag(event, "thread");
+        .find(
+          (room) => (room.groupId ?? room.id) === target?.checkpoint.channelId,
+        );
+      const root = target?.rootId;
       if (room && root) {
         replyCommentId = event.id;
         owner.openThread(room.id, root, event.id);

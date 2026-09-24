@@ -201,3 +201,40 @@ Lapis Notes desktop acceptance passed 201 tests, type checks and production
 build against the rebuilt controller and Community package. The corrected ready
 schema fixture is committed as `24d5ef89`. Full Lapis browser acceptance and the
 real-provider/disposable controller workflow remain separate gates.
+
+## Durable transcript comments
+
+The signed checkpoint-thread regression initially failed one of two cases because
+it accepted a forged checkpoint author. Transcript comment controls initially
+failed both new interaction cases because the controls were absent. All now pass.
+A later selected-quote story failed once because original-thread comments lacked
+their target reference; the thread now shows the verified record label and quote.
+A reused-record regression failed once because matching text could move a draft
+to another canonical turn; canonical thread, turn and record kind now remain part
+of the durable draft identity.
+
+The focused signature, checkpoint-thread, selection, immutable-index and draft
+lane passes 16 tests. The comment/Continue/native-discussion/reference browser
+lane passes ten cases. A second cold comment/reference/Dialog/Composer/Chip
+contract lane passes eight cases. Tests operate production controls and cover
+thinking, plan steps, tool input/output, assistant text, delayed persistence,
+failed publishing, remount draft retention and original-thread placement.
+The immutable event index rejects mutated caller-owned signed events and keeps
+reordered or duplicate replay stable. No owner controls become public records.
+
+Svelte autofixer reports no issues. Its lifecycle-effect suggestions correspond
+to owned asynchronous subscriptions and descriptions; watcher reference counts
+are nonreactive bookkeeping, and the excerpt reference supports DOM selection.
+The architecture budgets for extracted owners only decrease. Exactly LC-UI-044
+changes semantically in the verification matrix. Temporary package validation
+uses the previously documented freshness hook; canonical dependency files remain
+unchanged. The isolated workspace also uses local sibling links for the Nostr
+controller and relay specification references; the first aggregate attempt stopped
+at those missing links before product validation.
+
+The uninterrupted final `pnpm checks` passed: 1,159 unit tests (two skipped),
+585 cold browser interaction/accessibility tests across eight groups, 67 disposable
+relay tests, one project-relay test (56 non-selected cases skipped), and all six
+packaged UI consumer viewport/theme cases. Format, specifications, architecture,
+UI, Svelte and TypeScript checks, Storybook build, package build and publint passed.
+Visual review remains pending; no visual baselines were changed.

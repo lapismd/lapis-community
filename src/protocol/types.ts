@@ -6,24 +6,17 @@ export interface JsonObject {
   [key: string]: JsonValue;
 }
 
-export type NostrTag = string[];
-
-export interface NostrEvent {
-  id: string;
-  pubkey: string;
-  created_at: number;
-  kind: number;
-  tags: NostrTag[];
-  content: string;
-  sig: string;
-}
-
-export interface NostrEventTemplate {
-  kind: number;
-  created_at: number;
-  tags: NostrTag[];
-  content: string;
-}
+import type { NostrEvent } from "./nostr-event.js";
+export type {
+  NostrEvent,
+  NostrEventTemplate,
+  NostrTag,
+} from "./nostr-event.js";
+export type {
+  TranscriptCommentAnchor,
+  TranscriptCommentPart,
+  TranscriptSelection,
+} from "./transcript-comment-anchor.js";
 
 export interface PluginDefinitionContent {
   schema: "lapis.registry.plugin/1";

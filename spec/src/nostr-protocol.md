@@ -694,3 +694,14 @@ For LC-NOSTR-022, unavailable catch-up MUST project nonterminal execution in the
 requested conversations as unknown, without changing signed records or other
 conversations. Fresh authenticated snapshots MAY refresh equal-sequence state;
 older snapshots and duplicate replay MUST NOT override fresher execution.
+
+For LC-UI-044 and LC-UI-049, transcript comments MUST use kind 1111 with an
+immutable checkpoint E/K/P target, exactly one stable record tag and optional
+part and selection tags. Selection offsets are UTF-16, cannot split a surrogate
+pair, and MUST match the durable record's quote and bounded context. A signed
+checkpoint, its signed pages, original public request and root MUST establish
+the repository, author, channel and conversation independently of comment tags.
+User prompts, encrypted controls and injected instructions are not commentable.
+Comments alone MUST NOT invoke an agent; existing mention and Continue dispatch
+owns delivery of pending feedback. Assistant message replies retain their normal
+message protocol.

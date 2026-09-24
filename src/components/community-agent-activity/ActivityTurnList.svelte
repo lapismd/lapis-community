@@ -1,10 +1,8 @@
 <script lang="ts">
+  import { continuationTarget } from "./activity-continuation-target.js";
   import type { AgentRuntimeActions } from "./runtime-actions.js";
   import { turnControlKey } from "../../community/agent-turn-controls.js";
-  import type {
-    AgentTurnControlState,
-    AgentTurnTarget,
-  } from "../../community/agent-turn-control-contracts.js";
+  import type { AgentTurnControlState } from "../../community/agent-turn-control-contracts.js";
   import ActivityExecutionPolicy from "./ActivityExecutionPolicy.svelte";
   import CircleStopIcon from "@lucide/svelte/icons/circle-stop";
   import PlayIcon from "@lucide/svelte/icons/play";
@@ -36,22 +34,6 @@
     turnControls?: Readonly<Record<string, AgentTurnControlState>>;
   } & AgentRuntimeActions = $props();
 
-  function continuationTarget(
-    scope: CommunityAgentControllerScope,
-  ): AgentTurnTarget | undefined {
-    if (
-      !["failed", "cancelled", "interrupted"].includes(scope.state ?? "") ||
-      !scope.requestId ||
-      !scope.sessionId ||
-      !scope.turnId
-    )
-      return;
-    return {
-      requestId: scope.requestId,
-      sessionId: scope.sessionId,
-      turnId: scope.turnId,
-    };
-  }
   function continueTurn(scope: CommunityAgentControllerScope) {
     const target = continuationTarget(scope);
     if (target && onContinueTurn)

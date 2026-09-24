@@ -858,3 +858,11 @@ composition root; neither Activity mounting nor historical replay owns them.
 Activity freshness is projected separately from signed archive records, scoped to
 the exact agent and conversation. The controller state patch owner invalidates
 cached execution when catch-up is unavailable.
+
+For LC-UI-044, application-owned immutable event snapshots and a checkpoint
+conversation index MUST be reused across transcript records and draft updates.
+Typing a comment MUST NOT reverify the entire conversation. Transcript drafts
+and stream subscriptions retain separate owners outside the rendering component.
+
+Channel watch reference counts and asynchronous commit descriptions are owned by
+the conversation stream and review-reference model, keeping their UI facades bounded.

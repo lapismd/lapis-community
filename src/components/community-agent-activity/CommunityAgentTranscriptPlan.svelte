@@ -16,7 +16,7 @@
   }
 </script>
 
-<section class="agent-transcript-plan" aria-label="Plan">
+<div class="agent-transcript-plan" role="group" aria-label="Plan">
   <h3>Plan</h3>
   <ol>
     {#each item.entries as entry, index (`${index}:${entry.content}`)}
@@ -28,7 +28,7 @@
       </li>
     {/each}
   </ol>
-</section>
+</div>
 
 <style>
   .agent-transcript-plan {

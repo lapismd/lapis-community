@@ -93,7 +93,7 @@ export function canonicalActivity(
       frame: {
         ...item.frame,
         kind: "canonical_record",
-        payload: { ...payload, capture: undefined, entry },
+        payload: { ...payload, capture: undefined, canonical: record, entry },
       },
     });
   }

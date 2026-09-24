@@ -1145,3 +1145,14 @@ The Activity permission stack renders actionable cards without creating toasts.
 For LC-UI-044, unavailable activity MUST stop thinking, tool and progress
 animation together. Transcript presentation MUST preserve observed content and
 show Status unavailable until an exact current turn projection is restored.
+
+For LC-UI-044, the shared transcript MUST support whole-record and selected-text
+comments on assistant text, provider-visible thinking, plan steps and tools in
+Activity, repository context and the original thread. Drafts may begin on live
+records, but publication MUST await an immutable matching checkpoint; failures
+MUST retain the draft. Comments MUST appear beside their target and in the
+verified original conversation, labelled with the record target and any selected quote. Drafts MUST retain their canonical turn identity across live-to-durable handoff. Completed turns MUST offer explicit Continue
+for delivering pending feedback without automatically invoking on a comment.
+
+Plan blocks MUST be labelled groups rather than repeated same-name landmarks
+when multiple turns or conversation surfaces appear together.

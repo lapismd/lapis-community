@@ -7,9 +7,13 @@
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
-  import type { CommunityAgentTranscriptEntry } from "../../community/agent-contracts.js";
+  import TranscriptToolDetail from "./TranscriptToolDetail.svelte";
   import CommunityAgentTranscriptPlan from "./CommunityAgentTranscriptPlan.svelte";
-  import { transcriptRecord } from "./transcript-entry.js";
+  import {
+    sourceActivity,
+    transcriptCommentSources,
+  } from "../community-agent-conversation/transcript-comment-sources.js";
+  import CommunityTranscriptComments from "../community-transcript-comments/CommunityTranscriptComments.svelte";
   import {
     agentTranscriptTimeline,
     pendingTranscriptStatuses,
@@ -57,29 +61,15 @@
     [...timeline].reverse().find((entry) => entry.kind === "message")?.item.id,
   );
 
-  function sourceActivity(sourceEventId?: string) {
-    if (!sourceEventId) return;
-    return activity.find((item) => {
-      const payload = transcriptRecord(item.frame.payload);
-      const entry = transcriptRecord(payload.entry);
-      return entry.sourceEventId === sourceEventId;
-    });
-  }
+  const commentSources = $derived(
+    transcriptCommentSources(activity, agent.pubkey, context),
+  );
 </script>
 
-{#snippet toolDetail(call: { data?: unknown; name?: string })}
-  {@const detail = call.data as
-    | Extract<CommunityAgentTranscriptEntry, { type: "tool" }>
-    | undefined}
-  <Chat.ToolCallDetail
-    {...detail?.input === undefined ? {} : { input: detail.input }}
-    {...detail?.output === undefined ? {} : { output: detail.output }}
-    {...detail?.error === undefined ? {} : { error: detail.error }}
-    {...(detail?.name ?? call.name)
-      ? { toolName: detail?.name ?? call.name }
-      : {}}
-  />
-{/snippet}
+{#snippet toolDetail(call: {
+  data?: unknown;
+  name?: string;
+})}<TranscriptToolDetail {call} />{/snippet}
 
 {#snippet emptyState()}
   <p class="agent-transcript__empty">
@@ -112,7 +102,7 @@
           message.authorPubkey,
           markdownMembers,
         )}
-        {@const source = sourceActivity(message.sourceEventId)}
+        {@const source = sourceActivity(activity, message.sourceEventId)}
         {#if messageContent}
           {@render messageContent(message)}
         {:else}
@@ -213,6 +203,9 @@
       {:else if entry.kind === "turn" && entry.item.state === "cancelled"}
         <Chat.SystemMessage>Agent turn cancelled</Chat.SystemMessage>
       {/if}
+      {#each commentSources.filter( (source) => (entry.kind === "tools" ? entry.items.some((item) => item.id === source.displayId) : source.displayId === entry.item.id), ) as source (source.key)}
+        <CommunityTranscriptComments {source} />
+      {/each}
     {/each}
     {#if working || pending.length > 0}
       <Reasoning

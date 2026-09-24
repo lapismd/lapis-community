@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { createCommitDescription } from "./commit-description.svelte.js";
+  import { resolveTranscriptComment } from "../../projects/transcript-comments.js";
+  import { transcriptRecordLabel } from "../../projects/transcript-record-parts.js";
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import MessageSquareIcon from "@lucide/svelte/icons/message-square";
@@ -16,37 +19,31 @@
   const commit = $derived(eventTag(comment, "c"));
   const file = $derived(eventTag(comment, "file"));
   const line = $derived(eventTag(comment, "line"));
-  let fetched = $state<string>();
-  $effect(() => {
-    const repo = repository,
-      sha = commit;
-    fetched = undefined;
-    let active = true;
-    if (!description && !file && repo && sha && conversation)
-      void conversation
-        .commitDescription(repo, sha)
-        .then((value) => {
-          if (active) fetched = value;
-        })
-        .catch(() => {});
-    return () => {
-      active = false;
-    };
-  });
-  const fullDescription = $derived(
-    description ?? fetched ?? commit ?? "Commit",
-  );
-  const label = $derived(
-    file
-      ? `${file.split("/").at(-1)}${line ? `:${line}` : ""}`
-      : fullDescription.split("\n")[0],
-  );
-  const details = $derived(
-    file ? `${file}${line ? `:${line}` : ""}` : fullDescription,
+  const fetched = createCommitDescription(() => ({
+    repository,
+    commit,
+    file,
+    line,
+    description,
+    conversation,
+  }));
+  const transcript = $derived(
+    resolveTranscriptComment(comment, conversation?.reviewIndex ?? []),
   );
 </script>
 
-{#if repository && commit}
+{#if transcript}
+  <CommunityChip variant="muted" shape="square" size="default">
+    Comment on {transcriptRecordLabel(
+      transcript.record,
+    )}{transcript.anchor.part?.startsWith("plan:")
+      ? ` · step ${Number(transcript.anchor.part.slice(5)) + 1}`
+      : ""}
+  </CommunityChip>
+  {#if transcript.anchor.selection}<blockquote>
+      {transcript.anchor.selection.exact}
+    </blockquote>{/if}
+{:else if repository && commit}
   <Tooltip.Provider
     ><Tooltip.Root>
       <Tooltip.Trigger>
@@ -64,20 +61,20 @@
             linkProps={{ ...props }}
             class="review-reference"
             ariaLabel={file
-              ? `Comment on ${details}`
-              : `Commit: ${fullDescription.split("\n")[0]}`}
+              ? `Comment on ${fetched.details}`
+              : `Commit: ${fetched.value.split("\n")[0]}`}
           >
             {#snippet leading()}{#if file}<MessageSquareIcon
                   aria-hidden="true"
                 />{:else}<GitCommitHorizontalIcon
                   aria-hidden="true"
                 />{/if}{/snippet}
-            <span class="review-reference__label">{label}</span>
+            <span class="review-reference__label">{fetched.label}</span>
           </CommunityChip>
         {/snippet}
       </Tooltip.Trigger>
       <Tooltip.Content
-        ><span class="review-reference__description">{details}</span
+        ><span class="review-reference__description">{fetched.details}</span
         ></Tooltip.Content
       >
     </Tooltip.Root></Tooltip.Provider

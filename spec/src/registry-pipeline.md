@@ -321,3 +321,7 @@ and validation record do not alter registry ingestion.
 Agent alignment acceptance records distinguish temporary packed source dependencies
 from installed services. Freshness checks cover archived progress, exact thread
 isolation and signed snapshot recovery before installed-build acceptance.
+
+For LC-UI-044, verification MUST exercise the shared transcript's durable
+comment anchors, live draft persistence, original-conversation projection and
+completed-turn Continue; visual review remains pending.

@@ -1,3 +1,5 @@
+import { checkpointIndex } from "../../projects/checkpoint-conversation.js";
+import { resolveCheckpointReview } from "../../projects/checkpoint-reviews.js";
 import { agentContextMessageRole } from "../../projects/repository-agent-context.js";
 import type { NostrEvent } from "../../protocol/index.js";
 import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
@@ -110,36 +112,17 @@ export function checkpointThreadComments(
   rootId: string,
   channel?: string,
 ) {
-  const owned = checkpoints.filter(
-    (checkpoint) =>
-      checkpoint.channelId === channel &&
-      checkpoint.records.some(
-        (record) =>
-          agentContextMessageRole(record) === "user" &&
-          events.some(
-            (event) =>
-              event.id === record.sourceEventId && eventRoot(event) === rootId,
-          ),
-      ),
-  );
-  return events.filter(
-    (event) =>
-      event.kind === 1111 &&
-      eventTag(event, "K") === "3907" &&
-      eventTag(event, "h") === channel &&
-      eventTag(event, "thread") === rootId &&
-      event.tags.some(
-        ([key, value]) => key === "t" && value === "commit-comment",
-      ) &&
-      owned.some(
-        (checkpoint) =>
-          eventTag(event, "a") === checkpoint.repositoryAddress &&
-          checkpoint.commitIds.includes(eventTag(event, "c") ?? "") &&
-          event.tags.some(
-            ([key, value]) => key === "E" && value === checkpoint.eventId,
-          ),
-      ),
-  );
+  const ids = new Set(checkpoints.map((checkpoint) => checkpoint.eventId));
+  const index = checkpointIndex(events);
+  return events.filter((event) => {
+    const target = resolveCheckpointReview(event, index);
+    return (
+      target &&
+      ids.has(target.checkpoint.eventId) &&
+      target.rootId === rootId &&
+      target.checkpoint.channelId === channel
+    );
+  });
 }
 
 function record(value: unknown): Record<string, unknown> {
