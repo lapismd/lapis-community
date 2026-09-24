@@ -16,7 +16,7 @@ export interface TranscriptCommentDraft {
   part?: TranscriptCommentPart;
   selection?: TranscriptSelection;
 }
-/** A live draft cannot silently migrate to different text or a different conversation. */
+/** Whole-item live drafts follow identity; immutable or selected passages retain exact content. */
 export function durableDraftTarget(
   events: CheckpointEvents,
   draft: TranscriptCommentDraft,
@@ -53,10 +53,18 @@ export function durableDraftTarget(
     )
       continue;
     if (
-      Object.keys(source.parts).length !== Object.keys(target.parts).length ||
-      Object.entries(source.parts).some(
-        ([part, text]) => target.parts[part] !== text,
-      )
+      draft.part?.startsWith("plan:") &&
+      source.parts[draft.part] !== target.parts[draft.part]
+    )
+      continue;
+    if (
+      (source.checkpointEventId ||
+        draft.selection ||
+        (draft.part && !draft.part.startsWith("plan:"))) &&
+      (Object.keys(source.parts).length !== Object.keys(target.parts).length ||
+        Object.entries(source.parts).some(
+          ([part, text]) => target.parts[part] !== text,
+        ))
     )
       continue;
     return target;

@@ -1,12 +1,13 @@
 <script lang="ts">
   import { transcriptRecordStates } from "./transcript-execution.js";
+  import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
   import type { CommunityAgentTranscriptProps } from "./transcript-props.js";
   import * as Chat from "@lapismd/design-core/ai/chat";
   import { Reasoning } from "@lapismd/design-core/ai/experimental";
   import { transcriptToolProps } from "./transcript-tool-props.js";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
-  import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
+  import CommunityAgentTranscriptMessage from "./CommunityAgentTranscriptMessage.svelte";
   import TranscriptToolDetail from "./TranscriptToolDetail.svelte";
   import CommunityAgentTranscriptPlan from "./CommunityAgentTranscriptPlan.svelte";
   import {
@@ -39,6 +40,8 @@
     loading = false,
   }: CommunityAgentTranscriptProps = $props();
 
+  const conversation = useAgentConversation();
+  const focus = $derived(conversation?.replies.focus);
   const timeline = $derived(
     agentTranscriptTimeline(activity, agent.pubkey, context),
   );
@@ -97,74 +100,71 @@
   >
     {#each timeline as entry (entry.kind === "tools" ? entry.id : entry.item.id)}
       {#if entry.kind === "message"}
-        {@const message = entry.item}
-        {@const author = transcriptAuthor(
-          message.authorPubkey,
-          markdownMembers,
-        )}
-        {@const source = sourceActivity(activity, message.sourceEventId)}
-        {#if messageContent}
-          {@render messageContent(message)}
-        {:else}
-          <Chat.Message
-            sender={message.role === "user" ? "user" : "assistant"}
-            aria-label={`Message from ${author.name}`}
-          >
-            {#snippet avatar()}
-              <CommunityMemberAvatar
-                member={author}
-                size="small"
-                shape={author.id === agent.pubkey ? "rounded" : "circle"}
-                decorative
-              />
-            {/snippet}
-            {#snippet name()}<span>{author.name}</span>{/snippet}
-            <Chat.MessageBubble>
-              <CommunityMarkdownContent
-                content={message.text}
-                members={markdownMembers}
-              />
-            </Chat.MessageBubble>
-            {#snippet metadata()}
-              <Chat.MessageMetadata>
-                {#snippet timestamp()}
-                  <CommunityRelativeTime
-                    timestamp={Date.parse(message.createdAt) / 1_000}
-                  />
-                {/snippet}
-                {#if source && onOpenRequest}
-                  {#snippet footer()}
-                    <button
-                      type="button"
-                      onclick={() => onOpenRequest?.(source)}
-                    >
-                      View request
-                    </button>
-                  {/snippet}
-                {/if}
-              </Chat.MessageMetadata>
-            {/snippet}
-          </Chat.Message>
-        {/if}
+        <CommunityAgentTranscriptMessage
+          message={entry.item}
+          agentPubkey={agent.pubkey}
+          members={markdownMembers}
+          source={commentSources.find(
+            (source) => source.displayId === entry.item.id,
+          )}
+          request={sourceActivity(activity, entry.item.sourceEventId)}
+          {onOpenRequest}
+          {messageContent}
+        />
       {:else if entry.kind === "thinking"}
-        <Reasoning
-          streaming={entry.item.state === "streaming" &&
-            streaming(entry.item.id)}
-          preview={entry.item.text}
-          expanded={entry.item.state === "streaming" &&
-            streaming(entry.item.id)}
+        <CommunityTranscriptComments
+          source={commentSources.find(
+            (source) => source.displayId === entry.item.id,
+          )}
+          label="Thinking"
+          text={entry.item.text}
         >
-          {entry.item.text}
-        </Reasoning>
+          <Reasoning
+            streaming={entry.item.state === "streaming" &&
+              streaming(entry.item.id)}
+            preview={entry.item.text}
+            expanded={focus?.anchor.recordId === entry.item.id ||
+              (entry.item.state === "streaming" && streaming(entry.item.id))}
+          >
+            {entry.item.text}
+          </Reasoning>
+        </CommunityTranscriptComments>
       {:else if entry.kind === "tools"}
         <Chat.ToolCalls
           calls={entry.items.map((item) =>
             transcriptToolProps(item, toolDetail, !streaming(item.id)),
           )}
-          defaultExpanded={false}
-        />
+          expanded={!!focus &&
+            commentSources.some(
+              (source) =>
+                source.record.id === focus.anchor.recordId &&
+                entry.items.some((item) => item.id === source.displayId),
+            )}
+        >
+          {#snippet callWrapper(call, children)}
+            {@const item = entry.items.find((item) => item.toolId === call.id)!}
+            {@const sources = commentSources.filter(
+              (source) => source.displayId === item.id,
+            )}
+            <CommunityTranscriptComments
+              source={sources[0]}
+              related={sources.slice(1)}
+              label={`Tool activity: ${item.name}`}
+              text={[item.name, item.input, item.output, item.error]
+                .filter(Boolean)
+                .join("\n\n")}
+            >
+              {@render children()}
+            </CommunityTranscriptComments>
+          {/snippet}
+        </Chat.ToolCalls>
       {:else if entry.kind === "plan"}
-        <CommunityAgentTranscriptPlan item={entry.item} />
+        <CommunityAgentTranscriptPlan
+          item={entry.item}
+          source={commentSources.find(
+            (source) => source.displayId === entry.item.id,
+          )}
+        />
       {:else if entry.kind === "context"}
         <Reasoning label={entry.item.label} streaming={false} expanded={false}>
           <CommunityMarkdownContent
@@ -203,9 +203,6 @@
       {:else if entry.kind === "turn" && entry.item.state === "cancelled"}
         <Chat.SystemMessage>Agent turn cancelled</Chat.SystemMessage>
       {/if}
-      {#each commentSources.filter( (source) => (entry.kind === "tools" ? entry.items.some((item) => item.id === source.displayId) : source.displayId === entry.item.id), ) as source (source.key)}
-        <CommunityTranscriptComments {source} />
-      {/each}
     {/each}
     {#if working || pending.length > 0}
       <Reasoning

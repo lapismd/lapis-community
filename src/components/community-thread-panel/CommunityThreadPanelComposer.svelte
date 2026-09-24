@@ -1,18 +1,10 @@
 <script lang="ts">
-  import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
-  import type {
-    CommunityCustomEmoji,
-    CommunityReplyTarget,
-  } from "../../community/index.js";
+  import type { ConversationComposerTarget } from "../community-agent-conversation/transcript-reply-target.js";
+  import type { ThreadPanelComposerProps } from "./thread-panel-composer-props.js";
+  import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
+  import CommunityTranscriptReplyComposer from "../community-transcript-reply-composer/CommunityTranscriptReplyComposer.svelte";
   import CommunityAgentComposerActivity from "../community-agent-composer-activity/CommunityAgentComposerActivity.svelte";
-  import type { CommunityComposerAgentModel } from "../community-chat-composer/composer-agent-model.js";
   import CommunityThreadPanelPersistedComposer from "./CommunityThreadPanelPersistedComposer.svelte";
-  import type { CommunityAgentActivityContext } from "../../community/agent-contracts.js";
-  import type {
-    CommunityMemberModel,
-    CommunityMessageModel,
-    CommunityRoomModel,
-  } from "../community-workspace/model.js";
   import {
     sendThreadContent,
     threadComposerAudience,
@@ -42,43 +34,16 @@
     onWaveMember,
     onRetryComposerStatus,
     onDismissComposerStatus,
-  }: {
-    value?: string;
-    members: readonly CommunityMemberModel[];
-    rooms: readonly CommunityRoomModel[];
-    agents?: readonly CommunityComposerAgentModel[];
-    currentMemberId?: string | undefined;
-    rootMessageId: string;
-    rootMessage?: CommunityMessageModel | undefined;
-    rootAuthorName?: string | undefined;
-    editingMessageId?: string | undefined;
-    replyTarget?: CommunityReplyTarget | undefined;
-    communityEmojis?: readonly CommunityCustomEmoji[];
-    activityContext?: CommunityAgentActivityContext | undefined;
-    disabled?: boolean;
-    disabledReason?: string;
-    composerStatus?: ComposerStatus | undefined;
-    onSendReply?:
-      | ((
-          rootMessageId: string,
-          content: string,
-          mentionPubkeys?: readonly string[],
-        ) => void | Promise<void>)
-      | undefined;
-    onSaveMessageEdit?:
-      | ((messageId: string, content: string) => void | Promise<void>)
-      | undefined;
-    onCancelReply?: (() => void) | undefined;
-    onOpenProfile?: ((member: CommunityMemberModel) => void) | undefined;
-    onMessageMember?:
-      | ((member: CommunityMemberModel) => void | Promise<void>)
-      | undefined;
-    onWaveMember?:
-      | ((member: CommunityMemberModel) => void | Promise<void>)
-      | undefined;
-    onRetryComposerStatus?: (() => void | Promise<void>) | undefined;
-    onDismissComposerStatus?: (() => void) | undefined;
-  } = $props();
+  }: ThreadPanelComposerProps = $props();
+
+  const conversation = useAgentConversation();
+  const composerTarget = $derived<ConversationComposerTarget | undefined>(
+    conversation?.replies.selected?.rootId === rootMessageId
+      ? conversation.replies.selected
+      : replyTarget
+        ? { kind: "message", target: replyTarget }
+        : undefined,
+  );
 
   const threadComposer = $derived(
     threadComposerAudience(
@@ -117,36 +82,48 @@
   }
 </script>
 
-<CommunityThreadPanelPersistedComposer
-  bind:value
-  {members}
-  {agents}
-  {rooms}
-  {communityEmojis}
-  {rootMessageId}
-  {disabled}
-  {disabledReason}
-  {...currentMemberId === undefined ? {} : { currentMemberId }}
-  {...rootMessage === undefined ? {} : { rootMessage }}
-  {...rootAuthorName === undefined ? {} : { rootAuthorName }}
-  {...editingMessageId === undefined ? {} : { editingMessageId }}
-  {...replyTarget === undefined ? {} : { replyTarget }}
-  {...threadComposer.audience === undefined
-    ? {}
-    : { audience: threadComposer.audience }}
-  initialAgentPubkeys={threadComposer.initialAgentPubkeys}
-  {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-  {...onMessageMember === undefined ? {} : { onMessageMember }}
-  {...onWaveMember === undefined ? {} : { onWaveMember }}
-  {...composerStatus === undefined ? {} : { composerStatus }}
-  {...onRetryComposerStatus === undefined ? {} : { onRetryComposerStatus }}
-  {...onDismissComposerStatus === undefined ? {} : { onDismissComposerStatus }}
-  {...editingMessageId === undefined && onCancelReply === undefined
-    ? {}
-    : { onCancelContext: cancelComposerContext }}
-  onSubmit={(submission) =>
-    submitComposer(submission.content, submission.mentionPubkeys)}
-/>
+{#if composerTarget && composerTarget.kind !== "message" && conversation}
+  {#key composerTarget.key}<CommunityTranscriptReplyComposer
+      target={composerTarget}
+      {conversation}
+      {disabled}
+    />{/key}
+{:else}
+  <CommunityThreadPanelPersistedComposer
+    bind:value
+    {members}
+    {agents}
+    {rooms}
+    {communityEmojis}
+    {rootMessageId}
+    {disabled}
+    {disabledReason}
+    {...currentMemberId === undefined ? {} : { currentMemberId }}
+    {...rootMessage === undefined ? {} : { rootMessage }}
+    {...rootAuthorName === undefined ? {} : { rootAuthorName }}
+    {...editingMessageId === undefined ? {} : { editingMessageId }}
+    {...composerTarget?.kind === "message"
+      ? { replyTarget: composerTarget.target }
+      : {}}
+    {...threadComposer.audience === undefined
+      ? {}
+      : { audience: threadComposer.audience }}
+    initialAgentPubkeys={threadComposer.initialAgentPubkeys}
+    {...onOpenProfile === undefined ? {} : { onOpenProfile }}
+    {...onMessageMember === undefined ? {} : { onMessageMember }}
+    {...onWaveMember === undefined ? {} : { onWaveMember }}
+    {...composerStatus === undefined ? {} : { composerStatus }}
+    {...onRetryComposerStatus === undefined ? {} : { onRetryComposerStatus }}
+    {...onDismissComposerStatus === undefined
+      ? {}
+      : { onDismissComposerStatus }}
+    {...editingMessageId === undefined && onCancelReply === undefined
+      ? {}
+      : { onCancelContext: cancelComposerContext }}
+    onSubmit={(submission) =>
+      submitComposer(submission.content, submission.mentionPubkeys)}
+  />
+{/if}
 {#if activityContext}<CommunityAgentComposerActivity
     context={activityContext}
   />{/if}

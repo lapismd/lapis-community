@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { transcriptCommentFixture } from "../../testing/transcript-comment-fixture.js";
 import { transcriptCommentTarget } from "../../projects/transcript-comments.js";
 import { durableDraftTarget } from "./transcript-comment-draft.js";
-it("keeps live drafts unpublished until their exact text and thread are durable", () => {
+it("binds whole-item live drafts by identity and preserves immutable text anchors", () => {
   const f = transcriptCommentFixture();
   const target = transcriptCommentTarget(f.events, {
     checkpointEventId: f.checkpoint.id,
@@ -37,6 +37,16 @@ it("keeps live drafts unpublished until their exact text and thread are durable"
     durableDraftTarget(f.events, {
       ...draft,
       source: { ...draft.source, parts: { text: "A partial live thought" } },
+    })?.anchor.recordId,
+  ).toBe("record-2");
+  expect(
+    durableDraftTarget(f.events, {
+      ...draft,
+      source: {
+        ...draft.source,
+        checkpointEventId: f.checkpoint.id,
+        parts: { text: "A partial live thought" },
+      },
     }),
   ).toBeUndefined();
   expect(draft.content).toBe("Compare the licenses");

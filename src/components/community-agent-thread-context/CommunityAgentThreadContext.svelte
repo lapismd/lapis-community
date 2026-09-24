@@ -3,7 +3,6 @@
   import CommunityAgentCheckpointDivider from "../community-agent-checkpoint-divider/CommunityAgentCheckpointDivider.svelte";
   import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
   import { useAgentComposerActivity } from "../community-agent-composer-activity/context.js";
-  import { eventTag } from "../community-agent-conversation/model.js";
   import CommunityAgentTranscript from "../community-agent-activity/CommunityAgentTranscript.svelte";
   import CommunityAgentContextMessage from "../community-agent-context-message/CommunityAgentContextMessage.svelte";
   import CommunityCommitDiscussion from "../community-commit-discussion/CommunityCommitDiscussion.svelte";

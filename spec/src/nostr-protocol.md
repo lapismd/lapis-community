@@ -715,3 +715,13 @@ Nostr timestamps, clients preserve causal reply order and numeric sequence for
 records signed by the same author and referencing that request. Duplicate or
 malformed identities do not supply ordering; cycles must never drop events or
 block rendering. This does not change historical event identities.
+
+For LC-UI-044, new transcript replies MUST omit selection and input/output parts;
+plan steps retain `plan:N`. Follow-ups MUST preserve the full checkpoint anchor
+and validate every signed immediate parent in the comment chain. Deleted parent
+events remain available for verification but MUST NOT reappear in the timeline.
+Record reactions MUST use kind 7 with exact checkpoint `e`, author `p`, kind `k`,
+channel `h`, original `thread`, `record` and optional plan `part` tags. Aggregation
+and author-owned deletion MUST use that complete target. Message links MAY carry
+`checkpoint`, `record` and `part`; incomplete, ambiguous or mismatched references
+MUST fail closed. Copying an event MUST retain its genuine checkpoint signature.

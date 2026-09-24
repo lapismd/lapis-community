@@ -96,9 +96,9 @@ export function createConversationEvents(
   });
   const visible = $derived(visibleEvents(events));
   const checkpoints = $derived(buildRepositoryAgentContexts(events));
-  const reviewIndex = $derived(new CheckpointConversationIndex(visible));
+  const reviewIndex = $derived(new CheckpointConversationIndex(events));
   const transcriptComments = $derived(
-    reviewIndex.events.flatMap((event) => {
+    visible.flatMap((event) => {
       const target = resolveTranscriptComment(event, reviewIndex);
       return target ? [{ event, target }] : [];
     }),

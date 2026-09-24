@@ -266,20 +266,28 @@
       "storyFile": "src/components/community-patterns/Message.stories.svelte",
       "requirement": "LC-UI-038",
       "variants": ["message", "conversation"],
-      "requiredStates": ["formatted-text", "links", "reactions"],
+      "requiredStates": [
+        "formatted-text",
+        "links",
+        "reactions",
+        "shared-actions"
+      ],
       "loading": {
         "applicable": false,
         "states": [],
         "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
       },
-      "when": "Chat messages and conversation posts; reuse Markdown, author identity and reactions through this owner.",
+      "when": "Chat messages and conversation posts; reuse Markdown, author identity and reactions through this owner. CommunityMessageActions and message-action-hover own hover/focus/touch controls shared with transcript items.",
       "productionStories": [
-        "community-channels-message--message-with-thread-and-reactions"
+        "community-channels-message--message-with-thread-and-reactions",
+        "community-agents-transcript-replies--grouped-tools-expose-replies-on-each-call",
+        "community-agents-transcript-item-actions--copy-uses-the-signed-checkpoint-and-reactions-stay-on-the-exact-step"
       ],
       "verification": {
         "formatted-text": "community-patterns-message--contract",
         "reactions": "community-patterns-message--contract",
-        "links": "community-patterns-message--contract"
+        "links": "community-patterns-message--contract",
+        "shared-actions": "community-messages-shared-actions--keyboard-reply-and-copy-actions"
       }
     },
     {
@@ -456,7 +464,7 @@
   ],
   "exceptions": [
     {
-      "file": "src/components/community-agent-activity/CommunityAgentTranscript.svelte",
+      "file": "src/components/community-agent-activity/CommunityAgentTranscriptMessage.svelte",
       "rule": "message",
       "symbol": "@lapismd/design-core/ai/chat:Message",
       "reason": "Agent Activity intentionally presents the controller transcript with the same provider-neutral AI chat layout as the Lapis AI plugin while Community still owns author identity and Markdown rendering.",
@@ -464,7 +472,7 @@
       "requirement": "LC-UI-044"
     },
     {
-      "file": "src/components/community-agent-activity/CommunityAgentTranscript.svelte",
+      "file": "src/components/community-agent-activity/CommunityAgentTranscriptMessage.svelte",
       "rule": "message",
       "symbol": "@lapismd/design-core/ai/chat:MessageBubble",
       "reason": "Agent Activity intentionally presents the controller transcript with the same provider-neutral AI chat layout as the Lapis AI plugin while Community still owns author identity and Markdown rendering.",
@@ -518,6 +526,22 @@
       "reason": "Headless shortcode completion uses SearchIndex, not a picker UI. CommunityEmojiPicker owns interactive emoji selection.",
       "story": "community-channels-chat-composer--command-autocomplete",
       "requirement": "LC-UI-038"
+    },
+    {
+      "file": "src/components/community-agent-activity/CommunityAgentTranscript.svelte",
+      "rule": "message",
+      "symbol": "@lapismd/design-core/ai/chat:Message",
+      "reason": "Turn failures use shared agent message presentation.",
+      "story": "community-agents-activity--timeline",
+      "requirement": "LC-UI-044"
+    },
+    {
+      "file": "src/components/community-agent-activity/CommunityAgentTranscript.svelte",
+      "rule": "message",
+      "symbol": "@lapismd/design-core/ai/chat:MessageBubble",
+      "reason": "Turn failures use shared agent message presentation.",
+      "story": "community-agents-activity--timeline",
+      "requirement": "LC-UI-044"
     }
   ]
 }

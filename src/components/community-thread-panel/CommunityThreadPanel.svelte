@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { threadTranscriptMessages } from "./thread-transcript-messages.js";
+  import CommunityTranscriptCommentMessage from "../community-transcript-comment-message/CommunityTranscriptCommentMessage.svelte";
   import CommunityAgentThreadContext from "../community-agent-thread-context/CommunityAgentThreadContext.svelte";
   import { createThreadDraft } from "./thread-draft.svelte.js";
   import { focusReply } from "./focus-reply.js";
@@ -17,7 +19,7 @@
     CommunityTimelinePosition,
   } from "../../community/index.js";
   import CommunityThreadPanelComposer from "./CommunityThreadPanelComposer.svelte";
-  import CommunityMessage from "../community-message/CommunityMessage.svelte";
+  import CommunityThreadMessage from "./CommunityThreadMessage.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
   import {
     memberById,
@@ -31,6 +33,9 @@
   import { communityIdentityMembers } from "../../community/member-identity.js";
   import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
   import "./thread-panel.css";
+  let panelProps: ThreadPanelProps & {
+    agents?: readonly CommunityComposerAgentModel[];
+  } = $props();
   let {
     activityContext,
     virtualize = false,
@@ -73,7 +78,7 @@
     canDeleteAny = false,
   }: ThreadPanelProps & {
     agents?: readonly CommunityComposerAgentModel[];
-  } = $props();
+  } = $derived(panelProps);
   const members = $derived(communityIdentityMembers(membersProp, agents));
 
   const conversationKey = $derived(
@@ -88,24 +93,43 @@
       editingMessageId = undefined;
     },
   });
+  const effectiveReadBoundary = $derived(
+    history?.hasNewer || history?.loading ? undefined : readBoundary,
+  );
+  let viewport = $state<HTMLElement | null>(null);
+  const conversation = useAgentConversation();
+  const channelId = $derived(
+    thread.messages[0]?.sourceEvent?.tags.find(([key]) => key === "h")?.[1],
+  );
+  const messages = $derived(
+    threadTranscriptMessages(
+      thread.messages,
+      conversation,
+      thread.rootMessageId,
+      channelId,
+    ),
+  );
   const latestArrivalId = $derived(
-    thread.messages.findLast(
+    messages.findLast(
       (message) =>
         message.authorId !== currentMemberId &&
         (!message.sourceEvent ||
           [9, 11, 1111, 14].includes(message.sourceEvent.kind)),
     )?.id,
   );
-  const effectiveReadBoundary = $derived(
-    history?.hasNewer || history?.loading ? undefined : readBoundary,
+  const transcriptComments = $derived(
+    new Set(conversation?.transcriptComments.map(({ event }) => event.id)),
   );
-  let viewport = $state<HTMLElement | null>(null);
-  const conversation = useAgentConversation();
   const focused = $derived(
-    focusMessageId ?? replyTarget?.eventId ?? conversation?.replyCommentId,
+    focusMessageId ??
+      replyTarget?.eventId ??
+      (conversation?.replies.messageFocus?.rootId === thread.rootMessageId
+        ? conversation.replies.messageFocus.id
+        : undefined) ??
+      conversation?.replyCommentId,
   );
   const focusAnchor = $derived(
-    focused && thread.messages.some((message) => message.id === focused)
+    focused && messages.some((message) => message.id === focused)
       ? focused
       : thread.rootMessageId,
   );
@@ -129,58 +153,29 @@
 </script>
 
 <div class="community-thread-panel" use:focusReply={{ id: focused, viewport }}>
+  {#if conversation?.replies.navigationError}<p role="alert">
+      {conversation.replies.navigationError}
+    </p>{/if}
   {#snippet messageRow(
     message: import("../community-workspace/model.js").CommunityMessageModel,
     index: number,
   )}
-    <CommunityMessage
-      {message}
-      highlighted={message.id === focused}
-      isContinuation={isMessageContinuation(thread.messages, index)}
-      author={memberById(members, message.authorId)}
-      {members}
-      {rooms}
-      replyParticipants={(message.replyParticipantIds ?? []).map((id) =>
-        memberById(members, id),
-      )}
-      density="compact"
-      {communityEmojis}
-      onToggleReaction={(messageId, emoji, custom) =>
-        custom
-          ? onToggleReaction?.(messageId, emoji, custom)
-          : onToggleReaction?.(messageId, emoji)}
-      onAddReaction={(messageId, emoji, custom) =>
-        custom
-          ? onAddReaction?.(messageId, emoji, custom)
-          : onAddReaction?.(messageId, emoji)}
-      onCopyLink={(messageId) => onCopyMessageLink?.(messageId)}
-      onCopyMessage={(messageId) => onCopyMessage?.(messageId)}
-      {...onCopyEvent === undefined ? {} : { onCopyEvent }}
-      {...(onEditMessage === undefined && onSaveMessageEdit === undefined) ||
-      message.authorId !== currentMemberId
-        ? {}
-        : {
-            onEdit: onSaveMessageEdit
-              ? () => startEditing(message.id)
-              : onEditMessage,
-          }}
-      {...onDeleteMessage === undefined ||
-      (message.authorId !== currentMemberId && !canDeleteAny)
-        ? {}
-        : { onDelete: onDeleteMessage }}
-      {...onReportMessage === undefined ? {} : { onReport: onReportMessage }}
-      {...onOpenProfile === undefined ? {} : { onOpenProfile }}
-      {...onOpenRoom === undefined ? {} : { onOpenRoom }}
-      {...onMessageMember === undefined ? {} : { onMessageMember }}
-      {...onWaveMember === undefined ? {} : { onWaveMember }}
-      {...onViewMemberActivity === undefined ? {} : { onViewMemberActivity }}
-      {...message.id === thread.rootMessageId || onReply === undefined
-        ? {}
-        : {
-            onReply,
-            replyActionLabel: "Reply",
-          }}
-    />
+    {#if transcriptComments.has(message.id)}
+      <CommunityTranscriptCommentMessage
+        {message}
+        highlighted={message.id === focused}
+      />
+    {:else}
+      <CommunityThreadMessage
+        panel={panelProps}
+        {message}
+        {messages}
+        {index}
+        {members}
+        {focused}
+        {startEditing}
+      />
+    {/if}
     <CommunityAgentThreadContext
       messageId={message.id}
       rootId={thread.rootMessageId}
@@ -202,7 +197,7 @@
     hasNewer={history?.hasNewer ?? false}
     {...onLoadLatest ? { onLoadLatest } : {}}
     aria-label="Message thread"
-    isEmpty={thread.messages.length === 0}
+    isEmpty={messages.length === 0}
   >
     {#snippet scrollButton({ isVisible, hasNewMessages, scrollToBottom })}
       <LayoutScrollButton
@@ -246,14 +241,14 @@
       latestMessageId={latestArrivalId ?? ""}
       {...virtualize
         ? {
-            items: thread.messages,
+            items: messages,
             row: messageRow,
             virtualize: true,
             ...(focused
               ? {
                   initialPosition: {
                     messageId: focusAnchor,
-                    index: thread.messages.findIndex(
+                    index: messages.findIndex(
                       (message) => message.id === focusAnchor,
                     ),
                     offset: 0,
@@ -274,7 +269,7 @@
       hasOlder={history?.hasOlder ?? false}
       loading={history?.loading ?? false}
     >
-      {#each thread.messages as message, index (message.id)}{@render messageRow(
+      {#each messages as message, index (message.id)}{@render messageRow(
           message,
           index,
         )}{/each}

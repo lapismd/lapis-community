@@ -1,15 +1,11 @@
-export interface CommunityUploadedMedia {
-  url: string;
-  mimeType: string;
-  size: number;
-  sha256: string;
-  name?: string;
-  alt?: string;
-  width?: number;
-  height?: number;
-}
+import type { CommunityUploadedMedia } from "./composer-media.js";
+export type { CommunityUploadedMedia } from "./composer-media.js";
 
 export type CommunityComposerContext =
+  | {
+      kind: "transcript-reply";
+      target: { authorName: string; content: string };
+    }
   | {
       kind: "reply";
       target: import("./contracts.js").CommunityReplyTarget;

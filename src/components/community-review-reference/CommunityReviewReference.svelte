@@ -1,9 +1,10 @@
 <script lang="ts">
   import { createCommitDescription } from "./commit-description.svelte.js";
   import { resolveTranscriptComment } from "../../projects/transcript-comments.js";
-  import { transcriptRecordLabel } from "../../projects/transcript-record-parts.js";
+  import { transcriptReviewPreview } from "./transcript-review-preview.js";
   import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
+  import CommunityReplyPreview from "../community-reply-preview/CommunityReplyPreview.svelte";
   import MessageSquareIcon from "@lucide/svelte/icons/message-square";
   import type { NostrEvent } from "../../protocol/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
@@ -30,17 +31,14 @@
   const transcript = $derived(
     resolveTranscriptComment(comment, conversation?.reviewIndex ?? []),
   );
+  const preview = $derived(
+    transcriptReviewPreview(comment, transcript, conversation),
+  );
 </script>
 
-{#if transcript}
-  <CommunityChip variant="muted" shape="square" size="default">
-    Comment on {transcriptRecordLabel(
-      transcript.record,
-    )}{transcript.anchor.part?.startsWith("plan:")
-      ? ` · step ${Number(transcript.anchor.part.slice(5)) + 1}`
-      : ""}
-  </CommunityChip>
-  {#if transcript.anchor.selection}<blockquote>
+{#if preview}
+  <CommunityReplyPreview target={preview.target} onOpen={preview.open} />
+  {#if transcript?.anchor.selection}<blockquote>
       {transcript.anchor.selection.exact}
     </blockquote>{/if}
 {:else if repository && commit}

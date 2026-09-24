@@ -70,7 +70,6 @@
   import { emptyComposerSlashSession } from "./composer-slash-session.js";
   import {
     communityEmojiToken,
-    formatCommunityAttachmentSize,
     isFencedCodePosition,
     isInlineCodePosition,
     isSafeCommunityLink,
@@ -81,6 +80,10 @@
     type CommunityComposerSubmission,
     type CommunityMessageMediaAdapter,
   } from "./model.js";
+  import {
+    revokePreview,
+    attachmentStatusLabel,
+  } from "./composer-attachment-preview.js";
   import { persistComposerDraft } from "./composer-draft-persistence.svelte.js";
   import { nextComposerActiveActions } from "./composer-active-actions.js";
   import {
@@ -326,13 +329,13 @@
     },
   });
 
+  let destroyed = false;
   onMount(() => {
-    let cancelled = false;
     if (draftStore && draftKey) {
       void draftStore
         .load(draftKey)
         .then((draft) => {
-          if (cancelled || !draft) return;
+          if (destroyed || !draft) return;
           value = draft.value;
           selectedMentionPubkeys = [...draft.mentionPubkeys];
           selectedChannelIds = [...draft.channelIds];
@@ -344,11 +347,11 @@
           // A draft failure must never block composing.
         })
         .finally(() => {
-          if (!cancelled) draftReady = true;
+          if (!destroyed) draftReady = true;
         });
     }
     return () => {
-      cancelled = true;
+      destroyed = true;
       for (const controller of attachmentControllers.values()) {
         controller.abort();
       }
@@ -686,27 +689,6 @@
     attachments = attachments.filter((item) => item.id !== id);
   }
 
-  function revokePreview(attachment: CommunityComposerAttachment): void {
-    if (attachment.previewUrl?.startsWith("blob:")) {
-      URL.revokeObjectURL(attachment.previewUrl);
-    }
-  }
-
-  function attachmentStatusLabel(
-    attachment: CommunityComposerAttachment,
-  ): string {
-    if (attachment.status === "uploading") {
-      return `Uploading ${Math.round(attachment.progress ?? 0)}%`;
-    }
-    if (attachment.status === "failed") {
-      return attachment.error ?? "Upload failed";
-    }
-    if (attachment.status === "uploaded") {
-      return `Ready, ${formatCommunityAttachmentSize(attachment.size)}`;
-    }
-    return `Waiting, ${formatCommunityAttachmentSize(attachment.size)}`;
-  }
-
   async function submit(): Promise<void> {
     if (!canSubmit || !onSubmit) return;
     submitError = "";
@@ -719,6 +701,7 @@
       currentMemberId,
     );
     submittingMentions = true;
+    const submittedDraft = { store: draftStore, key: draftKey };
     try {
       await onSubmit({
         content: serializeCommunityMentions(
@@ -733,6 +716,11 @@
         ),
         ...(context === undefined ? {} : { context }),
       });
+      draftWriter.cancel();
+      if (submittedDraft.store && submittedDraft.key) {
+        await submittedDraft.store.remove(submittedDraft.key);
+      }
+      if (destroyed) return;
       for (const attachment of attachments) revokePreview(attachment);
       attachments = [];
       attachmentFiles.clear();
@@ -746,13 +734,12 @@
       );
       value = restored.value;
       selectedMentionPubkeys = restored.mentionPubkeys;
-      draftWriter.cancel();
-      if (draftStore && draftKey) await draftStore.remove(draftKey);
     } catch (cause) {
+      if (destroyed) return;
       submitError =
         cause instanceof Error ? cause.message : "Message could not be sent";
     } finally {
-      submittingMentions = false;
+      if (!destroyed) submittingMentions = false;
     }
   }
 
@@ -888,7 +875,7 @@
           {/if}
         </span>
       {/if}
-      {#if context?.kind === "reply"}
+      {#if context?.kind === "reply" || context?.kind === "transcript-reply"}
         <CommunityReplyContext
           target={context.target}
           {...onCancelContext === undefined

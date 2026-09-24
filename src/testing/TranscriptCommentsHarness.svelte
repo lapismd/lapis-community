@@ -1,10 +1,14 @@
 <script lang="ts">
+  import { createTranscriptComment } from "../projects/transcript-comments.js";
   import { untrack } from "svelte";
   import CommunityAgentTranscript from "../components/community-agent-activity/CommunityAgentTranscript.svelte";
   import CommunityAgentThreadContext from "../components/community-agent-thread-context/CommunityAgentThreadContext.svelte";
+  import CommunityThreadPanel from "../components/community-thread-panel/CommunityThreadPanel.svelte";
+  import { conversationMessage } from "../components/community-agent-conversation/model.js";
   import { provideAgentConversation } from "../components/community-agent-conversation/context.svelte.js";
   import { nativeTranscriptCommentFixture } from "./native-transcript-comment-fixture.js";
   import { transcriptCommentFixture } from "./transcript-comment-fixture.js";
+  import { groupedTranscriptCommentFixture } from "./grouped-transcript-comment-fixture.js";
   import { repositoryContextTurns } from "../components/community-projects/repository-context-transcript.js";
   import { buildRepositoryAgentContexts } from "../projects/repository-agent-context.js";
   import type { ProjectForgeSession } from "../projects/data-source.js";
@@ -16,16 +20,39 @@
     failFirst = false,
     onPublish,
     onOpen,
+    threadPanel = false,
+    grouped = false,
+    initialComment = false,
+    switchViewer = false,
   }: {
     native?: boolean;
     live?: boolean;
     failFirst?: boolean;
     onPublish?: (template: NostrEventTemplate) => void;
     onOpen?: (room: string, root: string, reply?: string) => void;
+    threadPanel?: boolean;
+    grouped?: boolean;
+    initialComment?: boolean;
+    switchViewer?: boolean;
   } = $props();
   const f = untrack(() =>
-    native ? nativeTranscriptCommentFixture() : transcriptCommentFixture(),
+    native
+      ? nativeTranscriptCommentFixture()
+      : grouped
+        ? groupedTranscriptCommentFixture()
+        : transcriptCommentFixture(),
   );
+  if (untrack(() => initialComment))
+    f.events.push(
+      f.sign(
+        createTranscriptComment(
+          f.events,
+          { checkpointEventId: f.checkpoint.id, recordId: "record-2" },
+          "Check the patent terms.",
+        ),
+      ),
+    );
+  let viewer = $state(f.owner);
   let receive: (event: NostrEvent) => void = () => {};
   let visible = $state(true),
     published = $state(0),
@@ -52,7 +79,7 @@
   } as unknown as ProjectForgeSession;
   const conversation = provideAgentConversation({
     session: () => session,
-    memberId: () => f.owner,
+    memberId: () => viewer,
     members: () => [
       { id: f.owner, name: "Operator", handle: "operator", initials: "OP" },
       {
@@ -111,6 +138,10 @@
 </script>
 
 <Button onclick={() => (visible = !visible)}>Toggle transcript</Button>
+{#if switchViewer}<Button
+    onclick={() => (viewer = viewer === f.owner ? f.agent : f.owner)}
+    >Switch viewer</Button
+  >{/if}
 {#if live}<Button onclick={() => f.events.forEach(receive)}
     >Persist checkpoint</Button
   >{/if}
@@ -120,11 +151,23 @@
     members={conversation.members}
   />{/if}
 <section aria-label="Original conversation">
-  <CommunityAgentThreadContext
-    messageId={f.root.id}
-    rootId={f.root.id}
-    roomId="general"
-  />
+  {#if threadPanel}
+    <CommunityThreadPanel
+      thread={{
+        rootMessageId: f.root.id,
+        messages: [conversationMessage(f.root, f.events, f.owner)],
+      }}
+      members={[...conversation.members]}
+      rooms={conversation.rooms}
+      currentMemberId={viewer}
+    />
+  {:else}
+    <CommunityAgentThreadContext
+      messageId={f.root.id}
+      rootId={f.root.id}
+      roomId="general"
+    />
+  {/if}
 </section>
 <output aria-label="Published comments">{published}</output>
 {#if opened}<p role="status">Opened original conversation</p>{/if}

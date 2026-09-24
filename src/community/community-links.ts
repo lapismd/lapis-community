@@ -1,3 +1,10 @@
+import { COMMUNITY_LINK_SCHEME } from "./community-link-scheme.js";
+import { coordinateLink } from "./community-coordinate-link.js";
+import {
+  appendTranscriptReference,
+  transcriptLinkReference,
+  type TranscriptLinkReference,
+} from "./transcript-link-reference.js";
 import {
   COMMUNITY_TAB,
   decodeLinkSegment,
@@ -15,13 +22,15 @@ import {
 } from "./community-link-ids.js";
 
 export interface CommunityLinkBuilder {
-  message(input: {
-    eventId: string;
-    authorPubkey: string;
-    relayUrl: string;
-    channel?: string;
-    threadRootId?: string;
-  }): string;
+  message(
+    input: TranscriptLinkReference & {
+      eventId: string;
+      authorPubkey: string;
+      relayUrl: string;
+      channel?: string;
+      threadRootId?: string;
+    },
+  ): string;
   room?(
     scope: { id: string },
     room: { id: string; kind: "channel" | "forum" },
@@ -38,18 +47,18 @@ export interface CommunityLinkBuilder {
   }): string;
 }
 
-export const COMMUNITY_LINK_SCHEME = "lapis-community:";
+export { COMMUNITY_LINK_SCHEME } from "./community-link-scheme.js";
 export const COMMUNITY_PROJECT_KIND = 30_621;
 export const COMMUNITY_REPOSITORY_KIND = 30_617;
 
 export type CommunityEntityLink =
   | { kind: "channel"; roomId: string }
-  | {
+  | (TranscriptLinkReference & {
       kind: "message";
       roomId: string;
       eventId: string;
       threadRootId?: string;
-    }
+    })
   | { kind: "project"; owner: string; d: string; tab?: string }
   | {
       kind: "repo";
@@ -88,16 +97,19 @@ export function buildCommunityChannelLink(roomId: string): string {
   return `${COMMUNITY_LINK_SCHEME}//channel/${encodeURIComponent(requireId(roomId, "roomId"))}`;
 }
 
-export function buildCommunityMessageLink(input: {
-  roomId: string;
-  eventId: string;
-  threadRootId?: string;
-}): string {
+export function buildCommunityMessageLink(
+  input: TranscriptLinkReference & {
+    roomId: string;
+    eventId: string;
+    threadRootId?: string;
+  },
+): string {
   const params = new URLSearchParams();
   params.set("channel", requireId(input.roomId, "channel"));
   params.set("id", requireHex64(input.eventId, "id"));
   if (input.threadRootId)
     params.set("thread", requireHex64(input.threadRootId, "thread"));
+  appendTranscriptReference(params, input);
   return `${COMMUNITY_LINK_SCHEME}//message?${params}`;
 }
 
@@ -161,9 +173,11 @@ export function parseCommunityEntityLink(
     const roomId = parsed.searchParams.get("channel") ?? "";
     const eventId = normalizeHex(parsed.searchParams.get("id"));
     const thread = normalizeHex(parsed.searchParams.get("thread"));
-    if (!validId(roomId) || !eventId) return undefined;
+    const reference = transcriptLinkReference(parsed.searchParams);
+    if (!validId(roomId) || !eventId || !reference) return undefined;
     return {
       kind: "message",
+      ...reference,
       roomId,
       eventId,
       ...(thread ? { threadRootId: thread } : {}),
@@ -238,31 +252,4 @@ export function communityRepositoryCoordinate(
   d: string,
 ): string {
   return `${COMMUNITY_REPOSITORY_KIND}:${requireHex64(owner, "owner")}:${requireId(d, "d")}`;
-}
-
-function coordinateLink(
-  host: "project" | "repo",
-  input: {
-    owner: string;
-    d: string;
-    tab?: string;
-    commit?: string;
-    branch?: string;
-    change?: string;
-    id?: string;
-  },
-): string {
-  const params = new URLSearchParams();
-  params.set("owner", requireHex64(input.owner, "owner"));
-  params.set("d", requireId(input.d, "d"));
-  if (input.tab) {
-    if (!COMMUNITY_TAB.test(input.tab))
-      throw new Error(`invalid tab: ${input.tab}`);
-    params.set("tab", input.tab);
-  }
-  if (input.commit) params.set("commit", requireCommit(input.commit));
-  if (input.branch) params.set("branch", requireBranch(input.branch));
-  if (input.change) params.set("change", requireChange(input.change));
-  if (input.id) params.set("id", requireId(input.id, "id"));
-  return `${COMMUNITY_LINK_SCHEME}//${host}?${params}`;
 }

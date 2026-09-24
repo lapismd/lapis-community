@@ -1,3 +1,4 @@
+import { validTranscriptCommentChain } from "./transcript-comment-chain.js";
 import type { CheckpointEvents } from "./checkpoint-conversation.js";
 import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
 import {
@@ -75,7 +76,7 @@ export function resolveTranscriptComment(
     !comment.tags.some(
       ([key, value]) => key === "t" && value === "transcript-comment",
     ) ||
-    !checkpointCommentConversation(comment, events)
+    !validTranscriptCommentChain(comment, events)
   )
     return;
   const recordId = tag(comment, "record"),

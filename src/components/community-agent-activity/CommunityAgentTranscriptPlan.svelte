@@ -1,11 +1,16 @@
 <script lang="ts">
+  import "./transcript-plan.css";
+  import CommunityTranscriptComments from "../community-transcript-comments/CommunityTranscriptComments.svelte";
+  import type { TranscriptCommentSource } from "../community-agent-conversation/transcript-comment-sources.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import type { CommunityAgentTranscriptEntry } from "../../community/agent-contracts.js";
   import { planStatusLabel } from "../../community/agent-transcript-plan.js";
 
   let {
     item,
+    source,
   }: {
+    source?: TranscriptCommentSource | undefined;
     item: Extract<CommunityAgentTranscriptEntry, { type: "plan" }>;
   } = $props();
 
@@ -21,46 +26,20 @@
   <ol>
     {#each item.entries as entry, index (`${index}:${entry.content}`)}
       <li data-plan-status={entry.status ?? "pending"}>
-        <CommunityChip size="compact" tone={tone(entry.status)}
-          >{planStatusLabel(entry.status)}</CommunityChip
+        <CommunityTranscriptComments
+          {source}
+          part={`plan:${index}`}
+          label={`Plan step ${index + 1}`}
+          text={entry.content}
         >
-        <span>{entry.content}</span>
+          <div class="agent-transcript-plan__step">
+            <CommunityChip size="compact" tone={tone(entry.status)}
+              >{planStatusLabel(entry.status)}</CommunityChip
+            >
+            <span>{entry.content}</span>
+          </div>
+        </CommunityTranscriptComments>
       </li>
     {/each}
   </ol>
 </div>
-
-<style>
-  .agent-transcript-plan {
-    display: grid;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-  .agent-transcript-plan h3 {
-    margin: 0;
-    font-size: var(--community-text-section);
-    font-weight: 700;
-  }
-  .agent-transcript-plan ol {
-    display: grid;
-    gap: 0.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .agent-transcript-plan li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-  .agent-transcript-plan li :global(.community-chip) {
-    order: 1;
-    margin-inline-start: auto;
-    flex-shrink: 0;
-  }
-  .agent-transcript-plan li span {
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-</style>

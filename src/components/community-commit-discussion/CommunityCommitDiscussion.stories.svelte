@@ -1,7 +1,7 @@
 <script module lang="ts">
   import consumerSource from "../community-patterns/examples/AgentDiscussionExample.svelte?raw";
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, waitFor } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
   import CommunityCommitDiscussion from "./CommunityCommitDiscussion.svelte";
   import CommunityAgentThreadContext from "../community-agent-thread-context/CommunityAgentThreadContext.svelte";
   import Harness from "../../testing/AgentConversationHarness.svelte";
@@ -29,14 +29,6 @@
     parameters: {
       docs: { source: { code: consumerSource, language: "svelte" } },
     },
-    parameters: {
-      docs: {
-        source: {
-          code: "<CommunityCommitDiscussion {comments} inThread />",
-          language: "svelte",
-        },
-      },
-    },
   });
 </script>
 
@@ -58,7 +50,12 @@
     await userEvent.click(editor);
     await userEvent.paste("Agreed; keep this tied to the original revision.");
     await userEvent.click(
-      canvas.getByRole("button", { name: "Reply", exact: true }),
+      within(
+        canvas.getByRole("group", {
+          name: "Reply to review comment",
+          exact: true,
+        }),
+      ).getByRole("button", { name: "Reply", exact: true }),
     );
     await waitFor(() => expect(onPublish).toHaveBeenCalled());
     expect(onPublish.mock.lastCall?.[0].tags).toContainEqual(["e", comment.id]);

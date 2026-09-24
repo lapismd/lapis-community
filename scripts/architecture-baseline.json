@@ -2720,8 +2720,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-message/CommunityMessage.svelte": {
-      "countedLines": 573,
-      "physicalLines": 614,
+      "countedLines": 356,
+      "physicalLines": 384,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -3646,8 +3646,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-reply-context/CommunityReplyContext.svelte": {
-      "countedLines": 97,
-      "physicalLines": 108,
+      "countedLines": 62,
+      "physicalLines": 69,
       "forbiddenImportCount": 0
     },
     "src/components/community-report-dialog/CommunityReportDialog.stories.svelte": {
@@ -3826,8 +3826,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanelComposer.svelte": {
-      "countedLines": 147,
-      "physicalLines": 152,
+      "countedLines": 123,
+      "physicalLines": 129,
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/focus-reply.ts": {

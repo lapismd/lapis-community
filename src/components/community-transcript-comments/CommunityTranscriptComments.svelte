@@ -1,187 +1,198 @@
 <script lang="ts">
-  import { selectTranscriptPassage } from "../../projects/transcript-record-parts.js";
-  import * as Dialog from "@lapismd/design-core/shadcn/dialog";
-  import * as Select from "@lapismd/design-core/shadcn/select";
-  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
-  import { Button } from "@lapismd/design-core/shadcn/button";
-  import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
-  import CommunityCommitDiscussion from "../community-commit-discussion/CommunityCommitDiscussion.svelte";
-  import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
-  import {
-    durableDraftTarget,
-    type TranscriptCommentDraft,
-  } from "../community-agent-conversation/transcript-comment-draft.js";
-  import { createTranscriptComment } from "../../projects/transcript-comments.js";
+  import type { Snippet } from "svelte";
   import type { TranscriptCommentPart } from "../../protocol/transcript-comment-anchor.js";
-  import {
-    transcriptCommentLabel,
-    type TranscriptCommentSource,
-  } from "../community-agent-conversation/transcript-comment-sources.js";
-  let { source }: { source: TranscriptCommentSource } = $props();
+  import { buildCommunityMessageLink } from "../../community/community-links.js";
+  import { transcriptReactions } from "../../projects/transcript-reactions.js";
+  import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
+  import type { TranscriptCommentSource } from "../community-agent-conversation/transcript-comment-sources.js";
+  import { durableDraftTarget } from "../community-agent-conversation/transcript-comment-draft.js";
+  import CommunityMessageActions from "../community-message-actions/CommunityMessageActions.svelte";
+  import { createMessageActionHover } from "../community-message-actions/message-action-hover.svelte.js";
+  import CommunityReactions from "../community-reactions/CommunityReactions.svelte";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
+  import { formatCommunityEventCopy } from "../community-message/copy-event.js";
+  import { focusTranscriptItem } from "./focus-transcript-item.js";
+  let {
+    source,
+    related = [],
+    part,
+    label = "Transcript item",
+    text,
+    children,
+  }: {
+    source?: TranscriptCommentSource | undefined;
+    related?: readonly TranscriptCommentSource[];
+    part?: TranscriptCommentPart;
+    label?: string;
+    text: string;
+    children: Snippet;
+  } = $props();
   const conversation = useAgentConversation();
-  let open = $state(false),
-    busy = $state(false),
-    error = $state("");
-  let excerpt = $state<HTMLPreElement>();
-  const draft = $derived(
-    conversation?.transcriptDrafts.get(source.key) ?? { source, content: "" },
-  );
-  const target = $derived(
-    open
-      ? durableDraftTarget(conversation?.reviewIndex ?? [], draft)
+  const hover = createMessageActionHover();
+  const durable = $derived(
+    source && conversation
+      ? durableDraftTarget(conversation.reviewIndex, {
+          source,
+          content: "",
+          ...(part ? { part } : {}),
+        })
       : undefined,
   );
-  const label = $derived(transcriptCommentLabel(source));
-  const comments = $derived(
-    (conversation?.transcriptComments ?? [])
-      .filter(
-        ({ target }) =>
-          target.record.id === source.record.id &&
-          target.checkpoint.authorPubkey === source.agentPubkey &&
-          (!source.channelId ||
-            target.checkpoint.channelId === source.channelId) &&
-          (!source.threadRootId || target.rootId === source.threadRootId) &&
-          (!source.checkpointEventId ||
-            target.checkpoint.eventId === source.checkpointEventId),
-      )
-      .map(({ event }) => event),
+  const authorName = $derived(
+    conversation?.members.find((member) => member.id === source?.agentPubkey)
+      ?.name ?? "Agent",
   );
-  function update(patch: Partial<TranscriptCommentDraft>) {
-    conversation?.transcriptDrafts.save(source.key, { ...draft, ...patch });
-  }
-  function selectPart(value: string) {
-    const { part: _part, selection: _selection, ...rest } = draft;
-    conversation?.transcriptDrafts.save(source.key, {
-      ...rest,
-      ...(value === "record" ? {} : { part: value as TranscriptCommentPart }),
-    });
-  }
-  function selectText() {
-    const selection = excerpt?.ownerDocument.getSelection();
-    if (!excerpt || !draft.part || !selection?.rangeCount) return;
-    const range = selection.getRangeAt(0);
-    if (
-      !excerpt.contains(range.startContainer) ||
-      !excerpt.contains(range.endContainer)
-    )
-      return;
-    const prefix = range.cloneRange();
-    prefix.selectNodeContents(excerpt);
-    prefix.setEnd(range.startContainer, range.startOffset);
-    const start = prefix.toString().length;
-    const quote = selectTranscriptPassage(
-      draft.source.parts[draft.part]!,
-      start,
-      start + range.toString().length,
-    );
-    if (quote) update({ selection: quote });
-  }
-  async function submit(content: string) {
-    if (!conversation || busy || !content.trim()) return;
-    busy = true;
-    error = "";
-    update({ content });
+  const reactions = $derived(
+    durable && conversation
+      ? transcriptReactions(
+          conversation.reviewIndex,
+          durable.anchor,
+          conversation.memberId,
+        ).groups
+      : [],
+  );
+  const comments = $derived(
+    conversation?.transcriptComments.filter(
+      ({ target }) =>
+        target.checkpoint.authorPubkey === source?.agentPubkey &&
+        target.rootId === (durable?.rootId ?? source?.threadRootId) &&
+        target.checkpoint.channelId ===
+          (durable?.checkpoint.channelId ?? source?.channelId) &&
+        [source, ...related].some(
+          (item) =>
+            item &&
+            target.record.id === item.record.id &&
+            (!item.checkpointEventId ||
+              target.checkpoint.eventId === item.checkpointEventId),
+        ) &&
+        (part ? target.anchor.part === part : true),
+    ) ?? [],
+  );
+  const focus = $derived(conversation?.replies.focus);
+  const focused = $derived(
+    !!focus &&
+      !!durable &&
+      focus.rootId === durable.rootId &&
+      [source, ...related].some(
+        (item) => item?.record.id === focus.anchor.recordId,
+      ) &&
+      focus.anchor.checkpointEventId === durable.checkpoint.eventId &&
+      (part ? part === focus.anchor.part : true),
+  );
+  let error = $state("");
+  let status = $state("");
+  async function copy(value: string, message: string) {
     try {
-      const current = durableDraftTarget(conversation.reviewIndex, draft);
-      if (!current)
-        throw new Error(
-          "The matching record is not saved yet. Your draft is retained.",
-        );
-      await conversation.publish(
-        createTranscriptComment(conversation.events, current.anchor, content),
-      );
-      conversation.transcriptDrafts.remove(source.key);
-      open = false;
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-      throw cause;
-    } finally {
-      busy = false;
+      await navigator.clipboard.writeText(value);
+      status = message;
+      error = "";
+    } catch {
+      error = "Could not copy to the clipboard";
     }
   }
-  const partLabel = (part: string) =>
-    part.startsWith("plan:")
-      ? `Plan step ${Number(part.slice(5)) + 1}`
-      : ({
-          text: "Text",
-          input: "Tool input",
-          output: "Tool output",
-          error: "Tool error",
-        }[part] ?? part);
+  async function react(
+    emoji: string,
+    custom?: { shortcode: string; url: string },
+  ) {
+    if (!durable || !conversation) return;
+    try {
+      await conversation.reactToTranscript(durable.anchor, emoji, custom);
+      error = "";
+    } catch (cause) {
+      error =
+        cause instanceof Error ? cause.message : "Could not save reaction";
+    }
+  }
+  function copyLink() {
+    if (!durable) return;
+    const roomId = conversation?.rooms.find(
+      (room) => (room.groupId ?? room.id) === durable.checkpoint.channelId,
+    )?.id;
+    if (roomId)
+      void copy(
+        buildCommunityMessageLink({
+          roomId,
+          eventId: durable.rootId,
+          threadRootId: durable.rootId,
+          checkpoint: durable.checkpoint.eventId,
+          record: durable.record.id,
+          ...(part ? { part } : {}),
+        }),
+        "Message link copied",
+      );
+  }
+  function copyEvent() {
+    const event =
+      durable && conversation?.reviewIndex.byId.get(durable.checkpoint.eventId);
+    if (event) void copy(formatCommunityEventCopy(text, event), "Event copied");
+  }
 </script>
 
-{#if conversation}
-  <div data-ui-component="community-transcript-comments">
-    {#if conversation.memberId}<Button
-        size="sm"
-        variant="ghost"
-        onclick={() => {
-          error = "";
-          open = true;
-        }}>Comment on {label}</Button
-      >{/if}
-    <CommunityCommitDiscussion {comments} />
-  </div>
-  <Dialog.Root bind:open
-    ><DialogFrame title={`Comment on ${label}`} size="form">
-      <Select.Root
-        type="single"
-        value={draft.part ?? "record"}
-        onValueChange={selectPart}
-      >
-        <Select.Trigger aria-label="Comment target"
-          >{draft.part ? partLabel(draft.part) : "Whole record"}</Select.Trigger
-        >
-        <Select.Content
-          ><Select.Group
-            ><Select.Item value="record">Whole record</Select.Item>
-            {#each Object.keys(draft.source.parts) as part (part)}<Select.Item
-                value={part}>{partLabel(part)}</Select.Item
-              >{/each}
-          </Select.Group></Select.Content
-        >
-      </Select.Root>
-      {#if draft.part}
-        <p>Select a passage below to attach a quote.</p>
-        <pre bind:this={excerpt} aria-label="Transcript excerpt">{draft.source
-            .parts[draft.part]}</pre>
-        <Button
-          variant="outline"
-          size="sm"
-          onpointerdown={selectText}
-          onclick={selectText}>Use selected text</Button
-        >
-      {/if}
-      {#if draft.selection}<blockquote>{draft.selection.exact}</blockquote>{/if}
-      <CommunityChatComposer
-        mode="form"
-        bind:value={() => draft.content, (content) => update({ content })}
-        ariaLabel="Comment"
-        disabled={busy}
-        onSubmit={(submission) => submit(submission.content)}
-      />
-      {#if !target}<p role="status">
-          Waiting for this record to be saved.
-        </p>{/if}
-      <p>
-        Comments are included when you next mention the agent or choose
-        Continue.
-      </p>
-      {#if error}<p role="alert">{error}</p>{/if}
-      {#snippet footer()}<Button
-          disabled={busy || !target || !draft.content.trim()}
-          onclick={() => submit(draft.content).catch(() => {})}
-          >Post comment</Button
-        >{/snippet}
-    </DialogFrame></Dialog.Root
+{#if source && conversation}
+  <div
+    class="transcript-item"
+    role="group"
+    aria-label={label}
+    tabindex="-1"
+    data-ui-part="transcript-item"
+    data-record-id={source.record.id}
+    data-highlighted={focused ? "" : undefined}
+    use:focusTranscriptItem={focused ? focus?.revision : undefined}
+    {...hover.handlers}
   >
-{/if}
+    {@render children()}
+    <CommunityMessageActions
+      id={source.key}
+      {authorName}
+      visible={hover.visible}
+      onReply={() => conversation.replies.select(source, text, part)}
+      onCopyMessage={() => void copy(text, "Message copied")}
+      onCopyLink={copyLink}
+      onCopyEvent={copyEvent}
+      {...conversation.memberId
+        ? { onAddReaction: (_id, emoji, custom) => react(emoji, custom) }
+        : {}}
+      disabledReason={durable
+        ? undefined
+        : "Waiting for this record to be saved. You can copy text or draft a reply."}
+    />
+    {#if reactions.length}<CommunityReactions
+        mode="bar"
+        {reactions}
+        label={`Reactions to ${label}`}
+        onToggle={(emoji) => react(emoji)}
+      />{/if}
+    {#if comments.length}<CommunityChip
+        variant="muted"
+        size="compact"
+        onclick={() => conversation.replies.revealComment(comments[0]!.event)}
+      >
+        {comments.length}
+        {comments.length === 1 ? "reply" : "replies"}
+      </CommunityChip>{/if}
+    {#if error}<p role="alert">{error}</p>{/if}
+    {#if status}<span class="sr-only" role="status">{status}</span>{/if}
+  </div>
+{:else}{@render children()}{/if}
 
 <style>
-  pre {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    max-height: 12rem;
-    overflow: auto;
+  .transcript-item {
+    position: relative;
+    min-width: 0;
+    border-radius: var(--radius);
+  }
+  .transcript-item[data-highlighted] {
+    background: color-mix(in srgb, var(--primary) 12%, var(--background));
+  }
+  .transcript-item:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 </style>

@@ -335,3 +335,11 @@ For LC-UI-044, native checkpoint and same-second reply regressions MUST exercise
 signed materialization and production thread comment controls. The cold local
 acceptance workflow MUST rebuild native checkpoint tools, retain passive comments
 through controller restart, and verify next-invocation feedback delivery once.
+
+For LC-UI-044 and LC-ARCH-028, transcript-reply acceptance MUST exercise the
+packed Design Core per-call composition contract and shared message actions,
+including keyboard/touch access, ordinary draft restoration, failed-send retry,
+live persistence, signed-target links, scoped reactions and deduplicated feedback.
+The message, reply-context and thread-composer architecture budgets ratchet down after extraction.
+Validation records MUST separate focused, browser, consumer and aggregate lanes;
+changed stories remain visual-pending and package publication is a later step.

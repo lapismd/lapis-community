@@ -1,5 +1,9 @@
-import { createTranscriptCommentDrafts } from "./transcript-comment-drafts.svelte.js";
-import { resolveCheckpointReview } from "../../projects/checkpoint-reviews.js";
+import { createConversationNavigation } from "./conversation-navigation.svelte.js";
+import { createConversationReaction } from "./conversation-reactions.js";
+import { provideTranscriptNavigation } from "./transcript-navigation.js";
+import { toggleTranscriptReaction } from "../../projects/transcript-reactions.js";
+import type { TranscriptCommentAnchor } from "../../protocol/transcript-comment-anchor.js";
+import { createTranscriptReplies } from "./transcript-replies.svelte.js";
 import { getContext, setContext } from "svelte";
 import { createConversationEvents } from "./conversation-events.svelte.js";
 import type { ProjectForgeSession } from "../../projects/data-source.js";
@@ -9,7 +13,7 @@ import type {
   CommunityRoomModel,
 } from "../../community/workspace-model.js";
 import { discussionEdit, discussionDeletion } from "./message-actions.js";
-import { conversationMessage, eventTag, eventRoot } from "./model.js";
+import { conversationMessage } from "./model.js";
 
 const key = Symbol("agent-conversation");
 export function provideAgentConversation(owner: {
@@ -19,7 +23,6 @@ export function provideAgentConversation(owner: {
   rooms(): readonly CommunityRoomModel[];
   openThread(roomId: string, root: string, reply?: string): void;
 }) {
-  let replyCommentId = $state<string>();
   const stream = createConversationEvents(owner.session);
   const events = $derived(stream.all);
   const receive = stream.receive;
@@ -30,8 +33,34 @@ export function provideAgentConversation(owner: {
     receive(event);
     return event;
   }
+  const replies = createTranscriptReplies({
+    ...owner,
+    index: () => stream.reviewIndex,
+    receive,
+    publish,
+  });
+  const navigation = createConversationNavigation(
+    owner,
+    replies,
+    () => stream.reviewIndex,
+  );
   const api = {
-    transcriptDrafts: createTranscriptCommentDrafts(),
+    replies,
+    get transcriptDrafts() {
+      return replies.drafts;
+    },
+    get replyCommentId() {
+      return navigation.replyCommentId;
+    },
+    clearCommentReply() {
+      navigation.clearCommentReply();
+    },
+    openComment(event: NostrEvent) {
+      navigation.openComment(event);
+    },
+    open(event: NostrEvent, reply = true) {
+      navigation.open(event, reply);
+    },
     get reviewIndex() {
       return stream.reviewIndex;
     },
@@ -93,66 +122,36 @@ export function provideAgentConversation(owner: {
             .join("\n\n")
         : undefined;
     },
-    get replyCommentId() {
-      return replyCommentId;
-    },
-    clearCommentReply() {
-      replyCommentId = undefined;
-    },
-    openComment(event: NostrEvent) {
-      const target = resolveCheckpointReview(event, api.reviewIndex);
-      const room = owner
-        .rooms()
-        .find(
-          (room) => (room.groupId ?? room.id) === target?.checkpoint.channelId,
-        );
-      const root = target?.rootId;
-      if (room && root) {
-        replyCommentId = event.id;
-        owner.openThread(room.id, root, event.id);
-      }
-    },
-    async react(event: NostrEvent, emoji: string) {
-      const channel = eventTag(event, "h");
-      if (!channel) return;
-      const previous = api.events.filter(
-        (item) =>
-          item.kind === 7 &&
-          item.pubkey === owner.memberId() &&
-          item.content === emoji &&
-          item.tags.some(([key, value]) => key === "e" && value === event.id),
+    reactToTranscript(
+      anchor: TranscriptCommentAnchor,
+      emoji: string,
+      custom?: { shortcode: string; url: string },
+    ) {
+      return publish(
+        toggleTranscriptReaction(
+          api.reviewIndex,
+          anchor,
+          owner.memberId() ?? "",
+          emoji,
+          custom,
+        ),
       );
-      await publish({
-        kind: previous.length ? 5 : 7,
-        created_at: Math.floor(Date.now() / 1000),
-        content: previous.length ? "" : emoji,
-        tags: previous.length
-          ? [
-              ["h", channel],
-              ...previous.map((item) => ["e", item.id]),
-              ["k", "7"],
-            ]
-          : [
-              ["h", channel],
-              ["e", event.id],
-              ["p", event.pubkey],
-              ["k", String(event.kind)],
-            ],
-      });
     },
-    open(event: NostrEvent, reply = true) {
-      replyCommentId = undefined;
-      const room = owner
-        .rooms()
-        .find((room) => (room.groupId ?? room.id) === eventTag(event, "h"));
-      if (room)
-        owner.openThread(
-          room.id,
-          eventRoot(event),
-          reply ? event.id : undefined,
-        );
-    },
+    react: createConversationReaction({
+      events: () => stream.visible,
+      memberId: owner.memberId,
+      publish,
+    }),
   };
+  provideTranscriptNavigation({
+    session: owner.session,
+    index: () => stream.reviewIndex,
+    receive,
+    channel: (id) =>
+      owner.rooms().find((room) => room.id === id)?.groupId ??
+      owner.rooms().find((room) => room.id === id)?.id,
+    replies,
+  });
   setContext(key, api);
   return api;
 }

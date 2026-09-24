@@ -116,6 +116,10 @@ export function checkpointThreadComments(
     const target = resolveCheckpointReview(event, index);
     return (
       target &&
+      !event.tags.some(
+        ([key, value]) =>
+          key === "record" || (key === "t" && value === "transcript-comment"),
+      ) &&
       ids.has(target.checkpoint.eventId) &&
       target.rootId === rootId &&
       target.checkpoint.channelId === channel
