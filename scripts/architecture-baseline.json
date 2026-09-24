@@ -5140,8 +5140,18 @@
       "physicalLines": 79
     },
     "src/components/community-agent-activity/ActivityTurnList.svelte": {
-      "countedLines": 126,
-      "physicalLines": 129
+      "countedLines": 166,
+      "physicalLines": 170
+    },
+    "src/components/community-agent-activity/activity-place.ts": {
+      "countedLines": 36,
+      "physicalLines": 39,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-activity/activity-place.test.ts": {
+      "countedLines": 64,
+      "physicalLines": 68,
+      "forbiddenImportCount": 0
     },
     "src/community/inbox-visibility.test.ts": {
       "countedLines": 86,

@@ -1,15 +1,15 @@
 <script lang="ts">
+  import CircleStopIcon from "@lucide/svelte/icons/circle-stop";
+  import PlayIcon from "@lucide/svelte/icons/play";
   import { Reasoning } from "@lapismd/design-core/ai/experimental";
   import { Button } from "@lapismd/design-core/shadcn/button";
-  import {
-    activityContextLabel,
-    contextForScope,
-  } from "../../community/agent-activity-context.js";
+  import * as Tooltip from "@lapismd/design-core/shadcn/tooltip";
   import {
     activityCancelTarget,
     activityRunLabel,
     activityStreams,
   } from "./activity-run-label.js";
+  import { activityPlace } from "./activity-place.js";
   import type { CommunityAgentControllerScope } from "../../community/agent-contracts.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
 
@@ -36,46 +36,71 @@
       },
     ) => Promise<void>;
   } = $props();
+
+  function cancelTurn(controllerScope: CommunityAgentControllerScope) {
+    if (!onCancelTurn) return;
+    const target = activityCancelTarget(controllerScope);
+    return onCancelTurn(
+      agentPubkey,
+      target.scopeKey,
+      target.channelId,
+      target,
+    ).catch(() => {});
+  }
 </script>
 
 {#if rows.length === 0}<p>No open turns.</p>{:else}
-  <ul class="activity-turns">
-    {#each rows as controllerScope (`${controllerScope.scopeKey}\0${controllerScope.turnId ?? ""}`)}
-      <li>
-        <span class="activity-turns__place"
-          >{activityContextLabel(contextForScope(controllerScope), rooms)}</span
-        >
-        <span class="activity-turns__status">
-          <Reasoning
-            label={activityRunLabel(
-              controllerScope.state,
-              controllerScope.preview,
-            )}
-            streaming={activityStreams(controllerScope.state)}
-          />
-        </span>
-        {#if controllerScope.active && onCancelTurn}<span
-            class="activity-turns__action"
-            ><Button
-            variant="outline"
-            size="sm"
-            {disabled}
-            onclick={() => {
-              const target = activityCancelTarget(controllerScope);
-              return onCancelTurn(
-                agentPubkey,
-                target.scopeKey,
-                target.channelId,
-                target,
-              ).catch(() => {});
-            }}
-            >{controllerScope.state === "interrupted"
-              ? "Continue"
-              : "Cancel"}</Button
-          ></span>{/if}
-      </li>
-    {/each}
-  </ul>
+  <Tooltip.Provider delayDuration={0}>
+    <ul class="activity-turns">
+      {#each rows as controllerScope (`${controllerScope.scopeKey}\0${controllerScope.turnId ?? ""}`)}
+        {@const place = activityPlace(controllerScope, rooms)}
+        {@const action =
+          controllerScope.state === "interrupted" ? "Continue" : "Cancel"}
+        <li>
+          {#if place.href}<a class="activity-turns__place" href={place.href}
+              >{place.label}</a
+            >{:else}<span class="activity-turns__place">{place.label}</span
+            >{/if}
+          <span class="activity-turns__status">
+            <Reasoning
+              label={activityRunLabel(
+                controllerScope.state,
+                controllerScope.preview,
+              )}
+              streaming={activityStreams(controllerScope.state)}
+            />
+          </span>
+          {#if controllerScope.active && onCancelTurn}<span
+              class="activity-turns__action"
+              ><Tooltip.Root>
+                <Tooltip.Trigger>
+                  {#snippet child({ props })}
+                    <Button
+                      {...props}
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label={action}
+                      {disabled}
+                      onclick={() => cancelTurn(controllerScope)}
+                    >
+                      {#if controllerScope.state === "interrupted"}
+                        <PlayIcon aria-hidden="true" />
+                      {:else}
+                        <CircleStopIcon aria-hidden="true" />
+                      {/if}
+                    </Button>
+                  {/snippet}
+                </Tooltip.Trigger>
+                <Tooltip.Content side="top" sideOffset={6}
+                  >{action}</Tooltip.Content
+                >
+              </Tooltip.Root></span
+            >{/if}
+        </li>
+      {/each}
+    </ul>
+  </Tooltip.Provider>
 {/if}
 
 <style>
@@ -104,14 +129,30 @@
   }
   .activity-turns__place {
     min-width: 0;
-    color: var(--muted-foreground);
+    overflow: hidden;
+    color: var(--foreground);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  a.activity-turns__place:hover {
+    text-decoration: underline;
   }
   .activity-turns__status {
+    display: flex;
     flex: 1;
+    align-items: center;
     min-width: 0;
   }
   .activity-turns__status :global([data-ui-component="ai-chat-reasoning"]) {
+    margin: 0;
     min-width: 0;
+  }
+  .activity-turns__status :global([data-ai-chat-part="reasoning-status"]) {
+    width: auto;
+    min-height: 0;
+    align-items: center;
+    padding: 0;
   }
   .activity-turns__status :global([data-ui-part="reasoning-label"]) {
     flex: 1;
