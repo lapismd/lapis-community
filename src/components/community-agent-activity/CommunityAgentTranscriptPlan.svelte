@@ -54,6 +54,11 @@
     gap: 0.5rem;
     min-width: 0;
   }
+  .agent-transcript-plan li :global(.community-chip) {
+    order: 1;
+    margin-inline-start: auto;
+    flex-shrink: 0;
+  }
   .agent-transcript-plan li span {
     min-width: 0;
     overflow-wrap: anywhere;

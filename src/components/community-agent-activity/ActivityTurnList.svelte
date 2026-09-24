@@ -128,6 +128,7 @@
     background: color-mix(in oklab, var(--muted) 75%, var(--background));
   }
   .activity-turns__place {
+    flex: 1;
     min-width: 0;
     overflow: hidden;
     color: var(--foreground);
@@ -140,9 +141,10 @@
   }
   .activity-turns__status {
     display: flex;
-    flex: 1;
     align-items: center;
+    justify-content: flex-end;
     min-width: 0;
+    margin-inline-start: auto;
   }
   .activity-turns__status :global([data-ui-component="ai-chat-reasoning"]) {
     margin: 0;
@@ -155,12 +157,12 @@
     padding: 0;
   }
   .activity-turns__status :global([data-ui-part="reasoning-label"]) {
-    flex: 1;
+    flex: none;
     min-width: 0;
+    text-align: end;
     white-space: normal;
   }
   .activity-turns__action {
-    margin-inline-start: auto;
     flex-shrink: 0;
   }
   p {

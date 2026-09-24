@@ -1321,8 +1321,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscriptPlan.svelte": {
-      "countedLines": 57,
-      "physicalLines": 61,
+      "countedLines": 62,
+      "physicalLines": 66,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/completion.test.ts": {
@@ -5136,12 +5136,12 @@
       "physicalLines": 86
     },
     "src/components/community-agent-activity/ActivityPermissionStack.svelte": {
-      "countedLines": 74,
-      "physicalLines": 79
+      "countedLines": 77,
+      "physicalLines": 82
     },
     "src/components/community-agent-activity/ActivityTurnList.svelte": {
-      "countedLines": 166,
-      "physicalLines": 170
+      "countedLines": 168,
+      "physicalLines": 172
     },
     "src/components/community-agent-activity/activity-place.ts": {
       "countedLines": 36,

@@ -76,4 +76,7 @@
     display: grid;
     gap: 0.75rem;
   }
+  .activity-permissions > :global(.community-chip) {
+    justify-self: end;
+  }
 </style>

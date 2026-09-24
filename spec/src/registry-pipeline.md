@@ -63,9 +63,9 @@ in `scripts/architecture-baseline.json`.
 
 LC-UI-040 Inbox loading coverage updates the architecture baseline for its
 geometry assertions and the smaller component that shares the padded skeleton.
-LC-UI-044 records the Activity permission stack, the Turns place link, the
-Turns list, the runtime-control budget, and the Activity shell budget in the
-same baseline.
+LC-UI-044 records the Activity permission stack, the plan list, the Turns
+place link, the Turns list, the runtime-control budget, and the Activity
+shell budget in the same baseline.
 Inbox responsiveness records the host snapshot and cancellable selection owners,
 the reduced Inbox component budget, and its new responsiveness harness/stories
 in the same baseline. Adapter read bounds and cached-selection paint coverage

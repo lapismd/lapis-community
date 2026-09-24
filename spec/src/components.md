@@ -959,7 +959,7 @@ another thread, with Queued, Starting, Working, Waiting for permission, or
 Interrupted. An interrupted row MUST say it blocks later requests, MUST include a recorded finish reason when one exists, and MUST offer Continue to release that fence so the owner can send another message. A generic fence notice MUST stay that one sentence. It MUST NOT use the streaming Working indicator. Cancel
 MUST target a running row's session and turn. An expired permission MUST drop its approval card and MUST leave that turn running with the notice that the agent is continuing. The Activity surface MUST offer Turns
 and Activity tabs. Turns MUST list each open or fencing run as one row in a single bordered
-list. The shared reasoning status MUST sit on the same line as the place name. A channel or forum place MUST link to that room, and a thread or topic run MUST link to that thread. Cancel or Continue MUST be an icon control at the far end of the row, with that action named in a tooltip. Reset conversation MUST
+list. The shared reasoning status MUST sit on the same line as the place name and at the far end of that row. A channel or forum place MUST link to that room, and a thread or topic run MUST link to that thread. Cancel or Continue MUST be an icon control at the far end of the row, beside that status, with that action named in a tooltip. Activity status chips MUST sit at the far end of their row. Reset conversation MUST
 appear once beneath that list, for the visible conversation, and MUST NOT be
 repeated for another thread's run. The Activity tab MUST show the saved
 history. Both panels MUST scroll inside the activity pane: the history keeps
