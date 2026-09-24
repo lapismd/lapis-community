@@ -67,6 +67,7 @@
       : {}}
   />
   {#if onResetConversation && resetRow}<Button
+      class="agent-activity__reset"
       variant="outline"
       size="sm"
       disabled={Boolean(controlPending)}
@@ -102,8 +103,11 @@
 <style>
   .agent-activity__controls {
     display: grid;
+    width: 100%;
     gap: 0.875rem;
-    justify-items: start;
+  }
+  :global(.agent-activity__reset) {
+    justify-self: start;
   }
   p {
     margin: 0;

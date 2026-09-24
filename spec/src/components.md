@@ -958,8 +958,9 @@ MUST list every open or workspace-fencing run for the visible channel, including
 another thread, with Queued, Starting, Working, Waiting for permission, or
 Interrupted. An interrupted row MUST say it blocks later requests, MUST include a recorded finish reason when one exists, and MUST offer Continue to release that fence so the owner can send another message. A generic fence notice MUST stay that one sentence. It MUST NOT use the streaming Working indicator. Cancel
 MUST target a running row's session and turn. An expired permission MUST drop its approval card and MUST leave that turn running with the notice that the agent is continuing. The Activity surface MUST offer Turns
-and Activity tabs. Turns MUST list each open or fencing run as one row with its
-status and a Cancel or Continue control at the end of that row. Reset conversation MUST
+and Activity tabs. Turns MUST list each open or fencing run as one row in a single bordered
+list, using the shared reasoning presentation for that row's status and a
+Cancel or Continue control at the far end of the row. Reset conversation MUST
 appear once beneath that list, for the visible conversation, and MUST NOT be
 repeated for another thread's run. The Activity tab MUST show the saved
 history. Both panels MUST scroll inside the activity pane: the history keeps

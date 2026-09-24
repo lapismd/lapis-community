@@ -1266,8 +1266,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/AgentRuntimeControls.svelte": {
-      "countedLines": 109,
-      "physicalLines": 112,
+      "countedLines": 113,
+      "physicalLines": 116,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.plan.stories.svelte": {
@@ -5140,8 +5140,8 @@
       "physicalLines": 79
     },
     "src/components/community-agent-activity/ActivityTurnList.svelte": {
-      "countedLines": 82,
-      "physicalLines": 85
+      "countedLines": 126,
+      "physicalLines": 129
     },
     "src/community/inbox-visibility.test.ts": {
       "countedLines": 86,
