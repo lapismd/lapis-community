@@ -245,3 +245,39 @@
 >
   {#snippet template(args)}<Harness onPublish={args.onPublish} />{/snippet}
 </Story>
+
+<Story
+  name="Native checkpoint plans remain commentable in the original thread"
+  args={{ onPublish: fn() }}
+  play={async ({ canvas, canvasElement, args }) => {
+    const thread = within(
+      canvas.getByRole("region", { name: "Original conversation" }),
+    );
+    await userEvent.click(
+      await thread.findByRole("button", {
+        name: "Comment on plan",
+        exact: true,
+      }),
+    );
+    const dialog = within(canvasElement.ownerDocument.body).getByRole(
+      "dialog",
+      { name: "Comment on plan" },
+    );
+    await userEvent.type(
+      await within(dialog).findByRole("textbox", { name: "Markdown editor" }),
+      "Verify the license plan.",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Post comment" }),
+    );
+    await waitFor(() => expect(args.onPublish).toHaveBeenCalledOnce());
+    await expect(
+      (await thread.findAllByText("Verify the license plan."))[0],
+    ).toBeVisible();
+  }}
+>
+  {#snippet template(args)}<Harness
+      native
+      onPublish={args.onPublish}
+    />{/snippet}
+</Story>

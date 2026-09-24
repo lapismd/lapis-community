@@ -705,3 +705,10 @@ User prompts, encrypted controls and injected instructions are not commentable.
 Comments alone MUST NOT invoke an agent; existing mention and Continue dispatch
 owns delivery of pending feedback. Assistant message replies retain their normal
 message protocol.
+
+Controller assistant replies retain their durable `d` record identity in the
+form `<agent-id>:<request-event-id>:<sequence>:assistant_message`. For equal
+Nostr timestamps, clients preserve causal reply order and numeric sequence for
+records signed by the same author and referencing that request. Duplicate or
+malformed identities do not supply ordering; cycles must never drop events or
+block rendering. This does not change historical event identities.

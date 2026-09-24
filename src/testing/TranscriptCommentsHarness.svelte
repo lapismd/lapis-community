@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import CommunityAgentTranscript from "../components/community-agent-activity/CommunityAgentTranscript.svelte";
   import CommunityAgentThreadContext from "../components/community-agent-thread-context/CommunityAgentThreadContext.svelte";
   import { provideAgentConversation } from "../components/community-agent-conversation/context.svelte.js";
+  import { nativeTranscriptCommentFixture } from "./native-transcript-comment-fixture.js";
   import { transcriptCommentFixture } from "./transcript-comment-fixture.js";
   import { repositoryContextTurns } from "../components/community-projects/repository-context-transcript.js";
   import { buildRepositoryAgentContexts } from "../projects/repository-agent-context.js";
@@ -9,17 +11,21 @@
   import type { NostrEvent, NostrEventTemplate } from "../protocol/index.js";
   import { Button } from "@lapismd/design-core/shadcn/button";
   let {
+    native = false,
     live = false,
     failFirst = false,
     onPublish,
     onOpen,
   }: {
+    native?: boolean;
     live?: boolean;
     failFirst?: boolean;
     onPublish?: (template: NostrEventTemplate) => void;
     onOpen?: (room: string, root: string, reply?: string) => void;
   } = $props();
-  const f = transcriptCommentFixture();
+  const f = untrack(() =>
+    native ? nativeTranscriptCommentFixture() : transcriptCommentFixture(),
+  );
   let receive: (event: NostrEvent) => void = () => {};
   let visible = $state(true),
     published = $state(0),

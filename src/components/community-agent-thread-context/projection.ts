@@ -88,9 +88,7 @@ export function threadContextSegments(
         return (
           record &&
           anchors.get(record.id) === messageId &&
-          ((record.kind === "transcript" && !agentContextMessageRole(record)) ||
-            record.kind === "tool" ||
-            record.kind === "thinking" ||
+          (!agentContextMessageRole(record) ||
             (segment.checkpoint.live &&
               !record.sourceEventId &&
               !events.some((event) => eventTag(event, "d") === record.id)))

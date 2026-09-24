@@ -866,3 +866,8 @@ and stream subscriptions retain separate owners outside the rendering component.
 
 Channel watch reference counts and asynchronous commit descriptions are owned by
 the conversation stream and review-reference model, keeping their UI facades bounded.
+
+For LC-UI-044, `conversation-event-order` owns deterministic same-second causal
+and assistant-record ordering before message projection. Thread context admits
+native non-message records through the shared transcript role classifier. These
+boundaries remain independent of application composition and relay transport.

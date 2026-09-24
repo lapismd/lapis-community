@@ -1,3 +1,4 @@
+import { orderConversationEvents } from "./conversation-event-order.js";
 import type { CommunityRoomScope } from "./contracts.js";
 import type { NostrEvent } from "../protocol/index.js";
 import { COMMUNITY_MESSAGE_EDIT_KIND } from "./message-moderation.js";
@@ -44,13 +45,11 @@ export function messageModels(
             ),
         )
       : roomEvents;
-  return selected
-    .toSorted(compareOldest)
-    .map((event) =>
-      CHANNEL_ACTIVITY_KINDS.has(event.kind)
-        ? channelActivityMessage(event)
-        : eventMessage(event, events, profiles, asOf, identityPubkey),
-    );
+  return orderConversationEvents(selected).map((event) =>
+    CHANNEL_ACTIVITY_KINDS.has(event.kind)
+      ? channelActivityMessage(event)
+      : eventMessage(event, events, profiles, asOf, identityPubkey),
+  );
 }
 
 export function channelActivityMessage(

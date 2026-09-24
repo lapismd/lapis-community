@@ -4,6 +4,10 @@ The approved alignment plan spans Community, Nostr Agent Controller, AI Controll
 and AI Host. Source verification does not replace installed-build acceptance.
 Installation, service restart, publication and visual baselines remain separate.
 
+The current stopping point and resume checklist are in
+[Pause checkpoint, 2026-09-24](#pause-checkpoint-2026-09-24). Earlier sections
+record the results at each slice, including gates completed by later slices.
+
 ## Preserved Activity layout
 
 Commit `3bd20210` preserves the previously pending Activity alignment changes.
@@ -86,12 +90,12 @@ produce the requested outside-workspace file and are not acceptance passes.
 These probes used disposable directories and the rebuilt packaged controller
 and host; no installed service was replaced.
 
-## Remaining acceptance
+## Remaining acceptance after the approval-policy slice
 
-Transcript comments still need Community integration.
-Catch-up freshness, provider acceptance, disposable controller/relay/browser
-acceptance and affected Lapis consumers remain separate gates. No live controller
-has been replaced by these source checks.
+At this point transcript comments still needed Community integration. Catch-up
+freshness, provider acceptance, disposable controller/relay/browser acceptance and
+affected Lapis consumers were separate gates; later sections record their
+progress. No live controller has been replaced by these source checks.
 
 ## Correlated Continue and exact turn selection
 
@@ -238,3 +242,167 @@ relay tests, one project-relay test (56 non-selected cases skipped), and all six
 packaged UI consumer viewport/theme cases. Format, specifications, architecture,
 UI, Svelte and TypeScript checks, Storybook build, package build and publint passed.
 Visual review remains pending; no visual baselines were changed.
+
+## Native checkpoint parity and message chronology
+
+The cold native checkpoint workflow exposed a production projection difference:
+version-2 native plan, permission and usage records were filtered out of original
+threads even though canonical envelopes retained them. The exact native projection
+regression failed once before the fix and now passes. The cold native-plan comment
+story and the full affected comment/reference story family pass (six cases).
+An earlier fixture attempt incorrectly placed multiple native records in one v2
+page; the corrected signed fixture follows the native one-record-per-page format.
+
+Signed assistant messages created in the same second could sort by event hash
+instead of their durable logical sequence. The materializer regression failed
+once before the ordering fix. Conversation ordering now retains same-second
+causal parents and numeric assistant record sequence within an author, agent and
+request. The ten-case focused lane passes, including reversed/duplicate replay,
+independent batches, malformed identities, cycles and a 20,000-record thread.
+Different timestamps retain chronological priority. Native non-message records
+remain available beside the original conversation and for durable comments.
+
+Svelte autofixer reports no issues in the changed harness and story; the existing
+subscription effect suggestion is intentional lifecycle ownership. The chronology
+regression has its own test file to preserve the existing architecture budget.
+Exactly LC-UI-044 changes semantically in the verification matrix. The latest
+aggregate and cold controller/browser results are recorded in the pause checkpoint
+below.
+
+Focused commands for this follow-up:
+
+```sh
+pnpm exec vitest run --project unit src/community/conversation-event-order.test.ts src/community/agent-message-chronology.test.ts src/community/thread-projection.test.ts src/components/community-agent-thread-context/native-projection.test.ts
+pnpm exec vitest run --project storybook src/components/community-transcript-comments/CommunityTranscriptComments.stories.svelte -t Native
+VITEST_MAX_WORKERS=1 pnpm checks
+```
+
+The signed chronology regression is
+`orders same-second agent messages by durable record sequence after their triggering reply`.
+It moved from the existing thread projection test into its own file after the
+architecture checker correctly rejected growth of the old file. The original
+regression passed before extraction, and the extracted target passes unchanged.
+
+Consumer refresh uses the built follow-up tarball at
+`/tmp/community-agent-alignment/native-transcript/lapismd-lapis-community-0.1.0.tgz`.
+The Community plugin passes all 17 unit tests, Svelte checks with zero errors or
+warnings, TypeScript, and both cold production host-composition browser stories.
+Its temporary hook is
+`/tmp/community-agent-alignment/plugin-community-validation.pnpmfile.cjs`.
+The initial unlocked install rejected the consumer's unused `bits-ui@2.19.0` patch;
+the temporary workspace root retains that exact patched version alongside 2.18.1,
+as in the consumer's existing lockfile. Neither patch was disabled or modified.
+Consumer source, manifests and lockfiles remain unchanged.
+
+## Pause checkpoint, 2026-09-24
+
+The user requested committing the current work and consolidating its temporary
+workspaces, with remaining work deferred. This is a saved implementation checkpoint,
+not a claim that all acceptance gates passed or that the installed app was updated.
+Resume from the default Community checkout. The `agent-comments` workspace is being
+integrated and retired; it is not needed to continue the implementation.
+
+### Latest evidence
+
+| Lane                                      | Result                                                                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Focused native projection and chronology  | 10 passed; both production regressions failed once before their fixes.                                              |
+| Affected comment/reference browser family | 6 passed in a cold process.                                                                                         |
+| Community static checks                   | Format, specification, architecture, UI, Svelte and TypeScript passed.                                              |
+| Community unit suite                      | 1,168 passed, 2 skipped.                                                                                            |
+| Community standard browser suite          | 586 interaction/accessibility tests passed across eight fresh groups.                                               |
+| Community Docker browser suite            | 60 passed, 7 failed; aggregate exited 1.                                                                            |
+| Cold controller/native/browser workflow   | Passed with zero browser page errors; deterministic provider and signature-verifying WebSocket fixture relay.       |
+| Refreshed Lapis consumer                  | 18 check tasks and 10 uncached build tasks passed; 20 shell/editor browser cases passed on the fresh-process retry. |
+| Refreshed Community plugin                | 17 unit tests, check, build, publint and 2 cold browser cases passed.                                               |
+
+The Docker failures were `PulseDark`, `RelayExternalSignerAccountDetails`,
+`LinkedGitHubAccountAwaitingSigner`,
+`DismissedSignerToastStaysDismissedDuringNavigation`,
+`LinkedGitHubExternalSignerReconnectAndDisconnect` and `FullCommunityApp` in
+`src/components/community-application/CommunityApplication.stories.svelte`, plus
+`LoadedDiscussionAndPublish` in
+`src/components/registry-community/RegistryCommunity.stories.svelte`.
+Observed failures include a synchronizing application, missing signer/navigation
+controls, and a missing published discussion message. Relay logs contain
+serialization retry errors. The cause is unresolved; passing standard stories
+does not establish that these Docker failures are unrelated.
+
+The cold workflow covers the original repository-link/no-`a` request, an
+announcement with only `buzz-channel`, native capture and daemon publication,
+independent ordered replies below the original message, comments on thinking,
+plan step 2 and tool activity, restart recovery without repeating the repository
+link, and feedback delivered on exactly the next invocation. It uses the real
+controller service/runtime adapter and production Community UI. It is not real
+provider or Go-relay acceptance. See the sibling controller's
+`docs/development/local-context-validation.md` for the detailed receipt.
+
+Earlier real-provider results remain in the AI Controller and Lapis Notes
+acceptance records. Eight Ask/Allow all provider turns passed across Native Codex
+and Codex/Cursor/OpenCode ACP. Cursor's explicit `composer-2.5` choice is still
+rejected despite being advertised, and Native Codex structured input is unavailable
+in Default mode. These limitations were not retested for this rendering follow-up.
+
+### Work to resume
+
+1. Reproduce the seven exact Docker failures, fix their owning boundary, then run
+   the complete 67-case Docker suite. The relay wrapper does not forward story
+   filters; use a disposable relay instance with the Docker backend environment
+   for focused Vitest targets and clean up that exact instance afterward.
+2. Finish the lanes that the failed aggregate never reached:
+   `pnpm test:storybook:projects-docker`, `pnpm test:ui:consumer`,
+   `pnpm build-storybook` and `pnpm build`. A standalone source build and package
+   pack succeeded for consumer refresh; that does not make the aggregate pass.
+3. Complete `pnpm smoke:local` against the actual disposable relay/site stack.
+   The first attempt failed on a pre-existing local Design Core archive integrity
+   mismatch. A disposable source copy with only its copied lockfile integrity
+   refreshed was prepared, but its Docker build was interrupted before acceptance.
+   Preserve canonical dependency files when recreating that setup.
+4. Resolve the Lapis default-plugin discrepancy: source enables Community as a
+   fifth plugin, while LN-PLUG-006, LN-DENO-006, LN-WEB-004 and LN-ED-019 expect
+   four. The desired profile remains undecided; do not silently rewrite tests or
+   the specification. See `lapis-notes/spec/records/agent-policy-consumer-acceptance.md`.
+5. Complete packaged desktop startup. The unpublished
+   `@lapismd/ai-controller@^0.1.0` constraint still fails at runtime despite a
+   successful temporary-map compile. Manual node-modules probes stopped on
+   missing `dotenv`, then `@lezer/highlight`. Source build success is not packaged
+   startup acceptance.
+6. After acceptance, handle package publication, installed native/controller
+   replacement and service restart as explicit delivery steps. Historical
+   messages must not be republished or unfinished tasks automatically rerun.
+   Human visual review remains pending; no baselines were updated.
+
+Run heavyweight Docker and desktop/web builds serially. Concurrent validation
+caused approximately 15 GB of swap on this 16 GB machine; resource pressure is an
+observation, not a proven explanation for the Docker failures.
+
+### Local evidence and temporary setup
+
+These paths are local supporting artifacts, not portable prerequisites. Rebuild
+or recreate them if `/tmp` is cleared:
+
+- Aggregate and Docker failures: `/tmp/community-native-checks-final2.log`.
+- Exact focused target: `/tmp/community-order-focused-final.log`; affected
+  browser family: `/tmp/community-native-browser-family2.log`.
+- Cold workflow: `/tmp/cold-agent-alignment13.log` and
+  `/tmp/agent-alignment-cold-WCVHgU/` for the public receipt and browser image.
+  Fixture signing keys are private and must not be committed or shared.
+- Lapis checks/builds: `/tmp/lapis-native-transcript-check.log` and
+  `/tmp/lapis-native-transcript-build.log`; browser retry:
+  `/tmp/lapis-native-transcript-browser2.log`.
+- Community plugin browser/build: `/tmp/plugin-community-native-browser.log`
+  and `/tmp/plugin-community-native-build.log`.
+- Interrupted relay/site smoke: `/tmp/community-native-relay-site-smoke2.log`;
+  disposable copy: `/tmp/community-agent-alignment/registry-smoke/community`.
+  Its dependency symlink must be refreshed after retiring `agent-comments`.
+- Temporary consumer hooks and packed artifacts remain under
+  `/tmp/community-agent-alignment/`. Notes installs require both the documented
+  `notes-validation.pnpmfile.cjs` hook and `LAPIS_PLUGIN_TARBALL_MANIFEST` pointing
+  to the sibling plugins' `.release/npm/manifest.json`, with `--lockfile=false`.
+  Generated Notes `deno.lock` drift was restored before committing the record.
+- The ignored controller probe `.local/agent-alignment/cold-workflow.ts` remains
+  local; its Community path must target the default checkout on the next run.
+
+The older Design Core `release-verify-fix` workspace belongs to separate release
+work and has history absent from its default checkout. It was not used for this
+alignment slice and is not part of its workspace retirement.

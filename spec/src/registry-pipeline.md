@@ -325,3 +325,8 @@ isolation and signed snapshot recovery before installed-build acceptance.
 For LC-UI-044, verification MUST exercise the shared transcript's durable
 comment anchors, live draft persistence, original-conversation projection and
 completed-turn Continue; visual review remains pending.
+
+For LC-UI-044, native checkpoint and same-second reply regressions MUST exercise
+signed materialization and production thread comment controls. The cold local
+acceptance workflow MUST rebuild native checkpoint tools, retain passive comments
+through controller restart, and verify next-invocation feedback delivery once.

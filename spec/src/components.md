@@ -1156,3 +1156,11 @@ for delivering pending feedback without automatically invoking on a comment.
 
 Plan blocks MUST be labelled groups rather than repeated same-name landmarks
 when multiple turns or conversation surfaces appear together.
+
+For LC-UI-044, original threads MUST retain native checkpoint plan, permission,
+and usage records alongside thinking and tools. Native v2 records and canonical
+transcript envelopes MUST expose equivalent comment controls for plans.
+
+For LC-UI-044, replies sharing a second MUST follow their signed triggering
+message and the controller record sequence within that author and request.
+Replay order and duplicate relay deliveries MUST NOT change this chronology.
