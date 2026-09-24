@@ -1,3 +1,8 @@
+import type {
+  AgentTurnActions,
+  AgentTurnControlState,
+  ContinueTurnControl,
+} from "./agent-turn-control-contracts.js";
 import type { CommunityAgentControllerScope } from "./agent-controller-scope.js";
 import type { NostrEvent } from "../protocol/index.js";
 import type { CommunityStorageMode } from "./contracts.js";
@@ -216,6 +221,7 @@ export type CommunityAgentPermissionDecision =
   | "cancel";
 
 export type CommunityAgentControl =
+  | ContinueTurnControl
   | { version: 2; command: "processing_get"; requestId: string }
   | {
       version: 2;
@@ -492,6 +498,7 @@ export interface CommunityAgentsState {
   working: Readonly<Record<string, boolean>>;
   /** Compatibility projection; use conversationScopes for runtime controls. */
   controllerScopes: Readonly<Record<string, CommunityAgentControllerScope>>;
+  turnControls?: Readonly<Record<string, AgentTurnControlState>>;
   conversationScopes?: Readonly<Record<string, CommunityAgentControllerScope>>;
   publicWorking?: readonly {
     agentPubkey: string;
@@ -520,7 +527,7 @@ export interface CommunityAgentsState {
   hasOlder: boolean;
 }
 
-export interface CommunityAgentsActions {
+export interface CommunityAgentsActions extends AgentTurnActions {
   refresh(): Promise<void>;
   registerAgent(pubkey: string): Promise<void>;
   savePersona(input: CommunityAgentPersonaSaveInput): Promise<void>;
@@ -548,18 +555,6 @@ export interface CommunityAgentsActions {
   cancelActivitySync(): void;
   loadOlderActivity(): Promise<void>;
   clearHistory(pubkey?: string): Promise<void>;
-  cancelTurn(
-    pubkey: string,
-    scopeKey: string,
-    channelId?: string,
-    expected?: { sessionId: string; turnId: string },
-  ): Promise<void>;
-  resetConversation(
-    pubkey: string,
-    scopeKey: string,
-    channelId?: string,
-    expected?: { sessionId: string; turnId: string },
-  ): Promise<void>;
   respondPermission(
     pubkey: string,
     requestId: string,

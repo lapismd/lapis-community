@@ -1,3 +1,4 @@
+import { agentControlActions } from "./agent-control-actions.js";
 import { historyPageKey, eventInHistoryWindow } from "./history-pages.js";
 import { createProjectionQueue, shareProjection } from "./projection-state.js";
 import {
@@ -1500,36 +1501,7 @@ export function createCommunityController(
           throw new Error("Agent history requires a signed-in community");
         await agentController.actions.clearHistory(pubkey);
       },
-      cancelTurn: async (pubkey, scopeKey, channelId) => {
-        if (!agentController)
-          throw new Error("Agent controls require a signed-in community");
-        await runOperation(`agent:cancel:${pubkey}`, () =>
-          agentController!.actions.cancelTurn(pubkey, scopeKey, channelId),
-        );
-      },
-      resetConversation: async (pubkey, scopeKey, channelId) => {
-        if (!agentController)
-          throw new Error("Agent controls require a signed-in community");
-        await runOperation(`agent:reset:${pubkey}`, () =>
-          agentController!.actions.resetConversation(
-            pubkey,
-            scopeKey,
-            channelId,
-          ),
-        );
-      },
-      respondPermission: async (pubkey, requestId, decision, channelId) => {
-        if (!agentController)
-          throw new Error("Agent controls require a signed-in community");
-        await runOperation(`agent:permission:${requestId}`, () =>
-          agentController!.actions.respondPermission(
-            pubkey,
-            requestId,
-            decision,
-            channelId,
-          ),
-        );
-      },
+      ...agentControlActions(() => agentController?.actions, runOperation),
       loadProcessing: async (pubkey) => {
         if (!agentController?.actions.loadProcessing)
           throw new Error("Agent controls require a signed-in community");

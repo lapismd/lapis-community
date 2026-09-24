@@ -1,4 +1,10 @@
 <script lang="ts">
+  import type { AgentRuntimeActions } from "./runtime-actions.js";
+  import { turnControlKey } from "../../community/agent-turn-controls.js";
+  import type {
+    AgentTurnControlState,
+    AgentTurnTarget,
+  } from "../../community/agent-turn-control-contracts.js";
   import ActivityExecutionPolicy from "./ActivityExecutionPolicy.svelte";
   import CircleStopIcon from "@lucide/svelte/icons/circle-stop";
   import PlayIcon from "@lucide/svelte/icons/play";
@@ -19,25 +25,40 @@
     rows,
     rooms,
     disabled,
+    onContinueTurn,
+    turnControls = {},
     onCancelTurn,
   }: {
     agentPubkey: string;
     rows: readonly CommunityAgentControllerScope[];
     rooms: readonly CommunityRoomModel[];
     disabled: boolean;
-    onCancelTurn?: (
-      pubkey: string,
-      scopeKey: string,
-      channelId: string | undefined,
-      expected: {
-        scopeKey: string;
-        channelId?: string;
-        sessionId: string;
-        turnId: string;
-      },
-    ) => Promise<void>;
-  } = $props();
+    turnControls?: Readonly<Record<string, AgentTurnControlState>>;
+  } & AgentRuntimeActions = $props();
 
+  function continuationTarget(
+    scope: CommunityAgentControllerScope,
+  ): AgentTurnTarget | undefined {
+    if (
+      !["failed", "cancelled", "interrupted"].includes(scope.state ?? "") ||
+      !scope.requestId ||
+      !scope.sessionId ||
+      !scope.turnId
+    )
+      return;
+    return {
+      requestId: scope.requestId,
+      sessionId: scope.sessionId,
+      turnId: scope.turnId,
+    };
+  }
+  function continueTurn(scope: CommunityAgentControllerScope) {
+    const target = continuationTarget(scope);
+    if (target && onContinueTurn)
+      return onContinueTurn(agentPubkey, scope.scopeKey, target).catch(
+        () => {},
+      );
+  }
   function cancelTurn(controllerScope: CommunityAgentControllerScope) {
     if (!onCancelTurn) return;
     const target = activityCancelTarget(controllerScope);
@@ -53,10 +74,18 @@
 {#if rows.length === 0}<p>No open turns.</p>{:else}
   <Tooltip.Provider delayDuration={0}>
     <ul class="activity-turns">
-      {#each rows as controllerScope (`${controllerScope.scopeKey}\0${controllerScope.turnId ?? ""}`)}
+      {#each rows as controllerScope (`${controllerScope.scopeKey}\0${controllerScope.requestId ?? ""}\0${controllerScope.sessionId ?? ""}\0${controllerScope.turnId ?? ""}`)}
         {@const place = activityPlace(controllerScope, rooms)}
-        {@const action =
-          controllerScope.state === "interrupted" ? "Continue" : "Cancel"}
+        {@const target = continuationTarget(controllerScope)}
+        {@const control = target
+          ? turnControls[
+              turnControlKey(agentPubkey, controllerScope.scopeKey, target)
+            ]
+          : undefined}
+        {@const actions = [
+          ...(target && onContinueTurn ? ["Continue"] : []),
+          ...(controllerScope.active && onCancelTurn ? ["Cancel"] : []),
+        ]}
         <li>
           <div class="activity-turns__row">
             {#if place.href}<a class="activity-turns__place" href={place.href}
@@ -72,7 +101,7 @@
                 streaming={activityStreams(controllerScope.state)}
               />
             </span>
-            {#if controllerScope.active && onCancelTurn}<span
+            {#each actions as action (action)}<span
                 class="activity-turns__action"
                 ><Tooltip.Root>
                   <Tooltip.Trigger>
@@ -83,10 +112,16 @@
                         variant="outline"
                         size="icon-sm"
                         aria-label={action}
-                        {disabled}
-                        onclick={() => cancelTurn(controllerScope)}
+                        disabled={disabled ||
+                          (action === "Continue" &&
+                            (control?.status === "pending" ||
+                              control?.status === "acknowledged"))}
+                        onclick={() =>
+                          action === "Continue"
+                            ? continueTurn(controllerScope)
+                            : cancelTurn(controllerScope)}
                       >
-                        {#if controllerScope.state === "interrupted"}
+                        {#if action === "Continue"}
                           <PlayIcon aria-hidden="true" />
                         {:else}
                           <CircleStopIcon aria-hidden="true" />
@@ -98,7 +133,7 @@
                     >{action}</Tooltip.Content
                   >
                 </Tooltip.Root></span
-              >{/if}
+              >{/each}
           </div>
           {#if controllerScope.executionPolicy}<ActivityExecutionPolicy
               policy={controllerScope.executionPolicy}

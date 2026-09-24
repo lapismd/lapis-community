@@ -405,8 +405,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-contracts.ts": {
-      "countedLines": 550,
-      "physicalLines": 597,
+      "countedLines": 545,
+      "physicalLines": 592,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -424,8 +424,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-controller.ts": {
-      "countedLines": 1941,
-      "physicalLines": 1991,
+      "countedLines": 1932,
+      "physicalLines": 1982,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Agent controller factory; runtime and memory parsers extracted"
@@ -730,8 +730,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/community-controller.svelte.ts": {
-      "countedLines": 4306,
-      "physicalLines": 4391,
+      "countedLines": 4278,
+      "physicalLines": 4363,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Svelte 5 controller factory; history, Pulse, and operations extracted"
@@ -1266,8 +1266,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/AgentRuntimeControls.svelte": {
-      "countedLines": 113,
-      "physicalLines": 116,
+      "countedLines": 182,
+      "physicalLines": 186,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.plan.stories.svelte": {
@@ -1286,8 +1286,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivity.svelte": {
-      "countedLines": 221,
-      "physicalLines": 226,
+      "countedLines": 224,
+      "physicalLines": 229,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentActivityFeed.svelte": {
@@ -1772,8 +1772,8 @@
       "stylePhysical": 0
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9062,
-      "physicalLines": 9427,
+      "countedLines": 9043,
+      "physicalLines": 9408,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -5140,8 +5140,8 @@
       "physicalLines": 82
     },
     "src/components/community-agent-activity/ActivityTurnList.svelte": {
-      "countedLines": 178,
-      "physicalLines": 182
+      "countedLines": 213,
+      "physicalLines": 217
     },
     "src/components/community-agent-activity/activity-place.ts": {
       "countedLines": 36,

@@ -10,6 +10,22 @@ const AGENT_PERMISSION_DECISIONS = new Set([
 ]);
 
 export function validateAgentControl(control: CommunityAgentControl): void {
+  if (control.command === "continue_turn") {
+    const fields = [
+      "requestId",
+      "targetRequestId",
+      "scopeKey",
+      "expectedSessionId",
+      "expectedTurnId",
+    ] as const;
+    if (
+      control.version !== 2 ||
+      !hasOnlyObjectKeys(control, ["version", "command", ...fields]) ||
+      fields.some((key) => !control[key]?.trim() || control[key].length > 2048)
+    )
+      throw new Error("Agent continuation target is invalid");
+    return;
+  }
   const versionTwo = new Set([
     "sync_activity",
     "runtime_get",

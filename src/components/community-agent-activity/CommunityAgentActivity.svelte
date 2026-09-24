@@ -35,6 +35,7 @@
     onOpenRequest,
     onLoadOlder,
     onClearHistory,
+    onContinueTurn,
     onCancelTurn,
     onResetConversation,
     onRespondPermission,
@@ -130,6 +131,8 @@
           {scopes}
           {rooms}
           {context}
+          turnControls={model.turnControls ?? {}}
+          {...onContinueTurn ? { onContinueTurn } : {}}
           {...onCancelTurn ? { onCancelTurn } : {}}
           {...onResetConversation ? { onResetConversation } : {}}
         />

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { agentRuntimeActions } from "../community-agent-activity/runtime-actions.js";
   import { createMessageReactionAction } from "./message-reaction-action.js";
   import { createCommunityApplicationSend } from "./application-send.js";
   import { communityComposerAgentsFromState } from "../community-chat-composer/composer-agent-model.js";
@@ -8012,27 +8013,7 @@
                       activePanel.agentPubkey,
                     );
                 }}
-                onCancelTurn={(pubkey, scopeKey, channelId, expected) =>
-                  community.actions.agents!.cancelTurn(
-                    pubkey,
-                    scopeKey,
-                    channelId,
-                    expected,
-                  )}
-                onResetConversation={(pubkey, scopeKey, channelId, expected) =>
-                  community.actions.agents!.resetConversation(
-                    pubkey,
-                    scopeKey,
-                    channelId,
-                    expected,
-                  )}
-                onRespondPermission={(pubkey, requestId, decision, channelId) =>
-                  community.actions.agents!.respondPermission(
-                    pubkey,
-                    requestId,
-                    decision,
-                    channelId,
-                  )}
+                {...agentRuntimeActions(community.actions.agents!)}
               />
             {/if}
           </AppShell.Sidebar.Body>

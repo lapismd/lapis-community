@@ -679,3 +679,5 @@ cannot be restored by stale live or snapshot frames. Terminal cleanup is scoped 
 both session and turn; one remaining approval keeps that exact attempt waiting.
 Expiry alone provides no evidence of resumed execution, so clients display unknown
 status until the controller reports another state.
+
+For LC-NOSTR-025, `continue_turn` uses version 2 with a stable `requestId`, `targetRequestId`, unchanged `scopeKey`, `expectedSessionId` and `expectedTurnId`; it omits `h`. A matching encrypted `turn_control_state` or correlated `administration_error` settles the client request. A publication acknowledgement alone MUST NOT claim continuation succeeded. Retries, including after reload, retain the command identity derived from the exact target. Mismatched and stale acknowledgements cannot settle another target.

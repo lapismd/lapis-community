@@ -1,21 +1,17 @@
-import type { CommunityAgentPermissionDecision } from "../../community/agent-contracts.js";
+import type { CommunityAgentsActions } from "../../community/agent-contracts.js";
 export interface AgentRuntimeActions {
-  onCancelTurn?: (
-    pubkey: string,
-    scopeKey: string,
-    channelId?: string,
-    expected?: { sessionId: string; turnId: string },
-  ) => Promise<void>;
-  onResetConversation?: (
-    pubkey: string,
-    scopeKey: string,
-    channelId?: string,
-    expected?: { sessionId: string; turnId: string },
-  ) => Promise<void>;
-  onRespondPermission?: (
-    pubkey: string,
-    requestId: string,
-    decision: CommunityAgentPermissionDecision,
-    channelId?: string,
-  ) => Promise<void>;
+  onContinueTurn?: CommunityAgentsActions["continueTurn"];
+  onCancelTurn?: CommunityAgentsActions["cancelTurn"];
+  onResetConversation?: CommunityAgentsActions["resetConversation"];
+  onRespondPermission?: CommunityAgentsActions["respondPermission"];
+}
+export function agentRuntimeActions(
+  actions: CommunityAgentsActions,
+): AgentRuntimeActions {
+  return {
+    onContinueTurn: (...args) => actions.continueTurn(...args),
+    onCancelTurn: (...args) => actions.cancelTurn(...args),
+    onResetConversation: (...args) => actions.resetConversation(...args),
+    onRespondPermission: (...args) => actions.respondPermission(...args),
+  };
 }

@@ -88,8 +88,54 @@ and host; no installed service was replaced.
 
 ## Remaining acceptance
 
-Correlated Continue, application-level permission notifications and transcript
-comments still need Community integration.
+Application-level permission notifications and transcript comments still need
+Community integration.
 Catch-up freshness, provider acceptance, disposable controller/relay/browser
 acceptance and affected Lapis consumers remain separate gates. No live controller
 has been replaced by these source checks.
+
+## Correlated Continue and exact turn selection
+
+`pnpm test src/community/agent-continue-turn.test.ts` initially failed all ten
+production-controller cases. The Continue story initially failed its action case
+while the uncertain-state case passed. After implementation both exact targets
+passed. A subsequent late-outcome case reproduced one additional failure and
+passed after receipt reconciliation was corrected.
+
+Continue now sends its own version-2 control, keeps the exact displayed request,
+session and turn, and waits for the controller's correlated acknowledgement.
+Timeout retries and page reloads reuse the command identity; repeated clicks
+coalesce. A late response cannot acknowledge another target or invocation, and
+a stale queued receipt cannot replace a failed outcome. Pending and failed
+controls remain visible across Activity tabs. Uncertain work is not dispatched.
+Cancellation retains its own command and the application forwarding layer no
+longer drops the displayed identity or selects the latest unrelated conversation.
+
+The focused continuation/forwarding lane passed 15 tests, including an idle-session reset regression that initially failed with several historical turns; the wider controller,
+session and Activity lane passed 100 tests before the last two continuation
+cases were added. The cold Activity and Confirmation interaction/accessibility
+lane passed 31 tests. Static checks passed. The complete unit lane passed 1,125 tests with two skips. All eight cold browser
+groups passed 575 interaction/accessibility tests across fresh runs. The initial
+aggregate attempt found three Projects story failures: `ProjectSettings` observed
+an unnamed closing select, `ReviewDiff` missed a highlight change, and
+`MergedReviewTimeline` encountered a pointer-blocked author action. All three
+exact cold reruns and the full 95-test group passed without changing assertions
+or product code. These results establish successful lanes across retries, not an
+uninterrupted aggregate pass. Visual review remains pending.
+
+The disposable relay browser lane passed 67 tests. The project-relay lane passed
+one integration test with 56 non-selected cases skipped. The UI consumer passed
+all six viewport/theme cases against packaged Design Core and Community source.
+The initial reset-selection regression (one failure) now passes with several
+historical turns in an idle session.
+
+Storybook build, package build and publint passed. Svelte autofixer reported no
+issues in the changed components. Exactly LC-UI-044 changed in the verification
+matrix for this slice.
+
+Separate affected-consumer checks used disposable package installations. The
+Lapis AI adapter's four focused SDK tests and all 365 package tests passed,
+along with Svelte/type checks, package build and publint. The Lapis Notes desktop
+host's five focused tests passed, including the ACP/MCP app-tool round trip
+against a freshly compiled controller. Full Lapis browser/packaged-host acceptance
+and the complete provider matrix remain separate pending gates.

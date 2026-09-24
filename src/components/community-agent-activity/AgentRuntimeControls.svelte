@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { turnControlFailure } from "../../community/agent-turn-controls.js";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { ConfirmDialog } from "@lapismd/design-core/forms/dialog";
   import ActivityTurnList from "./ActivityTurnList.svelte";
@@ -18,9 +19,17 @@
     context,
     scopes,
     rooms,
+    onContinueTurn,
+    turnControls = {},
     onCancelTurn,
     onResetConversation,
   }: AgentRuntimeActions & {
+    turnControls?: Readonly<
+      Record<
+        string,
+        import("../../community/agent-turn-control-contracts.js").AgentTurnControlState
+      >
+    >;
     agent: CommunityAgentIdentity;
     context?: CommunityAgentActivityContext;
     scopes: CommunityAgentControllerScope[];
@@ -30,6 +39,35 @@
   let resetTarget = $state<CommunityAgentControllerScope>();
   let controlError = $state("");
   let controlPending = $state("");
+  let controlNotice = $state("");
+  const visibleControls = $derived(
+    Object.values(turnControls).filter(
+      (control) =>
+        control.agentPubkey === agent.pubkey &&
+        scopes.some(
+          (scope) =>
+            scope.scopeKey === control.scopeKey &&
+            scope.requestId === control.requestId,
+        ),
+    ),
+  );
+  const pending = $derived(
+    Boolean(controlPending) ||
+      visibleControls.some((control) => control.status === "pending"),
+  );
+  const reportedError = $derived(
+    controlError ||
+      visibleControls.map(turnControlFailure).filter(Boolean).join(" "),
+  );
+  const reportedStatus = $derived(
+    controlPending === "continue" ||
+      visibleControls.some((control) => control.status === "pending")
+      ? "Waiting for the controller to acknowledge Continue"
+      : visibleControls.some((control) => control.status === "acknowledged")
+        ? "Continue acknowledged"
+        : controlNotice,
+  );
+
   const rows = $derived(activityControlRows(scopes));
   const resetRow = $derived(
     rows.find((row) => activityShowsReset(row, scopes, context)),
@@ -38,9 +76,11 @@
   async function runControl(key: string, operation: () => Promise<void>) {
     if (controlPending) return;
     controlError = "";
+    controlNotice = "";
     controlPending = key;
     try {
       await operation();
+      if (key === "continue") controlNotice = "Continue acknowledged";
     } catch (cause) {
       controlError =
         cause instanceof Error ? cause.message : "Agent control failed";
@@ -56,7 +96,16 @@
     agentPubkey={agent.pubkey}
     {rows}
     {rooms}
-    disabled={Boolean(controlPending)}
+    disabled={pending}
+    {turnControls}
+    {...onContinueTurn
+      ? {
+          onContinueTurn: (pubkey, scopeKey, target) =>
+            runControl("continue", () =>
+              onContinueTurn(pubkey, scopeKey, target),
+            ),
+        }
+      : {}}
     {...onCancelTurn
       ? {
           onCancelTurn: (pubkey, scopeKey, channelId, expected) =>
@@ -70,13 +119,20 @@
       class="agent-activity__reset"
       variant="outline"
       size="sm"
-      disabled={Boolean(controlPending)}
+      disabled={pending}
       onclick={() => {
         resetTarget = { ...resetRow };
         resetting = true;
       }}>Reset conversation</Button
     >{/if}
-  {#if controlError}<p role="alert">{controlError}</p>{/if}
+  {#if reportedError}<p role="alert">
+      {reportedError}
+    </p>{:else if reportedStatus}<p
+      role="status"
+      aria-label="Agent control status"
+    >
+      {reportedStatus}
+    </p>{/if}
 </section>
 <ConfirmDialog
   bind:open={resetting}

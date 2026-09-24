@@ -1,3 +1,5 @@
+import { AgentTurnControls } from "./agent-turn-controls.js";
+import { sessionControl } from "./agent-session-controls.js";
 import type {
   AgentAdministrationRequest,
   AgentAdministrationControl,
@@ -136,6 +138,11 @@ export class CommunityAgentsController {
     | undefined;
   #syncGeneration = 0;
   #syncSerial = 0;
+  #turnControls = new AgentTurnControls({
+    state: () => this.#state,
+    send: (agent, control) => this.#sendControl(agent, control),
+    update: (turnControls) => this.#update({ turnControls }),
+  });
   #administrationSerial = 0;
   #administrationRequests = new Map<string, AgentAdministrationRequest>();
   #state: CommunityAgentsState;
@@ -330,50 +337,32 @@ export class CommunityAgentsController {
       });
       void this.#flushArchive();
     },
-    cancelTurn: async (pubkey, scopeKey, channelId, expected) => {
-      const scope =
-        this.#state.conversationScopes?.[controllerScopeId(pubkey, scopeKey)] ??
-        this.#state.controllerScopes[pubkey];
-      if (!scope || !scope.active || scope.scopeKey !== scopeKey)
-        throw new Error("No active controller turn is available to cancel");
-      if (
-        expected &&
-        (scope.sessionId !== expected.sessionId ||
-          (scope.active ? (scope.turnId ?? "") : "") !== expected.turnId)
-      )
-        throw new Error("The displayed turn is no longer current");
-      await this.#sendControl(pubkey, {
-        version: 1,
-        command: "cancel_turn",
-        scopeKey,
-        ...(scope.sessionId ? { expectedSessionId: scope.sessionId } : {}),
-        expectedTurnId:
-          expected?.turnId ?? (scope.active ? (scope.turnId ?? "") : ""),
-        ...(channelId ? { channelId } : {}),
-      });
-    },
-    resetConversation: async (pubkey, scopeKey, channelId, expected) => {
-      const scope =
-        this.#state.conversationScopes?.[controllerScopeId(pubkey, scopeKey)] ??
-        this.#state.controllerScopes[pubkey];
-      if (!scope || scope.scopeKey !== scopeKey)
-        throw new Error("No controller conversation is available to reset");
-      if (
-        expected &&
-        (scope.sessionId !== expected.sessionId ||
-          (scope.active ? (scope.turnId ?? "") : "") !== expected.turnId)
-      )
-        throw new Error("The displayed conversation has changed");
-      await this.#sendControl(pubkey, {
-        version: 1,
-        command: "reset_conversation",
-        scopeKey,
-        ...(scope.sessionId ? { expectedSessionId: scope.sessionId } : {}),
-        expectedTurnId:
-          expected?.turnId ?? (scope.active ? (scope.turnId ?? "") : ""),
-        ...(channelId ? { channelId } : {}),
-      });
-    },
+    continueTurn: (pubkey, scopeKey, target) =>
+      this.#turnControls.continue(pubkey, scopeKey, target),
+    cancelTurn: async (pubkey, scopeKey, channelId, expected) =>
+      this.#sendControl(
+        pubkey,
+        sessionControl(
+          this.#state,
+          pubkey,
+          "cancel_turn",
+          scopeKey,
+          channelId,
+          expected,
+        ),
+      ),
+    resetConversation: async (pubkey, scopeKey, channelId, expected) =>
+      this.#sendControl(
+        pubkey,
+        sessionControl(
+          this.#state,
+          pubkey,
+          "reset_conversation",
+          scopeKey,
+          channelId,
+          expected,
+        ),
+      ),
     respondPermission: async (pubkey, requestId, decision, channelId) => {
       const request = (this.#state.pendingPermissions[pubkey] ?? []).find(
         (candidate) => candidate.requestId === requestId,
@@ -904,6 +893,7 @@ export class CommunityAgentsController {
             await this.#applyActivitySyncPage(event, record, frame);
             return;
           }
+          if (this.#turnControls.accept(event.pubkey, frame)) return;
           if (this.#applyAdministrationFrame(event.pubkey, frame)) return;
           this.#queueArchiveRecord(record);
           this.#cacheFrame(event.id, frame);
@@ -1819,6 +1809,7 @@ export class CommunityAgentsController {
 
   dispose(): void {
     this.#closed = true;
+    this.#turnControls.dispose();
     this.#cancelActivitySync(true);
     this.#activityGeneration++;
     this.#abort.abort();

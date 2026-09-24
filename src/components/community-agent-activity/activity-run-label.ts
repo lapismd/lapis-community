@@ -39,9 +39,12 @@ export function activityControlRows(
   const seen = new Set<string>();
   return scopes.filter((scope) => {
     if (!scope.sessionId) return false;
-    const key = [scope.scopeKey, scope.sessionId, scope.turnId ?? ""].join(
-      "\0",
-    );
+    const key = [
+      scope.scopeKey,
+      scope.requestId ?? "",
+      scope.sessionId,
+      scope.turnId ?? "",
+    ].join("\0");
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -88,11 +91,13 @@ function contextForScopeMatches(
 export function activityCancelTarget(scope: CommunityAgentControllerScope): {
   scopeKey: string;
   channelId?: string;
+  requestId?: string;
   sessionId: string;
   turnId: string;
 } {
   return {
     scopeKey: scope.scopeKey,
+    ...(scope.requestId ? { requestId: scope.requestId } : {}),
     ...(scope.channelId === undefined ? {} : { channelId: scope.channelId }),
     sessionId: scope.sessionId ?? "",
     turnId: scope.turnId ?? "",
