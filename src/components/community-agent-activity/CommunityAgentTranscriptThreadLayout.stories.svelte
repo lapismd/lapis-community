@@ -90,7 +90,7 @@
     const timedRows = canvasElement.querySelectorAll<HTMLElement>(
       '[data-ui-part="transcript-timed-row"]',
     );
-    expect(timedRows.length).toBeGreaterThanOrEqual(2);
+    expect(timedRows.length).toBeGreaterThanOrEqual(3);
 
     const firstTime = timedRows[0]!.querySelector<HTMLElement>(
       '[data-ui-part="transcript-timed-row-time"]',
@@ -122,7 +122,11 @@
     );
     expect(permission).not.toBeNull();
     await expect(permission!).toBeVisible();
+    expect(
+      permission!.closest('[data-ui-part="transcript-timed-row"]'),
+    ).not.toBeNull();
     const style = getComputedStyle(permission!);
+    expect(style.paddingLeft).toBe("22px");
     expect(style.textAlign).toBe("left");
     expect(style.whiteSpace).toBe("nowrap");
     expect(style.textOverflow).toBe("ellipsis");
