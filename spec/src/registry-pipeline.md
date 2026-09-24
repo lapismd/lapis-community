@@ -312,3 +312,8 @@ Vitest command for focused tests; `test:storybook:all` owns complete coverage.
 LC-UI-044 records the typed activity state and permission settlement owners, their regressions, and the reduced controller and scope-contract budgets in the architecture baseline.
 
 LC-UI-044 records approval-policy parsing, exact acknowledgement checks and the updated editor/Activity stories, with reduced controller/editor budgets.
+
+Application permission notifications extract relay EOSE classification, frame
+projection, and application toast ownership. The architecture baseline lowers
+the touched controller, session, application and harness budgets; their tests
+and validation record do not alter registry ingestion.

@@ -88,8 +88,7 @@ and host; no installed service was replaced.
 
 ## Remaining acceptance
 
-Application-level permission notifications and transcript comments still need
-Community integration.
+Transcript comments still need Community integration.
 Catch-up freshness, provider acceptance, disposable controller/relay/browser
 acceptance and affected Lapis consumers remain separate gates. No live controller
 has been replaced by these source checks.
@@ -139,3 +138,24 @@ along with Svelte/type checks, package build and publint. The Lapis Notes deskto
 host's five focused tests passed, including the ACP/MCP app-tool round trip
 against a freshly compiled controller. Full Lapis browser/packaged-host acceptance
 and the complete provider matrix remain separate pending gates.
+
+## Application permission notifications
+
+The initial production-controller notification target failed two cases and passed
+two. Replay is now identified at the relay EOSE boundary, and only first-seen live
+requests are eligible for an application toast. A separate newly discovered-agent
+regression failed once before preserving origin across directory verification.
+The five-case cold browser target initially had three failures: two assertions
+raced Sonner entrance animation, and the replay fixture published an ephemeral
+event without a subscriber. Assertions now wait for visibility, and replay is
+supplied as signed telemetry before EOSE in this fixture. All five pass, covering
+Activity closed, exact thread/turn navigation, remount deduplication, settlement,
+expiry and historical replay silence. Svelte autofixer reports no issues.
+
+The final focused controller/session/permission lane passed 72 tests. The complete
+`pnpm checks` aggregate passed: 1,131 unit tests (two skipped), 580 cold browser
+interaction/accessibility tests across eight groups, 67 disposable-relay tests,
+and one project-relay integration test (56 non-selected cases skipped). The
+packaged UI consumer passed all six viewport/theme combinations. Static,
+specification and type checks, Storybook build, package build and publint passed.
+Visual review and installed-controller acceptance remain separate.

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { provideApplicationNotifications } from "./application-notifications.svelte.js";
   import { agentRuntimeActions } from "../community-agent-activity/runtime-actions.js";
   import { createMessageReactionAction } from "./message-reaction-action.js";
   import { createCommunityApplicationSend } from "./application-send.js";
@@ -1085,35 +1086,21 @@
       : undefined,
   );
   const applicationAccount = $derived(applicationAuthentication?.account?.());
-  const authToastScope = $props.id();
   const reconnectAccountId = $derived(
     applicationAuthentication?.status?.() === "reconnect-required"
       ? applicationAccount?.account.id
       : undefined,
   );
-  $effect(() => {
-    const accountId = reconnectAccountId;
-    if (accountId === undefined) return;
-    const id = `${authToastScope}-reconnect-${accountId}`;
-    untrack(() =>
-      toast.info("Reconnect your Nostr signer", {
-        id,
-        description:
-          "Your account is remembered. Reconnect its signing key to send messages and perform actions.",
-        duration: Infinity,
-        dismissible: true,
-        closeButton: true,
-        action: {
-          label: "Reconnect signer",
-          onClick: () => {
-            void runAuthenticated(() => {});
-          },
-        },
-      }),
-    );
-    return () => {
-      toast.dismiss(id);
-    };
+  const notificationScope = $props.id();
+  provideApplicationNotifications({
+    scope: notificationScope,
+    reconnectAccountId: () => reconnectAccountId,
+    reconnect: () => {
+      void runAuthenticated(() => {});
+    },
+    agents: () => community.state.agents,
+    take: () => community.actions.agents?.takePermissionNotifications?.() ?? [],
+    open: openAgentActivity,
   });
   const memberCommandRoom = $derived(
     resolveMemberCommandRoom(

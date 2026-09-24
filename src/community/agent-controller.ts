@@ -1,3 +1,4 @@
+import { AgentFrameProjection } from "./agent-frame-projection.js";
 import { AgentTurnControls } from "./agent-turn-controls.js";
 import { sessionControl } from "./agent-session-controls.js";
 import type {
@@ -6,14 +7,12 @@ import type {
 } from "./agent-administration-contracts.js";
 import { confirmedRuntimeSettings } from "./agent-runtime-confirmation.js";
 import { activityPayloadState } from "./activity-frame-state.js";
-import { projectActivityScope } from "./activity-scope-projection.js";
 import { turnFrameIsTerminal, turnIsTerminal } from "./agent-turn-state.js";
 import {
   activityMatches,
   observerScope,
   controllerScopeId,
 } from "./agent-activity-context.js";
-import { activityScopeStorageKey } from "./activity-frame-state.js";
 import type {
   CommunityAgentActivityContext,
   CommunityAgentActivitySyncContext,
@@ -57,10 +56,7 @@ import {
   parseMemoryState,
   parseRuntimeState,
 } from "./agent-state-parsers.js";
-import {
-  ActivityPermissionLedger,
-  replaceScopePendingPermissions,
-} from "./activity-sync-permissions.js";
+import { replaceScopePendingPermissions } from "./activity-sync-permissions.js";
 import { sweepExpiredPermissionState } from "./permission-expiry.js";
 
 interface AgentControllerOptions {
@@ -102,13 +98,15 @@ export class CommunityAgentsController {
   #ownerChannels = new Set<string>();
   #metadataIds = new Set<string>();
   #seen = new Set<string>();
-  #unknownFrames: NostrEvent[] = [];
+  #unknownFrames: Array<{
+    event: NostrEvent;
+    origin: "live" | "replay" | undefined;
+  }> = [];
   #workingUntil = new Map<
     string,
     Map<string, { until: number; timestamp: number; seq: number }>
   >();
-  #permissions = new ActivityPermissionLedger();
-  #controllerSequence = new Map<string, number>();
+  #frames = new AgentFrameProjection();
   #typingUntil = new Map<string, number>();
   #decodedFrames = new Map<string, CommunityAgentActivityItem["frame"]>();
   #refreshRun: Promise<void> | undefined;
@@ -148,6 +146,8 @@ export class CommunityAgentsController {
   #state: CommunityAgentsState;
 
   readonly actions: CommunityAgentsActions = {
+    takePermissionNotifications: () =>
+      this.#frames.notices.take(this.#state, this.#now() * 1000),
     refresh: async () => {
       this.#archivePaused = false;
       this.#decodePaused = false;
@@ -320,7 +320,7 @@ export class CommunityAgentsController {
       await archive.clear(this.#archiveScope(), pubkey);
       if (this.#closed) return;
       this.#decodedFrames.clear();
-      this.#controllerSequence.clear();
+      this.#frames.sequences.clear();
       this.#archivePaused = false;
       this.#update({
         archiveError: undefined,
@@ -603,7 +603,7 @@ export class CommunityAgentsController {
         replacement = await this.#options.session.subscribe(
           pubkeys,
           {
-            onevent: (event) => this.#receive(event),
+            onevent: (event, origin) => this.#receive(event, origin),
             onclose: () => {
               if (this.#subscription !== replacement) return;
               this.#cancelActivitySync(true);
@@ -638,8 +638,8 @@ export class CommunityAgentsController {
       if (directory.capabilities.directory) this.#update({ status: "ready" });
       const pending = this.#unknownFrames;
       this.#unknownFrames = [];
-      for (const event of pending)
-        if (allowed.has(event.pubkey)) this.#receive(event);
+      for (const { event, origin } of pending)
+        if (allowed.has(event.pubkey)) this.#receive(event, origin);
       try {
         for (const event of await this.#options.session.loadPresence(
           pubkeys,
@@ -676,7 +676,7 @@ export class CommunityAgentsController {
     }, 1_000);
   }
 
-  #receive(input: NostrEvent): void {
+  #receive(input: NostrEvent, origin?: "live" | "replay"): void {
     if (this.#closed) return;
     const event = signedAgentEvent(input);
     if (!event) return;
@@ -699,7 +699,7 @@ export class CommunityAgentsController {
     );
     if (!agent) {
       if (event.kind === 24200 && this.#unknownFrames.length < 100) {
-        this.#unknownFrames.push(event);
+        this.#unknownFrames.push({ event, origin });
         this.#scheduleRefresh();
       }
       return;
@@ -803,7 +803,7 @@ export class CommunityAgentsController {
       };
       if (!this.#options.identity.nip44 || this.#decodePaused)
         this.#queueArchiveRecord(record);
-      this.#decodeLive(event, record);
+      this.#decodeLive(event, record, origin === "live");
     }
   }
 
@@ -860,7 +860,11 @@ export class CommunityAgentsController {
     }
   }
 
-  #decodeLive(event: NostrEvent, record: CommunityAgentArchiveRecord): void {
+  #decodeLive(
+    event: NostrEvent,
+    record: CommunityAgentArchiveRecord,
+    live = false,
+  ): void {
     if (
       !this.#options.identity.nip44 ||
       this.#decodePaused ||
@@ -897,7 +901,7 @@ export class CommunityAgentsController {
           if (this.#applyAdministrationFrame(event.pubkey, frame)) return;
           this.#queueArchiveRecord(record);
           this.#cacheFrame(event.id, frame);
-          this.#applyControllerFrame(event.pubkey, frame);
+          this.#applyControllerFrame(event.pubkey, frame, undefined, live);
           this.#applyWorkingFrame(event.pubkey, frame, event.created_at);
           this.#tick(false);
           if (
@@ -1295,7 +1299,7 @@ export class CommunityAgentsController {
         ...snapshots.map(({ frame: snapshot }) => snapshot.seq),
       );
       const currentSequence = snapshotScopeKey
-        ? this.#controllerSequence.get(
+        ? this.#frames.sequences.get(
             JSON.stringify([
               controllerScopeId(request.agentPubkey, snapshotScopeKey),
               streamId,
@@ -1311,7 +1315,7 @@ export class CommunityAgentsController {
             this.#state.pendingPermissions,
             request.agentPubkey,
             snapshotScopeKey,
-            this.#permissions.snapshot(
+            this.#frames.permissions.snapshot(
               request.agentPubkey,
               snapshots.map(({ frame }) => frame),
               this.#now() * 1_000,
@@ -1349,7 +1353,7 @@ export class CommunityAgentsController {
           request.agentPubkey,
           snapshot.frame,
           outer.created_at * 1_000,
-          true,
+          false,
         );
         this.#applyWorkingFrame(
           request.agentPubkey,
@@ -1753,57 +1757,17 @@ export class CommunityAgentsController {
     agentPubkey: string,
     frame: CommunityAgentActivityItem["frame"],
     observedAt?: number,
-    _authoritativeSnapshot = false,
+    live = false,
   ): void {
-    const payload = observerRecord(frame.payload);
-    const scopeKey = observerText(payload.scopeKey, 4_096);
-    const scopeId = controllerScopeId(agentPubkey, scopeKey);
-    const sequenceKey = JSON.stringify([scopeId, frame.streamId ?? "legacy"]);
-    const previousSequence = this.#controllerSequence.get(sequenceKey);
-    if (previousSequence !== undefined && frame.seq <= previousSequence) return;
-    this.#controllerSequence.set(sequenceKey, frame.seq);
-    const terminal = turnFrameIsTerminal(frame.kind);
-    const pending = this.#permissions.apply(
-      this.#state.pendingPermissions,
+    const patch = this.#frames.apply(
+      this.#state,
       agentPubkey,
       frame,
-      this.#now() * 1_000,
-    );
-    if (pending) this.#update({ pendingPermissions: pending });
-    const requestId =
-      observerText(payload.lifecycleRequestId, 512) ||
-      observerText(payload.requestId, 512) ||
-      (frame.turnId ?? "");
-    const key = activityScopeStorageKey(agentPubkey, scopeKey, requestId);
-    const previous = this.#state.conversationScopes?.[key];
-    const scope = projectActivityScope(
-      agentPubkey,
-      frame,
-      previous,
-      this.#state.pendingPermissions[agentPubkey] ?? [],
-      this.#now() * 1_000,
+      this.#now() * 1000,
       observedAt,
+      live,
     );
-    if (scope) {
-      this.#update({
-        controllerScopes: {
-          ...this.#state.controllerScopes,
-          [agentPubkey]: scope,
-        },
-        conversationScopes: { ...this.#state.conversationScopes, [key]: scope },
-      });
-    }
-    if (terminal)
-      this.#update({
-        publicWorking: (this.#state.publicWorking ?? []).filter(
-          (signal) =>
-            !(
-              signal.agentPubkey === agentPubkey &&
-              signal.channelId === frame.channelId &&
-              signal.threadRootId === observerScope(frame).threadRootId
-            ),
-        ),
-      });
+    if (patch) this.#update(patch);
     this.#sweepExpiredPermissions();
   }
 
@@ -1824,7 +1788,7 @@ export class CommunityAgentsController {
     this.#administrationRequests.clear();
     this.#unknownFrames = [];
     this.#workingUntil.clear();
-    this.#controllerSequence.clear();
+    this.#frames.sequences.clear();
     this.#typingUntil.clear();
     this.#decodedFrames.clear();
     this.#state = {

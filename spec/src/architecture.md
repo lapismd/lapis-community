@@ -850,3 +850,7 @@ For LC-UI-044, approval selection and execution-policy parsing have dedicated ow
 The profile editor interaction play lives in a bounded story helper so its existing story hotspot shrinks while testing policy migration alongside the saved agent name.
 
 Owner turn-control correlation and exact scope selection MUST have dedicated owners outside the agent controller facade. Community action forwarding MUST preserve the displayed request/session/turn through each adapter.
+
+Agent frame projection, notification eligibility and subscription delivery origin
+have bounded owners. Application notification effects live outside the application
+composition root; neither Activity mounting nor historical replay owns them.

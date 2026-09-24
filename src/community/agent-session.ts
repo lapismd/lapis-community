@@ -1,3 +1,4 @@
+import { subscribeAgentEvents } from "./agent-event-subscription.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { matchFilter } from "nostr-tools/filter";
@@ -461,7 +462,7 @@ class AgentSession implements CommunityAgentSession {
   async subscribe(
     pubkeys: readonly string[],
     handlers: {
-      onevent(event: NostrEvent): void;
+      onevent(event: NostrEvent, origin?: "live" | "replay"): void;
       onclose(reason: string): void;
     },
     signal?: AbortSignal,
@@ -470,48 +471,15 @@ class AgentSession implements CommunityAgentSession {
     const owner = await this.#options.identity.getPublicKey();
     if (!info.capabilities.directory) return { close() {} };
     await this.#options.authenticate(signal);
-    const filters: RelayFilter[] = [
-      { kinds: [30175, 30177, 3, 5], authors: [owner] },
-      { kinds: [39002], authors: [info.self] },
-      ...(info.capabilities.activity
-        ? [{ kinds: [24200], "#p": [owner], since: this.#now() - 300 }]
-        : []),
-    ];
-    for (let start = 0; start < pubkeys.length; start += 100)
-      filters.push({
-        kinds: [0, 10100, 5, 20001, 20002],
-        authors: pubkeys.slice(start, start + 100),
-      });
-    let closed = false;
-    const subscriptions: { close(): void }[] = [];
-    const close = () => {
-      closed = true;
-      subscriptions.forEach((subscription) => subscription.close());
-    };
-    try {
-      for (const filter of filters)
-        subscriptions.push(
-          await this.#options.relay.subscribe(
-            filter,
-            {
-              onevent: (input) => {
-                const event = signedAgentEvent(input);
-                if (!closed && event && matchFilter(filter, event))
-                  handlers.onevent(event);
-              },
-              onclose: (reason) => {
-                if (!closed && !signal?.aborted) handlers.onclose(reason);
-              },
-            },
-            signal,
-          ),
-        );
-      signal?.throwIfAborted();
-      return { close };
-    } catch (error) {
-      close();
-      throw error;
-    }
+    return subscribeAgentEvents(
+      this.#options.relay,
+      info,
+      owner,
+      pubkeys,
+      handlers,
+      this.#now(),
+      signal,
+    );
   }
 
   setFollow(

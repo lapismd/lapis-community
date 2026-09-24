@@ -681,3 +681,11 @@ Expiry alone provides no evidence of resumed execution, so clients display unkno
 status until the controller reports another state.
 
 For LC-NOSTR-025, `continue_turn` uses version 2 with a stable `requestId`, `targetRequestId`, unchanged `scopeKey`, `expectedSessionId` and `expectedTurnId`; it omits `h`. A matching encrypted `turn_control_state` or correlated `administration_error` settles the client request. A publication acknowledgement alone MUST NOT claim continuation succeeded. Retries, including after reload, retain the command identity derived from the exact target. Mismatched and stale acknowledgements cannot settle another target.
+
+Permission notification eligibility is a controller-owned projection of verified
+subscription frames. The agent session identifies replay until relay EOSE and
+live delivery afterwards. Archive pages, snapshots and reconnect replay never
+create new notifications. A request is claimed for notification at most once
+per controller lifetime, independently of Activity navigation; expired and
+settled requests cannot be claimed. Notifications preserve the exact agent,
+session, turn and originating conversation without publishing any new event.

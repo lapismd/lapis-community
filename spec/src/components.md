@@ -1134,3 +1134,10 @@ NOT synchronously write layout-dependent header state during resize delivery.
 For LC-UI-044, agent settings MUST offer Allow all and Ask for every harness, independently of provider mode catalogs. Allow all is the Community default for missing legacy selections, including indistinguishable old Ask values. Saving Ask MUST send an explicit policy. Changing model or harness MUST preserve the policy choice. Runtime summaries MUST identify policy as unreported when an older controller omits it, rather than claim that a policy was applied.
 
 For LC-UI-044, Continue MUST target the displayed request, session and turn. It MUST retain pending, unconfirmed, acknowledged and rejected control state across Activity navigation, show an actionable failure, and reuse the same command identity on retry. Failed and cancelled attempts are continuable; uncertain or unavailable execution MUST be reconciled before dispatch. Cancellation remains a separate control and MUST never select a different conversation because it updated most recently.
+
+Application-level notifications own agent permission toasts alongside signer
+reconnection. Live approvals notify while Activity is closed. The notification
+action opens the exact conversation's Activity and focuses its turn. Toasts are
+dismissed when their request resolves, expires or the application signs out;
+remounting Activity or the application cannot replay an already claimed toast.
+The Activity permission stack renders actionable cards without creating toasts.

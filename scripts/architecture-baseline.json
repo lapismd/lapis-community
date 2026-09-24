@@ -405,8 +405,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-contracts.ts": {
-      "countedLines": 545,
-      "physicalLines": 592,
+      "countedLines": 537,
+      "physicalLines": 584,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -424,8 +424,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-controller.ts": {
-      "countedLines": 1932,
-      "physicalLines": 1982,
+      "countedLines": 1896,
+      "physicalLines": 1946,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Agent controller factory; runtime and memory parsers extracted"
@@ -577,8 +577,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-session.ts": {
-      "countedLines": 1386,
-      "physicalLines": 1442,
+      "countedLines": 1354,
+      "physicalLines": 1410,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Agent session factory; control validation extracted"
@@ -1757,8 +1757,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityAgentsApplicationStoryHarness.svelte": {
-      "countedLines": 290,
-      "physicalLines": 292,
+      "countedLines": 277,
+      "physicalLines": 279,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplication.stories.svelte": {
@@ -1772,8 +1772,8 @@
       "stylePhysical": 0
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9043,
-      "physicalLines": 9408,
+      "countedLines": 9030,
+      "physicalLines": 9395,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -5136,8 +5136,8 @@
       "physicalLines": 107
     },
     "src/components/community-agent-activity/ActivityPermissionStack.svelte": {
-      "countedLines": 77,
-      "physicalLines": 82
+      "countedLines": 62,
+      "physicalLines": 66
     },
     "src/components/community-agent-activity/ActivityTurnList.svelte": {
       "countedLines": 213,

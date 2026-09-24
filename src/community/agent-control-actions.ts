@@ -3,7 +3,11 @@ import type { ControllerOperations } from "./controller/operations.js";
 
 type ControlActions = Pick<
   CommunityAgentsActions,
-  "continueTurn" | "cancelTurn" | "resetConversation" | "respondPermission"
+  | "continueTurn"
+  | "cancelTurn"
+  | "resetConversation"
+  | "respondPermission"
+  | "takePermissionNotifications"
 >;
 /** Keep displayed identities intact through the application operation boundary. */
 export function agentControlActions(
@@ -17,6 +21,8 @@ export function agentControlActions(
     return current;
   }
   return {
+    takePermissionNotifications: () =>
+      getActions()?.takePermissionNotifications?.() ?? [],
     continueTurn: (pubkey, scopeKey, target) =>
       run(`agent:continue:${pubkey}:${target.requestId}`, () =>
         actions().continueTurn(pubkey, scopeKey, target),

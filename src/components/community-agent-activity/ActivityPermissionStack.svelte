@@ -1,7 +1,4 @@
 <script lang="ts">
-  import { untrack } from "svelte";
-  import { SvelteSet } from "svelte/reactivity";
-  import { toast } from "svelte-sonner";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import type {
     CommunityAgentIdentity,
@@ -20,20 +17,7 @@
     permissions: CommunityAgentsState["pendingPermissions"][string];
     onRespondPermission?: AgentRuntimeActions["onRespondPermission"];
   } = $props();
-  const announced = new SvelteSet<string>();
   let error = $state("");
-
-  $effect(() => {
-    const waiting = permissions.map((permission) => permission.requestId);
-    const name = agent.name;
-    untrack(() => {
-      for (const requestId of waiting) {
-        if (announced.has(requestId)) continue;
-        announced.add(requestId);
-        toast.message(`${name} is waiting for your permission`);
-      }
-    });
-  });
 
   async function decide(
     permission: (typeof permissions)[number],

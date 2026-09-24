@@ -1,5 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import PermissionFixture from "./ApplicationPermissionStoryFixture.svelte";
+  import {
+    publishStoryActivity,
+    installStoryPermissionReplay,
+  } from "../../testing/application-permission-fixture.js";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import { AppShellController } from "@lapismd/design-core/shell";
   import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
@@ -26,14 +31,19 @@
     narrow = false,
     showControls = true,
     manualProcessing = false,
+    notifications = false,
+    replayPermission = false,
   }: {
     narrow?: boolean;
     showControls?: boolean;
     manualProcessing?: boolean;
+    notifications?: boolean;
+    replayPermission?: boolean;
   } = $props();
   let controller = $state.raw<CommunityController>();
   let runtime = $state.raw<CommunityTestRuntime>();
   let error = $state("");
+  let mounted = $state(true);
   let received = $state(false);
   let processing = {
     enabled: true,
@@ -195,6 +205,7 @@
             fetch: fetchBridge,
           }),
         });
+        if (replayPermission) installStoryPermissionReplay(created);
         controller.initialize();
       })
       .catch((cause) => (error = String(cause)));
@@ -206,44 +217,17 @@
   });
   async function emitActivity() {
     if (!runtime) return;
-    const now = Math.floor(Date.now() / 1000);
-    await runtime.relay.publish(
-      finalizeEvent(
-        {
-          kind: 24200,
-          created_at: now,
-          tags: [
-            ["p", storyOwnerPubkey],
-            ["agent", storyAgentPubkey],
-            ["frame", "telemetry"],
-            ["h", "general"],
-          ],
-          content: nip44.v2.encrypt(
-            JSON.stringify({
-              version: 2,
-              seq: 1,
-              timestamp: new Date().toISOString(),
-              kind: "turn_started",
-              channelId: "general",
-              turnId: "story",
-              payload: {
-                scopeKey: "relay/general/agent/channel",
-                entry: {
-                  id: "story-request",
-                  type: "message",
-                  role: "user",
-                  text: "Captured while the activity panel was closed",
-                  authorPubkey: storyOwnerPubkey,
-                  createdAt: new Date().toISOString(),
-                },
-              },
-            }),
-            nip44.v2.utils.getConversationKey(storyAgentKey, storyOwnerPubkey),
-          ),
-        },
-        storyAgentKey,
-      ),
-    );
+    await publishStoryActivity(runtime, "turn_started", {
+      scopeKey: "relay/general/agent/channel",
+      entry: {
+        id: "story-request",
+        type: "message",
+        role: "user",
+        text: "Captured while the activity panel was closed",
+        authorPubkey: storyOwnerPubkey,
+        createdAt: new Date().toISOString(),
+      },
+    });
     received = true;
   }
 </script>
@@ -265,13 +249,16 @@
         >Acknowledge processing change</Button
       >
     {/if}
-    <CommunityApplication
-      {controller}
-      shellController={shell}
-      initialDestination="agents"
-      displayMode="auto"
-      registryEnabled={false}
-    />
+    {#if notifications && runtime}
+      <PermissionFixture {runtime} {controller} bind:mounted />
+    {/if}
+    {#if mounted}<CommunityApplication
+        {controller}
+        shellController={shell}
+        initialDestination="agents"
+        displayMode="auto"
+        registryEnabled={false}
+      />{/if}
   {:else}<p role="status">Preparing agent community…</p>{/if}
 </div>
 

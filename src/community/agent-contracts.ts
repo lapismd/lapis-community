@@ -1,3 +1,5 @@
+import type { CommunityAgentPermissionRequest } from "./agent-permission-contracts.js";
+import type { AgentPermissionNotice } from "./agent-permission-notices.js";
 import type {
   AgentTurnActions,
   AgentTurnControlState,
@@ -170,7 +172,7 @@ export interface CommunityAgentSession {
   subscribe(
     pubkeys: readonly string[],
     handlers: {
-      onevent(event: NostrEvent): void;
+      onevent(event: NostrEvent, origin?: "live" | "replay"): void;
       onclose(reason: string): void;
     },
     signal?: AbortSignal,
@@ -463,18 +465,7 @@ export interface CommunityAgentActivityItem {
 
 export type { CommunityAgentTranscriptEntry } from "./agent-transcript-contracts.js";
 
-export interface CommunityAgentPermissionRequest {
-  agentPubkey: string;
-  requestId: string;
-  scopeKey: string;
-  tool: string;
-  input?: unknown;
-  options: readonly CommunityAgentPermissionDecision[];
-  expiresAt?: number;
-  channelId?: string;
-  sessionId?: string;
-  turnId?: string;
-}
+export type { CommunityAgentPermissionRequest } from "./agent-permission-contracts.js";
 
 export type CommunityAgentActivityContext = { focusTurnId?: string } & (
   | { kind: "overview" }
@@ -528,6 +519,7 @@ export interface CommunityAgentsState {
 }
 
 export interface CommunityAgentsActions extends AgentTurnActions {
+  takePermissionNotifications?(): readonly AgentPermissionNotice[];
   refresh(): Promise<void>;
   registerAgent(pubkey: string): Promise<void>;
   savePersona(input: CommunityAgentPersonaSaveInput): Promise<void>;
