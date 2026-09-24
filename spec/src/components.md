@@ -1,3 +1,9 @@
+For LC-UI-036, repository Log MUST leave its loading skeleton when replayed
+history contains multiple native parents that collapse to the same visible
+change or reach the same ancestor through omitted empty commits. The graph
+MUST render one edge per retained parent and keep revision selection usable.
+The Repository Log Replay stories cover both cases and remain visual-pending.
+
 For LC-UI-036, People role management MUST include the built-in Maintainer
 role (“Can create repositories on this channel and review or merge its pull
 requests”) beside Writer. The create-repository dialog MUST disable channels

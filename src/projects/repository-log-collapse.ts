@@ -155,18 +155,17 @@ function ancestorsOf(
   const byId = new Map(
     revisions.map((revision) => [revision.eventId, revision]),
   );
-  const seen = new Set<string>();
-  const visible: RepositoryLogRevision[] = [];
+  const visible = new Map<string, RepositoryLogRevision>();
   const queue = seeds.filter((id) => byId.has(id));
-  while (queue.length > 0 && visible.length < ANCESTOR_BUDGET) {
+  while (queue.length > 0 && visible.size < ANCESTOR_BUDGET) {
     const id = queue.shift();
-    if (!id || !seen.add(id)) continue;
+    if (!id || visible.has(id)) continue;
     const revision = byId.get(id);
     if (!revision) continue;
-    visible.push(revision);
+    visible.set(id, revision);
     queue.push(...revision.parents);
   }
-  return visible;
+  return [...visible.values()];
 }
 
 function omitAbandonedEmpties(
@@ -205,7 +204,8 @@ function skipDroppedParents(
   const queue = [...parents];
   while (queue.length > 0) {
     const parentId = queue.shift();
-    if (!parentId || !seen.add(parentId)) continue;
+    if (!parentId || seen.has(parentId)) continue;
+    seen.add(parentId);
     if (drop.has(parentId)) {
       const dropped = byId.get(parentId);
       if (dropped) queue.push(...dropped.parents);
@@ -236,7 +236,7 @@ function remapParents(
   keptIds: Set<string>,
   aliases: Map<string, string>,
 ): string[] {
-  const parents: string[] = [];
+  const parents = new Set<string>();
   const seen = new Set<string>();
   const queue = [...revision.parents];
   while (queue.length > 0) {
@@ -246,18 +246,18 @@ function remapParents(
     }
     seen.add(parentId);
     if (keptIds.has(parentId)) {
-      parents.push(parentId);
+      parents.add(parentId);
       continue;
     }
     const mapped = aliases.get(parentId);
     if (mapped && mapped !== revision.eventId && keptIds.has(mapped)) {
-      parents.push(mapped);
+      parents.add(mapped);
       continue;
     }
     const dropped = byId.get(parentId);
     if (dropped) queue.push(...dropped.parents);
   }
-  return parents;
+  return [...parents];
 }
 
 function preferredRevision(

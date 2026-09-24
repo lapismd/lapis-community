@@ -179,6 +179,9 @@ bookmarks. The current view is the `3903` named by the latest kind `3904`
 `metadata.ended_at_ms`, or the newest `3903` when that time is absent. One
 row per `change_id` keeps the commit that view names. Abandoned empty
 working copies and stale-view chips MUST NOT appear.
+For LC-NOSTR-021, replay MUST visit each native commit once and deduplicate
+parent edges after remapping rewrites and bypassing omitted empty commits.
+Those display transformations MUST NOT modify signed source events.
 Kind `3901` keeps the 2,000-event work-item page. Kinds `3903`/`3905`,
 `3902`, and `3904` MUST use their own repository-scoped `#a` page limits.
 Op Log MUST project kind `3904` operation-parent edges with a kind `3905`
