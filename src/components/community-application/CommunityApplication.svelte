@@ -659,6 +659,12 @@
   let projectRepositoryBranches = $state.raw<readonly ProjectForgeRef[]>([]);
   let projectSelectedRepositoryBranch = $state("");
   let projectSelectedRepositoryBranchOwner = $state("");
+  const projectVisibleRepositoryBranch = $derived(
+    projectSelectedRepositoryBranch &&
+      projectSelectedRepositoryBranchOwner === selectedRepositoryCoordinate
+      ? projectSelectedRepositoryBranch
+      : projectCommitBranch,
+  );
   let projectCommitActivity = $state.raw<readonly ProjectForgeCommitActivity[]>(
     [],
   );
@@ -6741,7 +6747,7 @@
           commitActivity={projectCommitActivity}
           commitBranch={projectCommitBranch}
           repositoryBranches={projectRepositoryBranches}
-          selectedRepositoryBranch={projectCommitBranch}
+          selectedRepositoryBranch={projectVisibleRepositoryBranch}
           {...selectedProjectCommit === undefined
             ? {}
             : { selectedCommit: selectedProjectCommit }}
@@ -7182,7 +7188,7 @@
         commitActivity={projectCommitActivity}
         commitBranch={projectCommitBranch}
         repositoryBranches={projectRepositoryBranches}
-        selectedRepositoryBranch={projectCommitBranch}
+        selectedRepositoryBranch={projectVisibleRepositoryBranch}
         {...selectedProjectCommit === undefined
           ? {}
           : { selectedCommit: selectedProjectCommit }}

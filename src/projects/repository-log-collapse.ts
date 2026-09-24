@@ -48,14 +48,15 @@ export function projectRepositoryLog(
   collectDevices: (visible: Set<string>) => RepositoryLogDevice[],
   order: (revisions: RepositoryLogRevision[]) => RepositoryLogRevision[],
   focusedCommitId?: string | null,
+  selectedSeedId?: string | null,
 ): RepositoryLogGraph {
   const pinned = pinView(views, contextViewId);
   const viewSeeds = views.map((view) =>
     seedsFromViewBody(view.body, view === pinned),
   );
-  const seeds = collectSeeds(viewSeeds);
+  const seeds = selectedSeedId ? [selectedSeedId] : collectSeeds(viewSeeds);
   const focus = parsed.find((revision) => revision.eventId === focusedCommitId);
-  if (focus) seeds.unshift(focus.eventId);
+  if (focus && !seeds.includes(focus.eventId)) seeds.unshift(focus.eventId);
   const collapsed = collapseRepositoryLogRevisions(
     parsed,
     new Set(focus ? [focus.eventId] : seeds),

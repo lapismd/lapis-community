@@ -69,6 +69,11 @@
     gap: 0.15rem;
   }
 
+  .community-revision-graph-copy__body
+    :global(.community-revision-graph-message) {
+    width: 100%;
+  }
+
   .community-revision-graph-copy__meta {
     display: flex;
     min-width: 0;

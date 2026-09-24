@@ -164,12 +164,13 @@
           href={revisionHref?.(row.revision)}
           onSelect={onSelect ? () => onSelect?.(row.revision) : undefined}
         />
+        <CommunityProjectsRevisionGraphIds
+          changeId={row.changeIdEncoded}
+          commitId={row.revision.eventId}
+          {commitLabel}
+          placement="inline"
+        />
       </div>
-      <CommunityProjectsRevisionGraphIds
-        changeId={row.changeIdEncoded}
-        commitId={row.revision.eventId}
-        {commitLabel}
-      />
       {#if selectedId === row.revision.eventId && selectedFiles}
         <div class="community-revision-graph__files">
           {@render selectedFiles()}
@@ -181,6 +182,7 @@
 
 <style>
   .community-revision-graph {
+    min-width: 0;
     list-style: none;
     margin: 0;
     padding: 0.5rem 0;
@@ -189,6 +191,7 @@
   .community-revision-graph__item {
     position: relative;
     display: flex;
+    min-width: 0;
     flex-direction: column;
   }
 
@@ -210,10 +213,13 @@
     position: relative;
     z-index: 1;
     display: flex;
+    box-sizing: border-box;
+    min-width: 0;
     align-items: center;
     width: 100%;
     margin: 0;
-    padding-right: 7.5rem;
+    gap: 0.5rem;
+    padding-right: 0.5rem;
     border: 0;
     color: inherit;
     background: transparent;

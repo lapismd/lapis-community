@@ -2646,7 +2646,10 @@
           {...selectedRepository
             ? { repositoryAddress: selectedRepository.address.coordinate }
             : {}}
+          branch={activeRepositoryBranch}
+          branches={repositoryBranches}
           {loading}
+          onSelectBranch={selectRepositoryBranch}
           {onLoadRepositoryCommit}
         />
       {:else if view === "directory" || view === "projects"}

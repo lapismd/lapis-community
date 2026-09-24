@@ -1,14 +1,16 @@
 <script lang="ts">
   import { agentContextRecordCount } from "../../projects/agent-context-record-count.js";
-  import * as Empty from "@lapismd/design-core/shadcn/empty";
-  import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
   import { Skeleton } from "@lapismd/design-core/shadcn/skeleton";
   import * as ColumnCanvas from "@lapismd/design-core/shadcn/column-canvas";
   import { untrack } from "svelte";
   import { projectRouteToHash } from "../community-application/project-route.js";
 
   import type { NostrEvent } from "../../protocol/index.js";
-  import type { ProjectForgeCommitResponse } from "../../projects/index.js";
+  import type {
+    ProjectForgeCommitResponse,
+    ProjectForgeRef,
+  } from "../../projects/index.js";
+  import { repositoryLogBranchSeed } from "../../projects/repository-log-branch.js";
   import { createRepositoryLogSelection } from "../../projects/repository-log-selection.svelte.js";
   import { createRepositoryLogCanvas } from "../../projects/repository-log-canvas.js";
   import { buildRepositoryEvolutionLog } from "../../projects/repository-evolution-log.js";
@@ -32,6 +34,8 @@
     repositoryLogFilePatch,
   } from "../../projects/repository-log-files.js";
   import CommunityProjectsRevisionGraph from "./CommunityProjectsRevisionGraph.svelte";
+  import CommunityProjectsRepositoryLogHeader from "./CommunityProjectsRepositoryLogHeader.svelte";
+  import CommunityProjectsRepositoryLogEmpty from "./CommunityProjectsRepositoryLogEmpty.svelte";
   import CommunityProjectsRepositoryLogDiff from "./CommunityProjectsRepositoryLogDiff.svelte";
   import CommunityProjectsRepositoryLogFiles from "./CommunityProjectsRepositoryLogFiles.svelte";
   import CommunityProjectsRepositoryAgentContext from "./CommunityProjectsRepositoryAgentContext.svelte";
@@ -42,12 +46,18 @@
     loading = false,
     members = [],
     repositoryAddress,
+    branch = "",
+    branches = [],
+    onSelectBranch,
     onLoadRepositoryCommit,
   }: {
     events?: readonly NostrEvent[] | undefined;
     loading?: boolean | undefined;
     members?: readonly CommunityMemberModel[];
     repositoryAddress?: string;
+    branch?: string | undefined;
+    branches?: readonly ProjectForgeRef[] | undefined;
+    onSelectBranch?: ((value: string | undefined) => void) | undefined;
     onLoadRepositoryCommit?:
       | ((
           sha: string,
@@ -57,11 +67,24 @@
   } = $props();
 
   const pane = useRepositoryLogPane() ?? createRepositoryLogPane();
-  const logGraph = $derived(buildRepositoryLog(events, pane.requestedCommitId));
+  const selectedBranchCommitId = $derived(
+    repositoryLogBranchSeed(branches, branch),
+  );
+  const logGraph = $derived(
+    buildRepositoryLog(events, pane.requestedCommitId, selectedBranchCommitId),
+  );
   const opGraph = $derived(buildRepositoryOperationLog(events));
   const graph = $derived(pane.pane === "oplog" ? opGraph : logGraph);
+  const revisionsTitle = $derived(pane.pane === "oplog" ? "Op Log" : "Log");
   let visibleCount = $state(REPOSITORY_LOG_PAGE_SIZE);
+  let previousLogBranch = $state(untrack(() => branch));
+  let branchRefreshPending = $state(false);
   const pagedGraph = $derived(takeRepositoryLogPage(graph, visibleCount));
+  const hasRevisions = $derived(graph.revisions.length > 0);
+  const showBranchSkeleton = $derived(branchRefreshPending && loading);
+  const showInitialSkeleton = $derived(
+    loading && !hasRevisions && !branchRefreshPending,
+  );
   const evoGraph = $derived(
     pane.pane === "log" && pane.evologOpen && pane.selectedCommitId
       ? buildRepositoryEvolutionLog(
@@ -116,40 +139,46 @@
   $effect(() => {
     if (selectedAgentContexts.length > 0) canvas.open("agent-context");
   });
+
+  $effect(() => {
+    if (branch !== previousLogBranch) {
+      previousLogBranch = branch;
+      branchRefreshPending = pane.pane === "log";
+      visibleCount = REPOSITORY_LOG_PAGE_SIZE;
+    }
+    if (!loading) branchRefreshPending = false;
+  });
+
+  function selectLogBranch(value: string | undefined): void {
+    if (!value || value === branch) return;
+    onSelectBranch?.(value);
+    pane.navigateToCommit(null);
+    pane.setLogSelection(null, null);
+    canvas.clear();
+  }
 </script>
 
 <section class="community-projects-repository-log" aria-label="Repository log">
   {#if selection.unavailable}
     <p role="status">This commit is not available in the repository log.</p>
   {/if}
-  {#if loading && graph.revisions.length === 0}
+  {#if showInitialSkeleton}
     <div class="community-projects-repository-log__skeleton" aria-busy="true">
       <span class="sr-only">Loading repository log</span>
       <Skeleton />
       <Skeleton />
       <Skeleton />
     </div>
-  {:else if graph.revisions.length === 0}
-    <Empty.Root class="community-projects__empty">
-      <Empty.Header>
-        <Empty.Media variant="icon"
-          ><GitCommitHorizontalIcon aria-hidden="true" /></Empty.Media
-        >
-        <Empty.Title>No projection yet</Empty.Title>
-        <Empty.Description>
-          {pane.pane === "oplog"
-            ? "Op Log appears after jj-nostr publishes kind 3904 for this repository."
-            : "Repository Log appears after jj-nostr publishes kinds 3902 and 3903 for this repository. Commits still shows dest-Git history."}
-        </Empty.Description>
-      </Empty.Header>
-    </Empty.Root>
   {:else}
     <ColumnCanvas.Root controller={canvas}>
-      <ColumnCanvas.Column
-        id="revisions"
-        title={pane.pane === "oplog" ? "Op Log" : "Log"}
-        count={graph.revisions.length}
-      >
+      <ColumnCanvas.Column id="revisions">
+        <CommunityProjectsRepositoryLogHeader
+          title={revisionsTitle}
+          count={graph.revisions.length}
+          branch={pane.pane === "log" ? branch : ""}
+          branches={pane.pane === "log" ? branches : []}
+          onSelectBranch={pane.pane === "log" ? selectLogBranch : undefined}
+        />
         <ColumnCanvas.Body
           onScrollNearEnd={() => {
             visibleCount = nextRepositoryLogVisible(
@@ -158,41 +187,55 @@
             );
           }}
         >
-          <CommunityProjectsRevisionGraph
-            {members}
-            revisions={pagedGraph.revisions}
-            devices={pagedGraph.devices}
-            selectedId={selection.id}
-            revisionHref={(revision) =>
-              repositoryAddress && pane.pane === "log"
-                ? projectRouteToHash({
-                    kind: "repository",
-                    coordinate: repositoryAddress,
-                    surface: "log",
-                    commitSha: revision.eventId,
-                  })
-                : undefined}
-            graphLabel={pane.pane === "oplog"
-              ? "Operation graph"
-              : "Revision graph"}
-            commitLabel={pane.pane === "oplog" ? "operation ID" : "commit ID"}
-            onSelect={(revision) =>
-              void selection.selectRevision(revision.eventId)}
-          >
-            {#snippet selectedFiles()}
-              {#if !selection.evolutionId}
-                <CommunityProjectsRepositoryLogFiles
-                  compact
-                  {files}
-                  {selectedPath}
-                  error={selection.error}
-                  onSelectPath={(path) => {
-                    if (canvas.pathAt(1) !== path) canvas.select(1, path);
-                  }}
-                />
-              {/if}
-            {/snippet}
-          </CommunityProjectsRevisionGraph>
+          {#if showBranchSkeleton}
+            <div
+              class="community-projects-repository-log__skeleton"
+              aria-busy="true"
+            >
+              <span class="sr-only">Loading repository log branch</span>
+              <Skeleton />
+              <Skeleton />
+              <Skeleton />
+            </div>
+          {:else if !hasRevisions}
+            <CommunityProjectsRepositoryLogEmpty pane={pane.pane} {branch} />
+          {:else}
+            <CommunityProjectsRevisionGraph
+              {members}
+              revisions={pagedGraph.revisions}
+              devices={pagedGraph.devices}
+              selectedId={selection.id}
+              revisionHref={(revision) =>
+                repositoryAddress && pane.pane === "log"
+                  ? projectRouteToHash({
+                      kind: "repository",
+                      coordinate: repositoryAddress,
+                      surface: "log",
+                      commitSha: revision.eventId,
+                    })
+                  : undefined}
+              graphLabel={pane.pane === "oplog"
+                ? "Operation graph"
+                : "Revision graph"}
+              commitLabel={pane.pane === "oplog" ? "operation ID" : "commit ID"}
+              onSelect={(revision) =>
+                void selection.selectRevision(revision.eventId)}
+            >
+              {#snippet selectedFiles()}
+                {#if !selection.evolutionId}
+                  <CommunityProjectsRepositoryLogFiles
+                    compact
+                    {files}
+                    {selectedPath}
+                    error={selection.error}
+                    onSelectPath={(path) => {
+                      if (canvas.pathAt(1) !== path) canvas.select(1, path);
+                    }}
+                  />
+                {/if}
+              {/snippet}
+            </CommunityProjectsRevisionGraph>
+          {/if}
         </ColumnCanvas.Body>
       </ColumnCanvas.Column>
       {#if selectedAgentContexts.length > 0}

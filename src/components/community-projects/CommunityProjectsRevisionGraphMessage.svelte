@@ -55,6 +55,7 @@
       {#if href}
         <a
           {href}
+          class="community-revision-graph-message__text"
           onclick={(event) => {
             event.stopPropagation();
             if (
@@ -70,7 +71,7 @@
           }}>{part.value}</a
         >
       {:else}
-        <span>{part.value}</span>
+        <span class="community-revision-graph-message__text">{part.value}</span>
       {/if}
     {:else}
       {@const label = part.type === "commit" ? "commit ID" : "change ID"}
@@ -110,8 +111,10 @@
 <style>
   .community-revision-graph-message {
     display: inline-flex;
+    width: 100%;
     min-width: 0;
     max-width: 100%;
+    flex: 1 1 auto;
     align-items: center;
     gap: 0.25rem;
     overflow: hidden;
@@ -122,9 +125,17 @@
     white-space: nowrap;
   }
 
+  .community-revision-graph-message__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .community-revision-graph-message__id {
     display: inline-flex;
     min-width: 0;
+    flex: 0 0 auto;
     height: 1.35rem;
     align-items: center;
     gap: 0.25rem;

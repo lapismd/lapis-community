@@ -61,6 +61,7 @@ export function formatRepositoryLogMessage(
 export function buildRepositoryLog(
   events: readonly NostrEvent[],
   focusedCommitId?: string | null,
+  selectedSeedId?: string | null,
 ): RepositoryLogGraph {
   const revisions = new Map<string, RepositoryLogRevision>();
   const views: { event: NostrEvent; body: ViewBody }[] = [];
@@ -95,6 +96,7 @@ export function buildRepositoryLog(
     (ids) => devicesFromViews(views, contextViewId, ids),
     orderNewestFirst,
     focusedCommitId,
+    selectedSeedId,
   );
 }
 
