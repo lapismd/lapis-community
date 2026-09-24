@@ -1,5 +1,10 @@
 # Local Registry Pipeline
 
+LC-ARCH-021 repository Log replay acceptance is recorded in
+`docs/development/repository-log-replay-validation.md`. Source regressions,
+cold browser acceptance, installed page behavior, and pre-existing aggregate
+failures MUST remain separately reported.
+
 LC-UI-044 continuation validation uses disposable relay browser lanes and the
 packaged consumer check. The turn-control, session-selection and application
 action owners are recorded in the architecture baseline; source verification
