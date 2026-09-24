@@ -3,6 +3,7 @@
   import type { CommunityAgentTranscriptEntry } from "../../community/agent-contracts.js";
   import type { TranscriptCommentSource } from "../community-agent-conversation/transcript-comment-sources.js";
   import CommunityTranscriptComments from "../community-transcript-comments/CommunityTranscriptComments.svelte";
+  import CommunityAgentTranscriptTimedRow from "./CommunityAgentTranscriptTimedRow.svelte";
   import TranscriptToolDetail from "./TranscriptToolDetail.svelte";
   import { richTranscriptToolProps } from "./rich-transcript-tool-props.js";
   import {
@@ -61,36 +62,43 @@
   name?: string;
 })}<TranscriptToolDetail {call} raw={rawToolDetail(call)} />{/snippet}
 
-<Chat.ToolCalls
-  label={transcriptToolGroupLabel(items) ?? "Tool calls"}
-  calls={items.map((item) =>
-    richTranscriptToolProps(item, toolDetail, !isStreaming(item.id)),
-  )}
-  expanded={!!focus &&
-    commentSources.some(
-      (source) =>
-        source.record.id === focus.anchor.recordId &&
-        items.some((item) => item.id === source.displayId),
-    )}
->
-  {#snippet callWrapper(call, children)}
-    {@const item = items.find((item) => item.toolId === call.id)}
-    {#if item}
-      {@const sources = commentSources.filter(
-        (source) => source.displayId === item.id,
+{#if items[0]}
+  <CommunityAgentTranscriptTimedRow
+    createdAt={items[0].createdAt}
+    label="Tool activity recorded"
+  >
+    <Chat.ToolCalls
+      label={transcriptToolGroupLabel(items) ?? "Tool calls"}
+      calls={items.map((item) =>
+        richTranscriptToolProps(item, toolDetail, !isStreaming(item.id)),
       )}
-      <CommunityTranscriptComments
-        source={sources[0]}
-        related={sources.slice(1)}
-        label={`Tool activity: ${item.name}`}
-        text={toolText(item)}
-        viewToggleLabel={viewToggleLabel(item)}
-        onToggleView={() => toggleToolDetail(item)}
-      >
-        {@render children()}
-      </CommunityTranscriptComments>
-    {:else}
-      {@render children()}
-    {/if}
-  {/snippet}
-</Chat.ToolCalls>
+      expanded={!!focus &&
+        commentSources.some(
+          (source) =>
+            source.record.id === focus.anchor.recordId &&
+            items.some((item) => item.id === source.displayId),
+        )}
+    >
+      {#snippet callWrapper(call, children)}
+        {@const item = items.find((item) => item.toolId === call.id)}
+        {#if item}
+          {@const sources = commentSources.filter(
+            (source) => source.displayId === item.id,
+          )}
+          <CommunityTranscriptComments
+            source={sources[0]}
+            related={sources.slice(1)}
+            label={`Tool activity: ${item.name}`}
+            text={toolText(item)}
+            viewToggleLabel={viewToggleLabel(item)}
+            onToggleView={() => toggleToolDetail(item)}
+          >
+            {@render children()}
+          </CommunityTranscriptComments>
+        {:else}
+          {@render children()}
+        {/if}
+      {/snippet}
+    </Chat.ToolCalls>
+  </CommunityAgentTranscriptTimedRow>
+{/if}

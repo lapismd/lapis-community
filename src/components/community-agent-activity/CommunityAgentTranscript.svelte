@@ -12,8 +12,9 @@
     sourceActivity,
     transcriptCommentSources,
   } from "../community-agent-conversation/transcript-comment-sources.js";
-  import CommunityTranscriptComments from "../community-transcript-comments/CommunityTranscriptComments.svelte";
   import CommunityAgentTranscriptTools from "./CommunityAgentTranscriptTools.svelte";
+  import CommunityAgentTranscriptThinking from "./CommunityAgentTranscriptThinking.svelte";
+  import CommunityAgentTranscriptPermission from "./CommunityAgentTranscriptPermission.svelte";
   import {
     agentTranscriptTimeline,
     pendingTranscriptStatuses,
@@ -106,23 +107,14 @@
           {messageContent}
         />
       {:else if entry.kind === "thinking"}
-        <CommunityTranscriptComments
+        <CommunityAgentTranscriptThinking
+          item={entry.item}
           source={commentSources.find(
             (source) => source.displayId === entry.item.id,
           )}
-          label="Thinking"
-          text={entry.item.text}
-        >
-          <Reasoning
-            streaming={entry.item.state === "streaming" &&
-              streaming(entry.item.id)}
-            preview={entry.item.text}
-            expanded={focus?.anchor.recordId === entry.item.id ||
-              (entry.item.state === "streaming" && streaming(entry.item.id))}
-          >
-            {entry.item.text}
-          </Reasoning>
-        </CommunityTranscriptComments>
+          focused={focus?.anchor.recordId === entry.item.id}
+          isStreaming={streaming}
+        />
       {:else if entry.kind === "tools"}
         <CommunityAgentTranscriptTools
           items={entry.items}
@@ -147,9 +139,7 @@
         </Reasoning>
       {:else if entry.kind === "permission"}
         {#if entry.item.state === "resolved"}
-          <Chat.SystemMessage>
-            Permission {entry.item.decision ?? "resolved"} for {entry.item.tool}
-          </Chat.SystemMessage>
+          <CommunityAgentTranscriptPermission item={entry.item} />
         {/if}
       {:else if entry.kind === "usage"}
         <Chat.SystemMessage>
