@@ -10,7 +10,7 @@ describe("activity frame state", () => {
       "queued",
     );
     expect(activityPayloadState("request_status", false, "", "Reading")).toBe(
-      "running",
+      "unknown",
     );
     expect(
       activityPayloadState("request_status", false, "interrupted", "Blocked"),
@@ -21,6 +21,25 @@ describe("activity frame state", () => {
     const scope = "relay/room/agent/channel";
     expect(activityScopeStorageKey("agent", scope, "queued")).not.toBe(
       activityScopeStorageKey("agent", scope, "fence"),
+    );
+  });
+});
+
+describe("truthful lifecycle projection", () => {
+  it.each(["failed", "cancelled", "interrupted", "uncertain", "completed"])(
+    "preserves %s from a terminal snapshot",
+    (state) => {
+      expect(activityPayloadState("turn_finished", true, state, "")).toBe(
+        state,
+      );
+    },
+  );
+  it("does not invent running work for unknown status or settled approval", () => {
+    expect(
+      activityPayloadState("request_status", false, "future-state", ""),
+    ).toBe("unknown");
+    expect(activityPayloadState("permission_resolved", false, "", "")).toBe(
+      "unknown",
     );
   });
 });

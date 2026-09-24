@@ -1,3 +1,4 @@
+import { turnStateLabel } from "../../community/agent-turn-state.js";
 import {
   activityMatches,
   contextForScope,
@@ -35,7 +36,7 @@ export function composerActivity(
           preview:
             scope.state === "waiting_permission"
               ? "Waiting for your permission"
-              : scope.preview || "Working",
+              : scope.preview || turnStateLabel(scope.state),
           context: {
             ...contextForScope(scope),
             ...(scope.turnId ? { focusTurnId: scope.turnId } : {}),
@@ -43,7 +44,7 @@ export function composerActivity(
           canOpen: true,
           updatedAt: scope.updatedAt!,
           severity: scope.severity ?? "info",
-          state: scope.state ?? "running",
+          state: scope.state ?? "unknown",
         },
       ];
     });

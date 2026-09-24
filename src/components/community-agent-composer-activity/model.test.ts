@@ -16,7 +16,7 @@ const scope = {
   threadRootId: "a",
   conversationKind: "thread" as const,
   active: true,
-  state: "running",
+  state: "running" as const,
   updatedAt: now,
   preview: "Reading files",
 };
@@ -87,7 +87,7 @@ describe("composer activity", () => {
 
   it("retains failures and ignores completed or stale active work", () => {
     for (const current of [
-      { ...scope, active: false, state: "completed" },
+      { ...scope, active: false, state: "completed" as const },
       { ...scope, updatedAt: now - 180_001 },
     ])
       expect(

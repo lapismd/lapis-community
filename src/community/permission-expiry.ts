@@ -79,6 +79,8 @@ function expireWaitingScopes(
     const live = (pending[scope.agentPubkey] ?? []).some(
       (permission) =>
         permission.scopeKey === scope.scopeKey &&
+        (!scope.sessionId || permission.sessionId === scope.sessionId) &&
+        (!scope.turnId || permission.turnId === scope.turnId) &&
         !permissionHasExpired(permission, nowMs),
     );
     if (live) {
@@ -88,8 +90,8 @@ function expireWaitingScopes(
     next[key] = {
       ...scope,
       active: true,
-      state: "running",
-      preview: "Permission expired. The agent is continuing.",
+      state: "unknown",
+      preview: "Permission expired. Waiting for controller status.",
       updatedAt: nowMs,
     };
   }

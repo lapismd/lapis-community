@@ -1,3 +1,4 @@
+import { turnStateLabel } from "../../community/agent-turn-state.js";
 import {
   activityContextLabel,
   contextForScope,
@@ -8,18 +9,9 @@ import type {
 } from "../../community/agent-contracts.js";
 
 export function activityRunLabel(state?: string, preview?: string): string {
-  switch (state) {
-    case "queued":
-      return "Queued";
-    case "starting":
-      return "Starting";
-    case "waiting_permission":
-      return "Waiting for your permission";
-    case "interrupted":
-      return interruptedLabel(preview);
-    default:
-      return "Working";
-  }
+  return state === "interrupted"
+    ? interruptedLabel(preview)
+    : turnStateLabel(state);
 }
 
 function interruptedLabel(preview?: string): string {
@@ -31,7 +23,7 @@ function interruptedLabel(preview?: string): string {
 }
 
 export function activityStreams(state?: string): boolean {
-  return state !== "queued" && state !== "interrupted";
+  return state === "running";
 }
 
 export function activityControlHeading(

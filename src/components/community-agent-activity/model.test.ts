@@ -47,7 +47,7 @@ describe("agent transcript timeline", () => {
     const queued = status(1, "queued", "Queued");
     const starting = status(2, "starting", "Starting");
     expect(pendingTranscriptStatuses([starting, queued], agent)).toEqual([
-      { id: "request", text: "Starting" },
+      { id: "request", text: "Starting", streaming: false },
     ]);
     expect(
       pendingTranscriptStatuses([starting], agent, {
@@ -72,7 +72,7 @@ describe("agent transcript timeline", () => {
         [queued, starting, output, status(4, "running", "Working")],
         agent,
       ),
-    ).toEqual([{ id: "request", text: "Working" }]);
+    ).toEqual([{ id: "request", text: "Working", streaming: true }]);
     expect(
       pendingTranscriptStatuses(
         [queued, starting, status(5, "failed", "Failed")],

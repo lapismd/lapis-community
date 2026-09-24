@@ -66,11 +66,11 @@ tags, an optional group tag, and NIP-44 ciphertext addressed to the verified
 agent. Community preserves controller-issued scope keys unchanged for cancel
 and reset, and sends a permission response only for an unexpired request and an
 outcome present in that request's decrypted offered set. Expired requests leave
-pending state locally without sending a decision, and a waiting turn continues
-with the notice that the agent is continuing. Late telemetry
+pending state locally without sending a decision. A waiting turn becomes unknown
+until authoritative telemetry confirms further execution. Late telemetry
 sequences cannot reactivate a completed live scope.
-Permission-expiry coverage asserts the empty pending list, active running scope,
-continuation notice, and absence of an outbound decision together; formatting
+Permission-expiry coverage asserts the empty pending list, unknown execution state,
+controller-status notice, and absence of an outbound decision together; formatting
 repairs preserve each of those assertions.
 
 Runtime and memory administration extend this same envelope at control version
@@ -671,3 +671,11 @@ before requesting commits, uses an advertised commit SHA when one exists,
 and preserves errors for explicit revision reads. Missing optional observer
 turn identifiers and persona text remain absent or empty at their existing
 presentation boundary; no Nostr event or signing contract changes.
+
+For LC-NOSTR-022, owner activity snapshots and live frames use the same typed
+execution-state projection. Completed, failed, cancelled, interrupted and uncertain
+outcomes are retained independently of response delivery. Settled permission identities
+cannot be restored by stale live or snapshot frames. Terminal cleanup is scoped to
+both session and turn; one remaining approval keeps that exact attempt waiting.
+Expiry alone provides no evidence of resumed execution, so clients display unknown
+status until the controller reports another state.

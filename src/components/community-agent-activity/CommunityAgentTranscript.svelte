@@ -101,7 +101,7 @@
     {...latestMessageId ? { latestMessageId } : {}}
     {...transcriptOlderPage(onLoadOlder, hasOlder, loading)}
     isStreaming={working ||
-      pending.length > 0 ||
+      pending.some((status) => status.streaming) ||
       timeline.some(
         (entry) =>
           entry.kind === "thinking" && entry.item.state === "streaming",
@@ -220,7 +220,9 @@
     {#if working || pending.length > 0}
       <Reasoning
         label={pending.length === 1 ? pending[0]!.text : "Working"}
-        streaming
+        streaming={pending.length > 0
+          ? pending.some((status) => status.streaming)
+          : working}
       />
     {/if}
   </Chat.MessageList>

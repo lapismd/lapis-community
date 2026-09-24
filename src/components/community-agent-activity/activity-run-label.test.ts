@@ -4,6 +4,7 @@ import {
   activityControlHeading,
   activityControlRows,
   activityRunLabel,
+  activityStreams,
   activityShowsReset,
 } from "./activity-run-label.js";
 import type { CommunityAgentControllerScope } from "../../community/agent-contracts.js";
@@ -82,5 +83,25 @@ describe("activity run labels", () => {
         turnId: "fence-run",
       },
     ]);
+  });
+});
+
+describe("turn lifecycle labels", () => {
+  it.each([
+    ["completed", "Completed"],
+    ["failed", "Failed"],
+    ["cancelled", "Cancelled"],
+    ["uncertain", "Outcome uncertain"],
+    ["unknown", "Status unavailable"],
+    ["waiting_input", "Waiting for your answer"],
+    ["waiting_permission", "Waiting for your permission"],
+  ])("labels %s without animating", (state, label) => {
+    expect(activityRunLabel(state)).toBe(label);
+    expect(activityStreams(state)).toBe(false);
+  });
+  it("animates only confirmed running work", () => {
+    expect(activityStreams("running")).toBe(true);
+    for (const state of [undefined, "starting", "queued", "future-state"])
+      expect(activityStreams(state)).toBe(false);
   });
 });

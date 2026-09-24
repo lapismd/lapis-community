@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CommunityAgentObserver } from "./agent-contracts.js";
 import {
   controllerPermission,
+  applyPermissionCards,
   replaceScopePendingPermissions,
   snapshotPermissionRequests,
 } from "./activity-sync-permissions.js";
@@ -112,4 +113,56 @@ describe("activity-sync-permissions", () => {
       )[agent],
     ).toEqual([]);
   });
+});
+
+describe("permission settlement replay", () => {
+  it.each([
+    "permission_resolved",
+    "permission_expired",
+    "permission_cancelled",
+  ])("removes %s from live and snapshot cards", (kind) => {
+    const settled = observer(kind, { scopeKey, requestId: "permission-1" }, 9);
+    const pending = snapshotPermissionRequests(agent, [permissionFrame]);
+    expect(
+      applyPermissionCards(
+        { [agent]: pending },
+        agent,
+        settled,
+        1_800_000_000_000,
+      )?.[agent],
+    ).toEqual([]);
+    expect(
+      snapshotPermissionRequests(agent, [permissionFrame, settled]),
+    ).toEqual([]);
+  });
+  it("does not settle a different session sharing a turn id", () => {
+    const pending = snapshotPermissionRequests(agent, [permissionFrame]);
+    const terminal = {
+      ...observer("turn_finished", { scopeKey }),
+      sessionId: "other",
+    };
+    expect(
+      applyPermissionCards(
+        { [agent]: pending },
+        agent,
+        terminal,
+        1_800_000_000_000,
+      )?.[agent],
+    ).toEqual(pending);
+  });
+});
+
+it("does not resurrect a settled snapshot request from later stale output", () => {
+  const settled = observer(
+    "permission_resolved",
+    { scopeKey, requestId: "permission-1" },
+    9,
+  );
+  expect(
+    snapshotPermissionRequests(agent, [
+      permissionFrame,
+      settled,
+      { ...permissionFrame, seq: 10 },
+    ]),
+  ).toEqual([]);
 });

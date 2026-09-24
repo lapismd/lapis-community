@@ -89,7 +89,7 @@ describe("agent activity completion", () => {
       item: { state: "done" },
     });
     expect(pendingTranscriptStatuses(events, agent)).toEqual([
-      { id: "run", text: "Working" },
+      { id: "run", text: "Working", streaming: true },
     ]);
   });
   it("resolves result-only tool updates and never restarts their spinner on metadata or replay", () => {

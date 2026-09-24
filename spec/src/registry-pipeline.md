@@ -302,3 +302,5 @@ Vitest shards with a fresh browser process per shard, preserving interaction,
 accessibility, and runtime diagnostics. It MUST stop and fail on a nonzero
 exit, signal, or process-start failure. `test:storybook` retains the direct
 Vitest command for focused tests; `test:storybook:all` owns complete coverage.
+
+LC-UI-044 records the typed activity state and permission settlement owners, their regressions, and the reduced controller and scope-contract budgets in the architecture baseline.

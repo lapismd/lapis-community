@@ -1,3 +1,7 @@
+import {
+  turnFrameIsTerminal,
+  turnIsTerminal,
+} from "../../community/agent-turn-state.js";
 import type { CommunityAgentActivityItem } from "../../community/agent-contracts.js";
 import { permissionHasExpired } from "../../community/permission-expiry.js";
 import { transcriptRequestKey } from "./transcript-request-key.js";
@@ -7,6 +11,7 @@ const PERMISSION_WAIT_STALE_MS = 180_000;
 type TranscriptProgress = {
   id: string;
   text: string;
+  streaming: boolean;
 };
 
 /** End a request when it terminates or its permission wait is no longer live. */
@@ -18,38 +23,27 @@ export function closeTranscriptProgress(
   activity: readonly CommunityAgentActivityItem[],
   nowMs = Date.now(),
 ): boolean {
-  if (ended.has(key) || endedByProgress(item, activity, nowMs)) {
+  const payload = record(item.frame.payload);
+  const entry = payload.entry as { type?: string; state?: string } | undefined;
+  if (
+    ended.has(key) ||
+    turnIsTerminal(payload.state) ||
+    turnFrameIsTerminal(item.frame.kind) ||
+    (entry?.type === "turn" && turnIsTerminal(entry.state))
+  ) {
     ended.add(key);
     pending.delete(key);
     return true;
   }
-  return false;
-}
-
-function endedByProgress(
-  item: CommunityAgentActivityItem,
-  activity: readonly CommunityAgentActivityItem[],
-  nowMs: number,
-): boolean {
-  const payload = record(item.frame.payload);
-  const entry = payload.entry as { type?: string; state?: string } | undefined;
   if (
-    ["completed", "failed", "cancelled", "interrupted"].includes(
-      String(payload.state),
-    ) ||
-    [
-      "turn_completed",
-      "turn_failed",
-      "turn_cancelled",
-      "permission_resolved",
-    ].includes(item.frame.kind) ||
-    (entry?.type === "turn" &&
-      ["completed", "failed", "cancelled"].includes(String(entry.state)))
-  )
+    (item.frame.kind.startsWith("permission_") &&
+      item.frame.kind !== "permission_requested") ||
+    (isPermissionWait(payload) && !permissionWaitIsLive(item, activity, nowMs))
+  ) {
+    pending.delete(key);
     return true;
-  return (
-    isPermissionWait(payload) && !permissionWaitIsLive(item, activity, nowMs)
-  );
+  }
+  return false;
 }
 
 function isPermissionWait(payload: Record<string, unknown>): boolean {

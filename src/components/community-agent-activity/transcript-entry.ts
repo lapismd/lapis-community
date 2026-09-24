@@ -69,9 +69,14 @@ export function transcriptEntry(
       return;
   } else if (entry.type === "turn") {
     if (
-      !["started", "completed", "failed", "cancelled"].includes(
-        String(entry.state),
-      ) ||
+      ![
+        "started",
+        "completed",
+        "failed",
+        "cancelled",
+        "interrupted",
+        "uncertain",
+      ].includes(String(entry.state)) ||
       !optionalStrings(entry, ["message"])
     )
       return;

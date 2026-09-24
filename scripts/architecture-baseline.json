@@ -363,13 +363,13 @@
       "forbiddenImportCount": 0
     },
     "src/community/activity-sync-permissions.test.ts": {
-      "countedLines": 107,
-      "physicalLines": 115,
+      "countedLines": 158,
+      "physicalLines": 168,
       "forbiddenImportCount": 0
     },
     "src/community/activity-sync-permissions.ts": {
-      "countedLines": 143,
-      "physicalLines": 148,
+      "countedLines": 183,
+      "physicalLines": 194,
       "forbiddenImportCount": 0
     },
     "src/community/agent-activity-context.ts": {
@@ -405,8 +405,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-contracts.ts": {
-      "countedLines": 574,
-      "physicalLines": 621,
+      "countedLines": 554,
+      "physicalLines": 601,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -424,8 +424,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-controller.ts": {
-      "countedLines": 2018,
-      "physicalLines": 2070,
+      "countedLines": 1973,
+      "physicalLines": 2025,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Agent controller factory; runtime and memory parsers extracted"
@@ -594,8 +594,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/agent-transcript-kinds.ts": {
-      "countedLines": 75,
-      "physicalLines": 76,
+      "countedLines": 81,
+      "physicalLines": 82,
       "forbiddenImportCount": 0
     },
     "src/community/agent-transcript-plan.ts": {
@@ -1088,8 +1088,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/permission-expiry.ts": {
-      "countedLines": 129,
-      "physicalLines": 135,
+      "countedLines": 131,
+      "physicalLines": 137,
       "forbiddenImportCount": 0
     },
     "src/community/presence-contracts.ts": {
@@ -1316,8 +1316,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscript.svelte": {
-      "countedLines": 251,
-      "physicalLines": 262,
+      "countedLines": 249,
+      "physicalLines": 259,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscriptPlan.svelte": {
@@ -1361,8 +1361,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-entry.ts": {
-      "countedLines": 99,
-      "physicalLines": 102,
+      "countedLines": 104,
+      "physicalLines": 107,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-markdown-members.test.ts": {
@@ -1386,8 +1386,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-progress.ts": {
-      "countedLines": 78,
-      "physicalLines": 85,
+      "countedLines": 76,
+      "physicalLines": 80,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/transcript-timeline.ts": {
@@ -1441,8 +1441,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-composer-activity/model.ts": {
-      "countedLines": 86,
-      "physicalLines": 86,
+      "countedLines": 87,
+      "physicalLines": 87,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-context-message/CommunityAgentContextMessage.stories.svelte": {
@@ -5132,8 +5132,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/activity-run-label.test.ts": {
-      "countedLines": 83,
-      "physicalLines": 86
+      "countedLines": 103,
+      "physicalLines": 107
     },
     "src/components/community-agent-activity/ActivityPermissionStack.svelte": {
       "countedLines": 77,

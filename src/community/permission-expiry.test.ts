@@ -5,7 +5,7 @@ const agent = "a".repeat(64);
 const scopeKey = "relay/general/agent/thread/root";
 
 describe("permission-expiry", () => {
-  it("drops expired cards and keeps the turn running", () => {
+  it("drops expired cards and waits for authoritative status", () => {
     const patch = sweepExpiredPermissionState(
       {
         pendingPermissions: {
@@ -45,8 +45,8 @@ describe("permission-expiry", () => {
     expect(patch?.pendingPermissions[agent]).toEqual([]);
     expect(patch?.controllerScopes[agent]).toMatchObject({
       active: true,
-      state: "running",
-      preview: "Permission expired. The agent is continuing.",
+      state: "unknown",
+      preview: "Permission expired. Waiting for controller status.",
     });
   });
 

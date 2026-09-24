@@ -60,7 +60,13 @@ export type CommunityAgentTranscriptEntry =
   | {
       id: string;
       type: "turn";
-      state: "started" | "completed" | "failed" | "cancelled";
+      state:
+        | "started"
+        | "completed"
+        | "failed"
+        | "cancelled"
+        | "interrupted"
+        | "uncertain";
       message?: string;
       createdAt: string;
       sequence?: number;

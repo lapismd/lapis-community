@@ -1138,7 +1138,7 @@ describe("agent activity controller", () => {
     );
     await vi.waitFor(() =>
       expect(controller.state.controllerScopes[agent]).toMatchObject({
-        state: "running",
+        state: "unknown",
         active: true,
       }),
     );
@@ -1207,7 +1207,7 @@ describe("agent activity controller", () => {
     receive(
       frame(1, "turn_started", "general", {
         scopeKey: "relay/general/agent/thread/root",
-        state: "running",
+        state: "unknown",
       }),
     );
     receive(
@@ -1232,8 +1232,8 @@ describe("agent activity controller", () => {
     expect(controller.state.pendingPermissions[agent]).toEqual([]);
     expect(controller.state.controllerScopes[agent]).toMatchObject({
       active: true,
-      state: "running",
-      preview: "Permission expired. The agent is continuing.",
+      state: "unknown",
+      preview: "Permission expired. Waiting for controller status.",
     });
   });
   it("ignores already expired permission frames and later waiting status", async () => {
@@ -1248,7 +1248,7 @@ describe("agent activity controller", () => {
       }),
     );
     await vi.waitFor(() =>
-      expect(controller.state.controllerScopes[agent]?.state).toBe("running"),
+      expect(controller.state.controllerScopes[agent]?.state).toBe("unknown"),
     );
     expect(controller.state.pendingPermissions[agent] ?? []).toEqual([]);
     receive(
@@ -1259,7 +1259,7 @@ describe("agent activity controller", () => {
       }),
     );
     await vi.waitFor(() =>
-      expect(controller.state.controllerScopes[agent]?.state).toBe("running"),
+      expect(controller.state.controllerScopes[agent]?.state).toBe("unknown"),
     );
     expect(controller.state.pendingPermissions[agent] ?? []).toEqual([]);
   });
@@ -1286,7 +1286,7 @@ describe("agent activity controller", () => {
         expect(controller.state.pendingPermissions[agent]).toEqual([]);
         expect(controller.state.controllerScopes[agent]).toMatchObject({
           active: true,
-          state: "running",
+          state: "unknown",
         });
       },
       { timeout: 2_000 },

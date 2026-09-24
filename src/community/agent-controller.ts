@@ -1,12 +1,12 @@
+import { activityPayloadState } from "./activity-frame-state.js";
+import { projectActivityScope } from "./activity-scope-projection.js";
+import { turnFrameIsTerminal, turnIsTerminal } from "./agent-turn-state.js";
 import {
   activityMatches,
   observerScope,
   controllerScopeId,
 } from "./agent-activity-context.js";
-import {
-  activityPayloadState,
-  activityScopeStorageKey,
-} from "./activity-frame-state.js";
+import { activityScopeStorageKey } from "./activity-frame-state.js";
 import type {
   CommunityAgentActivityContext,
   CommunityAgentActivitySyncContext,
@@ -51,9 +51,8 @@ import {
   parseRuntimeState,
 } from "./agent-state-parsers.js";
 import {
-  applyPermissionCards,
+  ActivityPermissionLedger,
   replaceScopePendingPermissions,
-  snapshotPermissionRequests,
 } from "./activity-sync-permissions.js";
 import { sweepExpiredPermissionState } from "./permission-expiry.js";
 
@@ -140,6 +139,7 @@ export class CommunityAgentsController {
     string,
     Map<string, { until: number; timestamp: number; seq: number }>
   >();
+  #permissions = new ActivityPermissionLedger();
   #controllerSequence = new Map<string, number>();
   #typingUntil = new Map<string, number>();
   #decodedFrames = new Map<string, CommunityAgentActivityItem["frame"]>();
@@ -1001,19 +1001,21 @@ export class CommunityAgentsController {
         (timestamp === previous.timestamp && frame.seq <= previous.seq))
     )
       return;
-    const terminal = [
-      "turn_completed",
-      "turn_finished",
-      "turn_failed",
-      "turn_cancelled",
-      "agent_stopped",
-    ].includes(frame.kind);
+    const payload = observerRecord(frame.payload);
+    const state = activityPayloadState(
+      frame.kind,
+      turnFrameIsTerminal(frame.kind),
+      observerText(payload.state, 40),
+      observerText(payload.preview, 240),
+    );
+    const terminal = turnIsTerminal(state) || frame.kind === "agent_stopped";
     if (frame.kind === "agent_stopped") turns.clear();
-    const until = terminal
-      ? 0
-      : frame.kind === "turn_started" ||
-          frame.kind === "request_status" ||
-          (previous?.until ?? 0) > this.#now()
+    const statusFrame =
+      ["request_status", "turn_started"].includes(frame.kind) ||
+      frame.kind.startsWith("permission_");
+    const until =
+      !terminal &&
+      (statusFrame ? state === "running" : (previous?.until ?? 0) > this.#now())
         ? Math.min(this.#now() + 180, freshnessTimestamp + 180)
         : 0;
     turns.set(turnKey, { until, timestamp, seq: frame.seq });
@@ -1353,7 +1355,7 @@ export class CommunityAgentsController {
             this.#state.pendingPermissions,
             request.agentPubkey,
             snapshotScopeKey,
-            snapshotPermissionRequests(
+            this.#permissions.snapshot(
               request.agentPubkey,
               snapshots.map(({ frame }) => frame),
               this.#now() * 1_000,
@@ -1795,7 +1797,7 @@ export class CommunityAgentsController {
     agentPubkey: string,
     frame: CommunityAgentActivityItem["frame"],
     observedAt?: number,
-    authoritativeSnapshot = false,
+    _authoritativeSnapshot = false,
   ): void {
     const payload = observerRecord(frame.payload);
     const scopeKey = observerText(payload.scopeKey, 4_096);
@@ -1804,69 +1806,29 @@ export class CommunityAgentsController {
     const previousSequence = this.#controllerSequence.get(sequenceKey);
     if (previousSequence !== undefined && frame.seq <= previousSequence) return;
     this.#controllerSequence.set(sequenceKey, frame.seq);
-    const terminal = [
-      "turn_completed",
-      "turn_finished",
-      "turn_failed",
-      "turn_cancelled",
-    ].includes(frame.kind);
+    const terminal = turnFrameIsTerminal(frame.kind);
+    const pending = this.#permissions.apply(
+      this.#state.pendingPermissions,
+      agentPubkey,
+      frame,
+      this.#now() * 1_000,
+    );
+    if (pending) this.#update({ pendingPermissions: pending });
     const requestId =
       observerText(payload.lifecycleRequestId, 512) ||
       observerText(payload.requestId, 512) ||
       (frame.turnId ?? "");
     const key = activityScopeStorageKey(agentPubkey, scopeKey, requestId);
     const previous = this.#state.conversationScopes?.[key];
-    if (
-      terminal &&
-      previous?.active &&
-      previous.requestId &&
-      requestId &&
-      previous.requestId !== requestId
-    )
-      return;
-    if (scopeKey) {
-      const state = activityPayloadState(
-        frame.kind,
-        terminal,
-        observerText(payload.state, 40),
-        observerText(payload.preview, 240),
-      );
-      const sameRequest = previous?.requestId === requestId;
-      const waiting =
-        state === "waiting_permission" ||
-        (sameRequest &&
-          previous?.state === "waiting_permission" &&
-          !authoritativeSnapshot &&
-          frame.kind !== "permission_resolved" &&
-          !terminal);
-      const scope = {
-        agentPubkey,
-        scopeKey,
-        ...observerScope(frame),
-        active:
-          !terminal && !["completed", "failed", "cancelled"].includes(state),
-        state: waiting ? "waiting_permission" : state,
-        preview: waiting
-          ? "Waiting for your permission"
-          : observerText(payload.preview, 240) ||
-            observerText(payload.message, 240) ||
-            (sameRequest && frame.kind !== "permission_resolved"
-              ? previous?.preview
-              : undefined) ||
-            (state === "queued"
-              ? "Queued"
-              : state === "starting"
-                ? "Starting"
-                : "Working"),
-        severity:
-          observerText(payload.severity, 20) ||
-          (frame.kind === "turn_failed" ? "error" : "info"),
-        updatedAt: observedAt ?? Date.parse(frame.timestamp),
-        ...(requestId ? { requestId } : {}),
-        ...(frame.channelId ? { channelId: frame.channelId } : {}),
-        ...(frame.sessionId ? { sessionId: frame.sessionId } : {}),
-        ...(frame.turnId ? { turnId: frame.turnId } : {}),
-      };
+    const scope = projectActivityScope(
+      agentPubkey,
+      frame,
+      previous,
+      this.#state.pendingPermissions[agentPubkey] ?? [],
+      this.#now() * 1_000,
+      observedAt,
+    );
+    if (scope) {
       this.#update({
         controllerScopes: {
           ...this.#state.controllerScopes,
@@ -1886,13 +1848,6 @@ export class CommunityAgentsController {
             ),
         ),
       });
-    const pending = applyPermissionCards(
-      this.#state.pendingPermissions,
-      agentPubkey,
-      frame,
-      this.#now() * 1_000,
-    );
-    if (pending) this.#update({ pendingPermissions: pending });
     this.#sweepExpiredPermissions();
   }
 

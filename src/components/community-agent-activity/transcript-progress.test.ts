@@ -72,6 +72,8 @@ describe("pending transcript permission waits", () => {
         undefined,
         now,
       ),
-    ).toEqual([{ id: "request", text: "Waiting for your permission" }]);
+    ).toEqual([
+      { id: "request", text: "Waiting for your permission", streaming: false },
+    ]);
   });
 });

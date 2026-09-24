@@ -1,4 +1,9 @@
 import { controllerScopeId } from "./agent-activity-context.js";
+import {
+  parseTurnState,
+  turnIsTerminal,
+  type AgentTurnState,
+} from "./agent-turn-state.js";
 
 export function activityScopeStorageKey(
   agentPubkey: string,
@@ -16,14 +21,21 @@ export function activityPayloadState(
   terminal: boolean,
   reported: string,
   preview: string,
-): string {
+): AgentTurnState {
+  const state = parseTurnState(reported);
+  if (turnIsTerminal(state)) return state;
   if (terminal)
     return kind === "turn_failed"
       ? "failed"
       : kind === "turn_cancelled"
         ? "cancelled"
-        : "completed";
+        : kind === "turn_interrupted"
+          ? "interrupted"
+          : kind === "turn_uncertain"
+            ? "uncertain"
+            : "completed";
   if (kind === "permission_requested") return "waiting_permission";
-  if (kind === "permission_resolved") return "running";
-  return reported || (preview === "Queued" ? "queued" : "running");
+  if (state !== "unknown") return state;
+  if (kind === "turn_started") return "running";
+  return preview === "Queued" ? "queued" : "unknown";
 }

@@ -1,3 +1,5 @@
+import { activityPayloadState } from "../../community/activity-frame-state.js";
+import { turnStateLabel } from "../../community/agent-turn-state.js";
 import type {
   CommunityAgentActivityContext,
   CommunityAgentActivityItem,
@@ -19,8 +21,11 @@ export function pendingTranscriptStatuses(
   agentPubkey: string,
   context?: CommunityAgentActivityContext,
   nowMs = Date.now(),
-): { id: string; text: string }[] {
-  const pending = new Map<string, { id: string; text: string }>();
+): { id: string; text: string; streaming: boolean }[] {
+  const pending = new Map<
+    string,
+    { id: string; text: string; streaming: boolean }
+  >();
   const ended = new Set<string>();
   for (const item of activity.toSorted(
     (a, b) => a.createdAt - b.createdAt || a.frame.seq - b.frame.seq,
@@ -46,9 +51,22 @@ export function pendingTranscriptStatuses(
         payload.requestId ??
         item.frame.turnId ??
         entry?.id;
+      const state =
+        entry?.type === "turn" && entry.state === "started"
+          ? "running"
+          : activityPayloadState(
+              item.frame.kind,
+              false,
+              String(payload.state ?? ""),
+              String(payload.preview ?? ""),
+            );
       pending.set(key, {
         id: String(id),
-        text: typeof payload.preview === "string" ? payload.preview : "Working",
+        text:
+          typeof payload.preview === "string"
+            ? payload.preview
+            : turnStateLabel(state),
+        streaming: state === "running",
       });
     }
   }
