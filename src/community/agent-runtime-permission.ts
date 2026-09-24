@@ -17,10 +17,18 @@ export function runtimePermissionOptions(
 
 export function editorRuntimePermissionSave(
   runtimeAgent: string,
-  selection: { model?: string; thinking?: string; permissionMode?: string },
+  selection: {
+    model?: string;
+    thinking?: string;
+    permissionMode?: string;
+    approvalPolicy?: "ask" | "allow-all";
+  },
   thinkingOptions: readonly CommunityAgentRuntimeOption[],
-  permissionOptions: readonly CommunityAgentRuntimeOption[],
-): ReturnType<typeof editorRuntimeSaveInput> & { permissionMode?: string } {
+  permissionOptions: readonly CommunityAgentRuntimeOption[] = [],
+): ReturnType<typeof editorRuntimeSaveInput> & {
+  permissionMode?: string;
+  approvalPolicy: "ask" | "allow-all";
+} {
   const saved = editorRuntimeSaveInput(
     runtimeAgent,
     selection,
@@ -35,6 +43,7 @@ export function editorRuntimePermissionSave(
       : undefined;
   return {
     ...saved,
+    approvalPolicy: selection.approvalPolicy ?? "allow-all",
     ...(permissionMode ? { permissionMode } : {}),
   };
 }

@@ -12,6 +12,7 @@ import {
   turnStateLabel,
 } from "./agent-turn-state.js";
 import { permissionHasExpired } from "./permission-expiry.js";
+import { parseExecutionPolicy } from "./agent-execution-policy.js";
 
 /** Project live frames and signed snapshots through the same execution state. */
 export function projectActivityScope(
@@ -37,8 +38,12 @@ export function projectActivityScope(
     observerText(payload.state, 40),
     observerText(payload.preview, 240),
   );
+  const executionPolicy =
+    parseExecutionPolicy(payload.executionPolicy) ??
+    (same ? previous?.executionPolicy : undefined);
   // A later tool/policy/permission frame cannot resurrect a settled attempt.
-  if (same && turnIsTerminal(previous?.state) && !terminal) return previous;
+  if (same && turnIsTerminal(previous?.state) && !terminal)
+    return executionPolicy ? { ...previous!, executionPolicy } : previous;
   const waiting = permissions.some(
     (permission) =>
       permission.scopeKey === scopeKey &&
@@ -62,6 +67,7 @@ export function projectActivityScope(
     // Interrupted/uncertain attempts still fence the conversation, without animation.
     active: !["completed", "failed", "cancelled"].includes(state),
     state,
+    ...(executionPolicy ? { executionPolicy } : {}),
     preview:
       observerText(payload.preview, 240) ||
       observerText(payload.message, 240) ||

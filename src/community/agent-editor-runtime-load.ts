@@ -10,5 +10,6 @@ export function editorRuntimeLoadKey(
     runtime.effective.model ?? "",
     runtime.effective.thinking ?? "",
     runtime.effective.permissionMode ?? "",
+    runtime.effective.approvalPolicy ?? "legacy",
   ].join(":");
 }

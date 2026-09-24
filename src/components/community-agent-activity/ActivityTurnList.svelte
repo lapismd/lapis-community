@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ActivityExecutionPolicy from "./ActivityExecutionPolicy.svelte";
   import CircleStopIcon from "@lucide/svelte/icons/circle-stop";
   import PlayIcon from "@lucide/svelte/icons/play";
   import { Reasoning } from "@lapismd/design-core/ai/experimental";
@@ -57,46 +58,51 @@
         {@const action =
           controllerScope.state === "interrupted" ? "Continue" : "Cancel"}
         <li>
-          {#if place.href}<a class="activity-turns__place" href={place.href}
-              >{place.label}</a
-            >{:else}<span class="activity-turns__place">{place.label}</span
-            >{/if}
-          <span class="activity-turns__status">
-            <Reasoning
-              label={activityRunLabel(
-                controllerScope.state,
-                controllerScope.preview,
-              )}
-              streaming={activityStreams(controllerScope.state)}
-            />
-          </span>
-          {#if controllerScope.active && onCancelTurn}<span
-              class="activity-turns__action"
-              ><Tooltip.Root>
-                <Tooltip.Trigger>
-                  {#snippet child({ props })}
-                    <Button
-                      {...props}
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label={action}
-                      {disabled}
-                      onclick={() => cancelTurn(controllerScope)}
-                    >
-                      {#if controllerScope.state === "interrupted"}
-                        <PlayIcon aria-hidden="true" />
-                      {:else}
-                        <CircleStopIcon aria-hidden="true" />
-                      {/if}
-                    </Button>
-                  {/snippet}
-                </Tooltip.Trigger>
-                <Tooltip.Content side="top" sideOffset={6}
-                  >{action}</Tooltip.Content
-                >
-              </Tooltip.Root></span
-            >{/if}
+          <div class="activity-turns__row">
+            {#if place.href}<a class="activity-turns__place" href={place.href}
+                >{place.label}</a
+              >{:else}<span class="activity-turns__place">{place.label}</span
+              >{/if}
+            <span class="activity-turns__status">
+              <Reasoning
+                label={activityRunLabel(
+                  controllerScope.state,
+                  controllerScope.preview,
+                )}
+                streaming={activityStreams(controllerScope.state)}
+              />
+            </span>
+            {#if controllerScope.active && onCancelTurn}<span
+                class="activity-turns__action"
+                ><Tooltip.Root>
+                  <Tooltip.Trigger>
+                    {#snippet child({ props })}
+                      <Button
+                        {...props}
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        aria-label={action}
+                        {disabled}
+                        onclick={() => cancelTurn(controllerScope)}
+                      >
+                        {#if controllerScope.state === "interrupted"}
+                          <PlayIcon aria-hidden="true" />
+                        {:else}
+                          <CircleStopIcon aria-hidden="true" />
+                        {/if}
+                      </Button>
+                    {/snippet}
+                  </Tooltip.Trigger>
+                  <Tooltip.Content side="top" sideOffset={6}
+                    >{action}</Tooltip.Content
+                  >
+                </Tooltip.Root></span
+              >{/if}
+          </div>
+          {#if controllerScope.executionPolicy}<ActivityExecutionPolicy
+              policy={controllerScope.executionPolicy}
+            />{/if}
         </li>
       {/each}
     </ul>
@@ -115,11 +121,15 @@
     overflow: hidden;
   }
   li {
+    padding: 0.75rem 1rem;
+    display: grid;
+    gap: 0.5rem;
+  }
+  .activity-turns__row {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     min-width: 0;
-    padding: 0.75rem 1rem;
   }
   li + li {
     border-top: 1px solid var(--border);

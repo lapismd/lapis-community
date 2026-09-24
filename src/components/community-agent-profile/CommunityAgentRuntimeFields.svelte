@@ -8,7 +8,7 @@
     runtimeOptionLabel,
     runtimeThinkingOptions,
   } from "../../community/agent-runtime-catalog.js";
-  import { runtimePermissionOptions } from "../../community/agent-runtime-permission.js";
+  import { approvalPolicyLabel } from "../../community/agent-execution-policy.js";
 
   let {
     runtime,
@@ -41,10 +41,8 @@
   const thinking = $derived(
     runtimeOptionLabel(thinkingOptions, runtimeThinking, runtimeThinking),
   );
-  const permissionOptions = $derived(runtimePermissionOptions(runtime.catalog));
-  const permissionMode = $derived(runtime.effective.permissionMode ?? "");
   const permission = $derived(
-    runtimeOptionLabel(permissionOptions, permissionMode, "Ask"),
+    approvalPolicyLabel(runtime.effective.approvalPolicy),
   );
 </script>
 
@@ -97,20 +95,18 @@
       <PencilIcon aria-hidden="true" />
     </Button>
   {/if}
-  {#if permissionOptions.length > 0}
-    <Button
-      type="button"
-      variant="ghost"
-      class="agent-profile__runtime-field"
-      {disabled}
-      aria-label="Edit permission mode"
-      onclick={onEdit}
-    >
-      <span>
-        <span>Permission mode</span>
-        <strong>{permission}</strong>
-      </span>
-      <PencilIcon aria-hidden="true" />
-    </Button>
-  {/if}
+  <Button
+    type="button"
+    variant="ghost"
+    class="agent-profile__runtime-field"
+    {disabled}
+    aria-label="Edit permissions"
+    onclick={onEdit}
+  >
+    <span>
+      <span>Permissions</span>
+      <strong>{permission}</strong>
+    </span>
+    <PencilIcon aria-hidden="true" />
+  </Button>
 </div>

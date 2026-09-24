@@ -575,11 +575,7 @@ export interface CommunityAgentsActions {
   loadRuntime(pubkey: string): Promise<CommunityAgentRuntimeState>;
   saveRuntime(
     pubkey: string,
-    defaults: {
-      runtimeAgent?: string;
-      model?: string;
-      thinking?: "off" | "low" | "medium" | "high" | "xhigh";
-    },
+    defaults: import("./agent-runtime-set.js").CommunityAgentRuntimeSettings,
   ): Promise<CommunityAgentRuntimeState>;
   loadMemories(
     pubkey: string,

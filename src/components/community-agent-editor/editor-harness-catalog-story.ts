@@ -119,5 +119,6 @@ export async function playHarnessModelCatalog({
   await expect(args.onSaveRuntime).toHaveBeenCalledWith({
     runtimeAgent: "cursor",
     model: "composer-2.5-fast",
+    approvalPolicy: "allow-all",
   });
 }

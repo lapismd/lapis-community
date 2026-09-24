@@ -1130,3 +1130,5 @@ after an asynchronous failure, then retry through its real confirmation button.
 Shell header geometry MUST coalesce ResizeObserver deliveries into one animation
 frame and cancel pending measurements on teardown. The observer callback MUST
 NOT synchronously write layout-dependent header state during resize delivery.
+
+For LC-UI-044, agent settings MUST offer Allow all and Ask for every harness, independently of provider mode catalogs. Allow all is the Community default for missing legacy selections, including indistinguishable old Ask values. Saving Ask MUST send an explicit policy. Changing model or harness MUST preserve the policy choice. Runtime summaries MUST identify policy as unreported when an older controller omits it, rather than claim that a policy was applied.

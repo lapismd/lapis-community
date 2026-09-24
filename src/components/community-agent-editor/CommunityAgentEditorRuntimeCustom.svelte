@@ -4,9 +4,7 @@
     CommunityAgentRuntimeOption,
     CommunityAgentRuntimeThinking,
   } from "../../community/agent-runtime-contracts.js";
-  import { runtimePermissionOptions } from "../../community/agent-runtime-permission.js";
   import CommunityAgentEditorModelField from "./CommunityAgentEditorModelField.svelte";
-  import CommunityAgentEditorPermissionField from "./CommunityAgentEditorPermissionField.svelte";
   import CommunityAgentEditorThinkingField from "./CommunityAgentEditorThinkingField.svelte";
 
   let {
@@ -17,11 +15,8 @@
     model,
     thinking = "",
     thinkingOptions,
-    catalog,
-    permissionMode = "",
     onModel,
     onThinking,
-    onPermission,
   }: {
     id: string;
     pending?: boolean;
@@ -30,22 +25,9 @@
     model: string;
     thinking?: string;
     thinkingOptions: readonly CommunityAgentRuntimeOption[];
-    catalog:
-      | {
-          configOptions?: readonly {
-            id: string;
-            options?: readonly CommunityAgentRuntimeOption[];
-          }[];
-        }
-      | null
-      | undefined;
-    permissionMode?: string;
     onModel: (row: EditorModelRow) => void;
     onThinking: (value: CommunityAgentRuntimeThinking) => void;
-    onPermission: (value: string) => void;
   } = $props();
-
-  const permissionOptions = $derived(runtimePermissionOptions(catalog));
 </script>
 
 <CommunityAgentEditorModelField
@@ -54,10 +36,7 @@
   {rows}
   {runtimeAgent}
   {model}
-  onSelect={(row) => {
-    onModel(row);
-    onPermission("");
-  }}
+  onSelect={onModel}
 />
 {#if thinkingOptions.length > 0}
   <CommunityAgentEditorThinkingField
@@ -66,14 +45,5 @@
     {thinking}
     options={thinkingOptions}
     onValueChange={onThinking}
-  />
-{/if}
-{#if permissionOptions.length > 0}
-  <CommunityAgentEditorPermissionField
-    id={`${id}-runtime-permission`}
-    {pending}
-    {permissionMode}
-    options={permissionOptions}
-    onValueChange={onPermission}
   />
 {/if}

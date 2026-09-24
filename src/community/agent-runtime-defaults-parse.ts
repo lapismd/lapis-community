@@ -13,8 +13,14 @@ export function optionalRuntimeDefaults(
     model ||
     thinking ||
     permissionMode ||
+    value.approvalPolicy === "ask" ||
+    value.approvalPolicy === "allow-all" ||
     Number.isSafeInteger(updatedAt)
     ? {
+        ...(value.approvalPolicy === "ask" ||
+        value.approvalPolicy === "allow-all"
+          ? { approvalPolicy: value.approvalPolicy }
+          : {}),
         ...(runtimeAgent ? { runtimeAgent } : {}),
         ...(model ? { model } : {}),
         ...(thinking ? { thinking } : {}),

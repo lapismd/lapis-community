@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CommunityAgentEditorPermissionField from "./CommunityAgentEditorPermissionField.svelte";
   import { untrack } from "svelte";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { Button } from "@lapismd/design-core/shadcn/button";
@@ -24,10 +25,7 @@
   import { editorRuntimeDraft } from "../../community/agent-editor-runtime.js";
   import { editorRuntimeDefaultRows } from "../../community/agent-editor-runtime-defaults.js";
   import { editorConfiguredRuntimeLabels } from "../../community/agent-editor-runtime-labels.js";
-  import {
-    editorRuntimePermissionSave,
-    runtimePermissionOptions,
-  } from "../../community/agent-runtime-permission.js";
+  import { editorRuntimePermissionSave } from "../../community/agent-runtime-permission.js";
   import { editorPersonaSelection } from "../../community/agent-editor-persona-selection.js";
   import { personaSlugFromName } from "../../community/agent-persona-slug.js";
   import type { CommunityAgentRuntimeThinking } from "../../community/agent-runtime-contracts.js";
@@ -60,11 +58,9 @@
     onLoadRuntime?: (() => Promise<CommunityAgentRuntimeState>) | undefined;
     onSaveAgent: (input: CommunityAgentSaveInput) => Promise<void>;
     onSaveRuntime?:
-      | ((input: {
-          runtimeAgent?: string;
-          model?: string;
-          thinking?: CommunityAgentRuntimeThinking;
-        }) => Promise<CommunityAgentRuntimeState>)
+      | ((
+          input: import("../../community/agent-runtime-set.js").CommunityAgentRuntimeSettings,
+        ) => Promise<CommunityAgentRuntimeState>)
       | undefined;
     onUnlinkPersona?: ((fallbackName: string) => Promise<void>) | undefined;
     onDeletePersona?: ((slug: string) => Promise<void>) | undefined;
@@ -114,7 +110,7 @@
   let runtimeAgent = $state("");
   let runtimeModel = $state("");
   let runtimeThinking = $state<CommunityAgentRuntimeThinking | "">("");
-  let runtimePermission = $state("");
+  let runtimeApproval = $state<"ask" | "allow-all">("allow-all");
   let runtimeConfigMode = $state<"defaults" | "custom">("defaults");
   let unlinkConfirmOpen = $state(false);
   let deleteConfirmOpen = $state(false);
@@ -184,7 +180,7 @@
         runtime.effective.model ?? runtime.catalog.currentModel ?? "";
       runtimeThinking = (runtime.effective.thinking ??
         "") as typeof runtimeThinking;
-      runtimePermission = runtime.effective.permissionMode ?? "";
+      runtimeApproval = runtime.effective.approvalPolicy ?? "allow-all";
       runtimeConfigMode = runtime.saved ? "custom" : "defaults";
     });
     loadedRuntime = key;
@@ -251,14 +247,15 @@
         instanceName: displayName,
         dmAllowlist,
       });
-      if (runtime && onSaveRuntime && runtimeConfigMode === "custom") {
+      if (runtime && onSaveRuntime) {
         await onSaveRuntime(
-          editorRuntimePermissionSave(
-            runtimeAgent,
-            { ...draft.selection, permissionMode: runtimePermission },
-            draft.thinkingOptions,
-            runtimePermissionOptions(draft.catalog),
-          ),
+          runtimeConfigMode === "custom"
+            ? editorRuntimePermissionSave(
+                runtimeAgent,
+                { ...draft.selection, approvalPolicy: runtimeApproval },
+                draft.thinkingOptions,
+              )
+            : { approvalPolicy: runtimeApproval },
         );
       }
       open = false;
@@ -403,17 +400,20 @@
                 model={runtimeModel}
                 thinking={draft.selection.thinking ?? ""}
                 thinkingOptions={draft.thinkingOptions}
-                catalog={draft.catalog}
-                permissionMode={runtimePermission}
                 onModel={(row) => {
                   runtimeAgent = row.runtimeAgent;
                   runtimeModel = row.model;
                   runtimeThinking = "";
                 }}
                 onThinking={(value) => void (runtimeThinking = value)}
-                onPermission={(value) => void (runtimePermission = value)}
               />
             {/if}
+            <CommunityAgentEditorPermissionField
+              id={`${editorId}-approval`}
+              {pending}
+              approvalPolicy={runtimeApproval}
+              onValueChange={(value) => (runtimeApproval = value)}
+            />
           </div>
         {/if}
         {#if error}<Field.Error>{error}</Field.Error>{/if}

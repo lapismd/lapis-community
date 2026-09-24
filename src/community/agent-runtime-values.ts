@@ -3,5 +3,6 @@ export interface CommunityAgentRuntimeValues {
   model?: string;
   thinking?: string;
   permissionMode?: string;
+  approvalPolicy?: "ask" | "allow-all";
   updatedAt?: number;
 }

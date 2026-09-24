@@ -1,4 +1,5 @@
 import type { AgentTurnState } from "./agent-turn-state.js";
+import type { AgentExecutionPolicy } from "./agent-execution-policy.js";
 
 export interface CommunityAgentControllerScope {
   conversationId?: string;
@@ -6,6 +7,7 @@ export interface CommunityAgentControllerScope {
   threadRootId?: string;
   conversationKind?: "channel" | "thread" | "forum-topic" | "dm";
   state?: AgentTurnState;
+  executionPolicy?: AgentExecutionPolicy;
   preview?: string;
   severity?: string;
   updatedAt?: number;

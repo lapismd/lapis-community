@@ -75,7 +75,7 @@ repairs preserve each of those assertions.
 
 Runtime and memory administration extend this same envelope at control version
 `2`. `runtime_get` and `runtime_set` omit `h`; runtime changes contain at least
-one controller-catalog value, including an optional permission mode taken only from the harness catalog option `mode`. A `runtime_state` snapshot advertises a catalog
+one catalog value or an explicit provider-independent `approvalPolicy` of `ask` or `allow-all`. A native `permissionMode` remains an independent optional catalog value. Missing legacy approval selections migrate to Allow all on save; future Ask selections MUST be persisted explicitly. Policy changes apply to the next new or continued turn, leaving in-flight approvals unchanged. Requested and effective policy metadata MUST remain distinct from unreported native mode state. A `runtime_state` snapshot advertises a catalog
 for each listed harness so the owner client can offer that harness's models
 before saving. Selecting a listed harness whose catalog is still empty MUST
 refresh `runtime_get` for that harness and keep loading until a later

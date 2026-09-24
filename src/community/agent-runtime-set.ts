@@ -6,6 +6,7 @@ export type CommunityAgentRuntimeSetControl = {
   model?: string;
   thinking?: "off" | "low" | "medium" | "high" | "xhigh";
   permissionMode?: string;
+  approvalPolicy?: "ask" | "allow-all";
 };
 
 const RUNTIME_SET_KEYS = [
@@ -16,6 +17,7 @@ const RUNTIME_SET_KEYS = [
   "model",
   "thinking",
   "permissionMode",
+  "approvalPolicy",
 ] as const;
 
 export function assertRuntimeSet(
@@ -30,10 +32,13 @@ export function assertRuntimeSet(
       control.model,
       control.thinking,
       permissionMode,
+      control.approvalPolicy,
     ].some((value) => value !== undefined) ||
     [control.runtimeAgent, control.model].some(
       (value) => value !== undefined && (!value.trim() || value.length > 256),
     ) ||
+    (control.approvalPolicy !== undefined &&
+      !["ask", "allow-all"].includes(control.approvalPolicy)) ||
     (control.thinking !== undefined &&
       !["off", "low", "medium", "high", "xhigh"].includes(control.thinking)) ||
     (permissionMode !== undefined &&
@@ -41,3 +46,8 @@ export function assertRuntimeSet(
   )
     throw new Error("Agent runtime defaults are invalid");
 }
+
+export type CommunityAgentRuntimeSettings = Omit<
+  CommunityAgentRuntimeSetControl,
+  "version" | "command" | "requestId"
+>;

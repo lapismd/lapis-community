@@ -127,11 +127,9 @@
     runtime?: CommunityAgentRuntimeState | undefined;
     memories?: CommunityAgentMemoryState | undefined;
     onLoadRuntime?: () => Promise<CommunityAgentRuntimeState>;
-    onSaveRuntime?: (input: {
-      runtimeAgent?: string;
-      model?: string;
-      thinking?: "off" | "low" | "medium" | "high" | "xhigh";
-    }) => Promise<CommunityAgentRuntimeState>;
+    onSaveRuntime?: (
+      input: import("../../community/agent-runtime-set.js").CommunityAgentRuntimeSettings,
+    ) => Promise<CommunityAgentRuntimeState>;
     onLoadMemories?: (input: {
       channelId: string;
       status?: "approved" | "review" | "rejected" | "retracted";

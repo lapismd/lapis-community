@@ -17,7 +17,7 @@ const catalog = {
 };
 
 describe("runtime permission options", () => {
-  it("offers only the advertised mode and omits ask", () => {
+  it("keeps native catalog modes separate from the default approval policy", () => {
     expect(
       runtimePermissionOptions(catalog).map((option) => option.value),
     ).toEqual(["default", "bypassPermissions"]);
@@ -29,7 +29,11 @@ describe("runtime permission options", () => {
         [],
         runtimePermissionOptions(catalog),
       ),
-    ).toEqual({ runtimeAgent: "claude", model: "opus" });
+    ).toEqual({
+      runtimeAgent: "claude",
+      model: "opus",
+      approvalPolicy: "allow-all",
+    });
     expect(
       editorRuntimePermissionSave(
         "claude",

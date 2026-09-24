@@ -1,3 +1,8 @@
+import type {
+  AgentAdministrationRequest,
+  AgentAdministrationControl,
+} from "./agent-administration-contracts.js";
+import { confirmedRuntimeSettings } from "./agent-runtime-confirmation.js";
 import { activityPayloadState } from "./activity-frame-state.js";
 import { projectActivityScope } from "./activity-scope-projection.js";
 import { turnFrameIsTerminal, turnIsTerminal } from "./agent-turn-state.js";
@@ -78,45 +83,6 @@ interface ActivitySyncRequest {
   notBefore?: number;
   timer?: ReturnType<typeof setTimeout>;
 }
-
-interface AgentAdministrationRequest {
-  agentPubkey: string;
-  responseKind: "runtime_state" | "memory_state" | "processing_state";
-  resolve(
-    value:
-      | CommunityAgentRuntimeState
-      | CommunityAgentMemoryState
-      | CommunityAgentProcessingState,
-  ): void;
-  reject(error: Error): void;
-  timer: ReturnType<typeof setTimeout>;
-}
-
-type AgentAdministrationControl =
-  | Omit<
-      Extract<CommunityAgentControl, { command: "processing_get" }>,
-      "requestId"
-    >
-  | Omit<
-      Extract<CommunityAgentControl, { command: "processing_set" }>,
-      "requestId"
-    >
-  | Omit<
-      Extract<CommunityAgentControl, { command: "runtime_get" }>,
-      "requestId"
-    >
-  | Omit<
-      Extract<CommunityAgentControl, { command: "runtime_set" }>,
-      "requestId"
-    >
-  | Omit<
-      Extract<CommunityAgentControl, { command: "memory_list" }>,
-      "requestId"
-    >
-  | Omit<
-      Extract<CommunityAgentControl, { command: "memory_action" }>,
-      "requestId"
-    >;
 
 export function createCommunityAgentsController(
   options: AgentControllerOptions,
@@ -459,7 +425,7 @@ export class CommunityAgentsController {
         pubkey,
         { version: 2, command: "runtime_set", ...defaults },
         "runtime_state",
-      ),
+      ).then((state) => confirmedRuntimeSettings(defaults, state)),
     loadMemories: (pubkey, channelId, filter = {}) =>
       this.#requestAdministration<CommunityAgentMemoryState>(
         pubkey,

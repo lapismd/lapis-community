@@ -1,4 +1,5 @@
 <script module lang="ts">
+  import { playProfileEditor } from "./profile-editor-story.js";
   import { profileActionFeedback } from "../../testing/profile-action-feedback.js";
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, fn, userEvent, within, waitFor } from "storybook/test";
@@ -58,39 +59,8 @@
   }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
 >
 
-<Story
-  name="Edit agent"
-  play={async ({ canvas, canvasElement }) => {
-    const editAgent = canvas.getByRole("button", {
-      name: "Edit Research",
-      exact: true,
-    });
-    await expect(
-      canvas.queryByText("Edit agent", { exact: true }),
-    ).not.toBeInTheDocument();
-    await expect(
-      canvas.getByRole("img", { name: "Research, Online" }),
-    ).toHaveAttribute("data-shape", "rounded");
-    await userEvent.click(editAgent);
-    const body = within(canvasElement.ownerDocument.body);
-    const dialog = body.getByRole("dialog", { name: "Edit agent" });
-    await expect(
-      within(dialog).getByText(
-        "A configured controller applies changes before the agent's next idle turn.",
-      ),
-    ).toBeVisible();
-    await userEvent.clear(within(dialog).getByLabelText("Agent name"));
-    await userEvent.type(
-      within(dialog).getByLabelText("Agent name"),
-      "Research assistant",
-    );
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Save changes" }),
-    );
-    await expect(
-      canvas.getByText("Agent Research assistant saved"),
-    ).toBeVisible();
-  }}>{#snippet template()}<Harness screen="profile" />{/snippet}</Story
+<Story name="Edit agent" play={playProfileEditor}
+  >{#snippet template()}<Harness screen="profile" />{/snippet}</Story
 >
 
 <Story

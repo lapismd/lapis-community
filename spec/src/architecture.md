@@ -844,3 +844,7 @@ Request-link navigation resolves unloaded messages through the shared agent conv
 LC-UI-049 canonical transport validation lives in protocol, with consumer projection in community and native-page assembly in projects. Transcript types, discussion-message props and thread-panel props are extracted from large component modules; changed leaf budgets remain below 300 counted lines. The architecture baseline records the smaller message and thread-panel owners plus the bounded composer-status and story growth in the same change.
 
 For LC-UI-044, `agent-turn-state` owns the lifecycle vocabulary and labels; `activity-scope-projection` projects live frames and signed snapshots. The controller delegates scope projection and permission settlement to bounded owners. Terminal permission identities survive navigation and replay.
+
+For LC-UI-044, approval selection and execution-policy parsing have dedicated owners. Runtime administration contracts are extracted from the controller facade. Editor and profile callbacks share the runtime-settings contract; the editor and custom model-fields owners shrink as approval selection becomes independent of provider catalogs.
+
+The profile editor interaction play lives in a bounded story helper so its existing story hotspot shrinks while testing policy migration alongside the saved agent name.

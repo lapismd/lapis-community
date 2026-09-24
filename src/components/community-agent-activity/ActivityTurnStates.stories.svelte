@@ -80,3 +80,46 @@
     />
   {/snippet}
 </Story>
+
+<Story
+  name="Requested and effective policy are distinct"
+  play={async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole("tab", { name: "Turns" }));
+    await expect(
+      canvas.getByText("Requested: Allow all", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Effective: Ask (restricted session)", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Provider mode bypass: rejected", { exact: true }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityAgentActivity
+      model={storyAgentState({
+        activityAgent: storyAgentPubkey,
+        conversationScopes: {
+          request: {
+            agentPubkey: storyAgentPubkey,
+            scopeKey: "scope",
+            sessionId: "session",
+            turnId: "turn",
+            state: "failed",
+            active: false,
+            executionPolicy: {
+              requested: "allow-all",
+              effective: "ask",
+              restricted: true,
+              nativeMode: { requested: "bypass", status: "rejected" },
+            },
+          },
+        },
+      })}
+      onLatest={() => {}}
+      onLoadOlder={() => {}}
+      onClearHistory={async () => {}}
+    />
+  {/snippet}
+</Story>
