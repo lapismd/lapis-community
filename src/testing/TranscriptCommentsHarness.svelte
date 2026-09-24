@@ -9,6 +9,7 @@
   import { nativeTranscriptCommentFixture } from "./native-transcript-comment-fixture.js";
   import { transcriptCommentFixture } from "./transcript-comment-fixture.js";
   import { groupedTranscriptCommentFixture } from "./grouped-transcript-comment-fixture.js";
+  import { richTranscriptToolFixture } from "./rich-transcript-tool-fixture.js";
   import { repositoryContextTurns } from "../components/community-projects/repository-context-transcript.js";
   import { buildRepositoryAgentContexts } from "../projects/repository-agent-context.js";
   import type { ProjectForgeSession } from "../projects/data-source.js";
@@ -22,6 +23,7 @@
     onOpen,
     threadPanel = false,
     grouped = false,
+    richTools = false,
     initialComment = false,
     switchViewer = false,
   }: {
@@ -32,6 +34,7 @@
     onOpen?: (room: string, root: string, reply?: string) => void;
     threadPanel?: boolean;
     grouped?: boolean;
+    richTools?: boolean;
     initialComment?: boolean;
     switchViewer?: boolean;
   } = $props();
@@ -40,7 +43,9 @@
       ? nativeTranscriptCommentFixture()
       : grouped
         ? groupedTranscriptCommentFixture()
-        : transcriptCommentFixture(),
+        : richTools
+          ? richTranscriptToolFixture()
+          : transcriptCommentFixture(),
   );
   if (untrack(() => initialComment))
     f.events.push(

@@ -4,17 +4,16 @@
   import type { CommunityAgentTranscriptProps } from "./transcript-props.js";
   import * as Chat from "@lapismd/design-core/ai/chat";
   import { Reasoning } from "@lapismd/design-core/ai/experimental";
-  import { transcriptToolProps } from "./transcript-tool-props.js";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityAgentTranscriptMessage from "./CommunityAgentTranscriptMessage.svelte";
-  import TranscriptToolDetail from "./TranscriptToolDetail.svelte";
   import CommunityAgentTranscriptPlan from "./CommunityAgentTranscriptPlan.svelte";
   import {
     sourceActivity,
     transcriptCommentSources,
   } from "../community-agent-conversation/transcript-comment-sources.js";
   import CommunityTranscriptComments from "../community-transcript-comments/CommunityTranscriptComments.svelte";
+  import CommunityAgentTranscriptTools from "./CommunityAgentTranscriptTools.svelte";
   import {
     agentTranscriptTimeline,
     pendingTranscriptStatuses,
@@ -68,11 +67,6 @@
     transcriptCommentSources(activity, agent.pubkey, context),
   );
 </script>
-
-{#snippet toolDetail(call: {
-  data?: unknown;
-  name?: string;
-})}<TranscriptToolDetail {call} />{/snippet}
 
 {#snippet emptyState()}
   <p class="agent-transcript__empty">
@@ -130,34 +124,12 @@
           </Reasoning>
         </CommunityTranscriptComments>
       {:else if entry.kind === "tools"}
-        <Chat.ToolCalls
-          calls={entry.items.map((item) =>
-            transcriptToolProps(item, toolDetail, !streaming(item.id)),
-          )}
-          expanded={!!focus &&
-            commentSources.some(
-              (source) =>
-                source.record.id === focus.anchor.recordId &&
-                entry.items.some((item) => item.id === source.displayId),
-            )}
-        >
-          {#snippet callWrapper(call, children)}
-            {@const item = entry.items.find((item) => item.toolId === call.id)!}
-            {@const sources = commentSources.filter(
-              (source) => source.displayId === item.id,
-            )}
-            <CommunityTranscriptComments
-              source={sources[0]}
-              related={sources.slice(1)}
-              label={`Tool activity: ${item.name}`}
-              text={[item.name, item.input, item.output, item.error]
-                .filter(Boolean)
-                .join("\n\n")}
-            >
-              {@render children()}
-            </CommunityTranscriptComments>
-          {/snippet}
-        </Chat.ToolCalls>
+        <CommunityAgentTranscriptTools
+          items={entry.items}
+          {commentSources}
+          {focus}
+          isStreaming={streaming}
+        />
       {:else if entry.kind === "plan"}
         <CommunityAgentTranscriptPlan
           item={entry.item}

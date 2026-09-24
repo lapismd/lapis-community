@@ -18,6 +18,8 @@
     part,
     label = "Transcript item",
     text,
+    viewToggleLabel,
+    onToggleView,
     children,
   }: {
     source?: TranscriptCommentSource | undefined;
@@ -25,6 +27,8 @@
     part?: TranscriptCommentPart;
     label?: string;
     text: string;
+    viewToggleLabel?: string | undefined;
+    onToggleView?: (() => void) | undefined;
     children: Snippet;
   } = $props();
   const conversation = useAgentConversation();
@@ -126,6 +130,9 @@
       durable && conversation?.reviewIndex.byId.get(durable.checkpoint.eventId);
     if (event) void copy(formatCommunityEventCopy(text, event), "Event copied");
   }
+  function onToggleViewAction() {
+    onToggleView?.();
+  }
 </script>
 
 {#if source && conversation}
@@ -149,6 +156,9 @@
       onCopyMessage={() => void copy(text, "Message copied")}
       onCopyLink={copyLink}
       onCopyEvent={copyEvent}
+      {...onToggleView && viewToggleLabel
+        ? { onToggleView: onToggleViewAction, viewToggleLabel }
+        : {}}
       {...conversation.memberId
         ? { onAddReaction: (_id, emoji, custom) => react(emoji, custom) }
         : {}}

@@ -1316,8 +1316,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscript.svelte": {
-      "countedLines": 241,
-      "physicalLines": 251,
+      "countedLines": 211,
+      "physicalLines": 220,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-activity/CommunityAgentTranscriptPlan.svelte": {

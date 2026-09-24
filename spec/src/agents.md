@@ -221,7 +221,7 @@ Activity replaces the profile with Back navigation and supports agent/channel
 selection, older saved pages and Latest. Its activity body composes the shared
 Design Core AI chat message, reasoning, and tool-call components without a
 composer. Owner prompts and agent replies retain Community avatars and names;
-tool input and output use the same shared detail renderer as the AI plugin.
+tool input and output use rich specialized renderers when recognized while keeping the same shared raw detail renderer as the AI plugin available from the message action menu.
 `CommunityRelativeTime` labels retain full timestamps in their tooltip and
 machine-readable time elements. Browser
 agent routes contain only identity and filter selections, never private content.

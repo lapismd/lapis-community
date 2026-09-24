@@ -8,6 +8,7 @@
   import FileJson2Icon from "@lucide/svelte/icons/file-json-2";
   import FlagIcon from "@lucide/svelte/icons/flag";
   import LinkIcon from "@lucide/svelte/icons/link";
+  import ListTreeIcon from "@lucide/svelte/icons/list-tree";
   import MessageSquareReplyIcon from "@lucide/svelte/icons/message-square-reply";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
@@ -31,6 +32,8 @@
     visible: boolean;
     disabledReason?: string | undefined;
     onReport?: ((id: string) => void) | undefined;
+    viewToggleLabel?: string | undefined;
+    onToggleView?: ((id: string) => void) | undefined;
   };
   let {
     id,
@@ -46,13 +49,15 @@
     onEdit,
     onDelete,
     onReport,
+    onToggleView,
+    viewToggleLabel,
     replyActionLabel = "Reply",
     disabledReason,
   }: Props = $props();
   const reasonId = $props.id();
 </script>
 
-{#if onAddReaction || onReply || onCopyLink || onCopyMessage || onCopyEvent || onEdit || onDelete || onReport}
+{#if onAddReaction || onReply || onCopyLink || onCopyMessage || onCopyEvent || onEdit || onDelete || onReport || onToggleView}
   <div
     class="community-message__actions"
     data-ui-part="message-actions"
@@ -104,7 +109,7 @@
         <CopyIcon aria-hidden="true" />
       </Button>
     {/if}
-    {#if onCopyLink || onCopyMessage || onCopyEvent || onEdit || onDelete || onReport}
+    {#if onCopyLink || onCopyMessage || onCopyEvent || onEdit || onDelete || onReport || onToggleView}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
@@ -134,11 +139,24 @@
               </DropdownMenu.Item>
             </DropdownMenu.Group>
           {/if}
-          {#if onEdit && (onCopyMessage || onCopyEvent || onCopyLink)}
+          {#if onEdit && (onToggleView || onCopyMessage || onCopyEvent || onCopyLink)}
             <DropdownMenu.Separator />
           {/if}
-          {#if onCopyMessage || onCopyEvent || onCopyLink}
+          {#if onToggleView || onCopyMessage || onCopyEvent || onCopyLink}
             <DropdownMenu.Group>
+              {#if onToggleView && viewToggleLabel}
+                <DropdownMenu.Item onSelect={() => onToggleView(id)}>
+                  {#if viewToggleLabel === "Show raw output"}
+                    <FileJson2Icon
+                      data-icon="inline-start"
+                      aria-hidden="true"
+                    />
+                  {:else}
+                    <ListTreeIcon data-icon="inline-start" aria-hidden="true" />
+                  {/if}
+                  {viewToggleLabel}
+                </DropdownMenu.Item>
+              {/if}
               {#if onCopyMessage}
                 <DropdownMenu.Item onSelect={() => onCopyMessage(id)}>
                   <ClipboardCopyIcon

@@ -105,6 +105,62 @@
 </Story>
 
 <Story
+  name="Tool detail toggles raw output without losing message actions"
+  args={{ onPublish: fn() }}
+  play={async ({ canvas, canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    const expandButtons = await canvas.findAllByRole("button", {
+      name: /Expand .*edited files/,
+    });
+    await userEvent.click(expandButtons[0]!);
+    const items = await canvas.findAllByRole("group", {
+      name: "Tool activity: edit_file",
+    });
+    const item = items[0]!;
+    await userEvent.click(
+      within(item).getByRole("button", {
+        name: "Show details for Edited file",
+      }),
+    );
+    await expect(within(item).getByText("fixture.ts")).toBeVisible();
+    await userEvent.hover(item);
+    await waitFor(() =>
+      expect(
+        getComputedStyle(
+          within(item).getByRole("group", { name: /Actions for/ }),
+        ).pointerEvents,
+      ).toBe("auto"),
+    );
+    await expect(
+      within(item).getByRole("button", { name: "Reply", exact: true }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      within(item).getByRole("button", { name: "More message actions" }),
+    );
+    await expect(
+      body.getByRole("menuitem", { name: "Copy message" }),
+    ).toBeVisible();
+    await userEvent.click(
+      body.getByRole("menuitem", { name: "Show raw output" }),
+    );
+    await expect(within(item).getByText(/Input/)).toBeVisible();
+    expect(within(item).getAllByText(/oldText/).length).toBeGreaterThan(0);
+    await userEvent.click(
+      within(item).getByRole("button", { name: "More message actions" }),
+    );
+    await expect(
+      body.getByRole("menuitem", { name: "Show rich output" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template(args)}<Harness
+      threadPanel
+      richTools
+      onPublish={args.onPublish}
+    />{/snippet}
+</Story>
+
+<Story
   name="Plan steps and assistant replies target individual items"
   args={{ onPublish: fn() }}
   play={async ({ canvas, args }) => {

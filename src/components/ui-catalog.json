@@ -270,24 +270,31 @@
         "formatted-text",
         "links",
         "reactions",
-        "shared-actions"
+        "shared-actions",
+        "transcript-tool-toggle"
       ],
       "loading": {
         "applicable": false,
         "states": [],
         "reason": "Page loading is demonstrated by the Loading pattern; this composition does not fetch data."
       },
-      "when": "Chat messages and conversation posts; reuse Markdown, author identity and reactions through this owner. CommunityMessageActions and message-action-hover own hover/focus/touch controls shared with transcript items.",
+      "when": "Chat messages and conversation posts; reuse Markdown, author identity and reactions through this owner. CommunityMessageActions and message-action-hover own hover/focus/touch controls shared with transcript items, including transcript-tool raw/rich view toggles in the overflow menu.",
       "productionStories": [
         "community-channels-message--message-with-thread-and-reactions",
         "community-agents-transcript-replies--grouped-tools-expose-replies-on-each-call",
-        "community-agents-transcript-item-actions--copy-uses-the-signed-checkpoint-and-reactions-stay-on-the-exact-step"
+        "community-agents-transcript-item-actions--copy-uses-the-signed-checkpoint-and-reactions-stay-on-the-exact-step",
+        "community-agents-activity-transcript-rich-tools--edited-file-rich-view",
+        "community-agents-activity-transcript-rich-tools--shell-command-rich-view",
+        "community-agents-activity-transcript-rich-tools--search-results-rich-view",
+        "community-agents-activity-transcript-rich-tools--grouped-tool-summary",
+        "community-agents-transcript-comments--tool-detail-toggles-raw-output-without-losing-message-actions"
       ],
       "verification": {
         "formatted-text": "community-patterns-message--contract",
         "reactions": "community-patterns-message--contract",
         "links": "community-patterns-message--contract",
-        "shared-actions": "community-messages-shared-actions--keyboard-reply-and-copy-actions"
+        "shared-actions": "community-messages-shared-actions--keyboard-reply-and-copy-actions",
+        "transcript-tool-toggle": "community-agents-transcript-comments--tool-detail-toggles-raw-output-without-losing-message-actions"
       }
     },
     {
