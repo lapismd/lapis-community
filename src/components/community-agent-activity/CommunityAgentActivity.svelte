@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { activityFeedExecution } from "./transcript-execution.js";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import {
@@ -157,9 +158,7 @@
         </div>{/if}
       {#if selected && (model.activity.length > 0 || scopes.some((scope) => scope.active) || model.hasOlder)}
         <CommunityAgentActivityFeed
-          working={scopes.some(
-            (scope) => scope.active && activityStreams(scope.state),
-          )}
+          {...activityFeedExecution(model, scopes)}
           activity={model.activity}
           agent={selected}
           {context}

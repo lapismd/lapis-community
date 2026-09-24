@@ -6,6 +6,7 @@
 
   let {
     activity,
+    execution,
     agent,
     context,
     conversationKey,
@@ -39,6 +40,7 @@
     {#snippet composer()}{/snippet}
     <CommunityAgentTranscript
       {activity}
+      {...execution ? { execution } : {}}
       {agent}
       {...context ? { context } : {}}
       {members}

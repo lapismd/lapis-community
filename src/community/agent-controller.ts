@@ -1,3 +1,8 @@
+import {
+  applyAgentStatePatch,
+  createActivitySyncSelection,
+  type AgentActivitySyncSelection,
+} from "./activity-freshness.js";
 import { AgentFrameProjection } from "./agent-frame-projection.js";
 import { AgentTurnControls } from "./agent-turn-controls.js";
 import { sessionControl } from "./agent-session-controls.js";
@@ -128,12 +133,7 @@ export class CommunityAgentsController {
     agentPubkey: string;
     context: CommunityAgentActivitySyncContext;
   }> = [];
-  #syncSelection:
-    | {
-        context: CommunityAgentActivitySyncContext;
-        agentPubkeys: readonly string[];
-      }
-    | undefined;
+  #syncSelection: AgentActivitySyncSelection | undefined;
   #syncGeneration = 0;
   #syncSerial = 0;
   #turnControls = new AgentTurnControls({
@@ -479,11 +479,7 @@ export class CommunityAgentsController {
     [K in keyof CommunityAgentsState]?: CommunityAgentsState[K] | undefined;
   }): void {
     if (this.#closed) return;
-    const next = { ...this.#state, ...patch };
-    for (const key of Object.keys(next))
-      if (next[key as keyof typeof next] === undefined)
-        delete next[key as keyof typeof next];
-    this.#state = next as CommunityAgentsState;
+    this.#state = applyAgentStatePatch(this.#state, patch, this.#syncSelection);
     this.#options.onState(this.#state);
   }
 
@@ -1073,7 +1069,7 @@ export class CommunityAgentsController {
       .map((agent) => agent.pubkey)
       .sort();
     this.#cancelActivitySync(true);
-    this.#syncSelection = { context, agentPubkeys: eligible };
+    this.#syncSelection = createActivitySyncSelection(context, eligible);
     this.#syncQueue = eligible.map((agentPubkey) => ({
       agentPubkey,
       context,
@@ -1354,6 +1350,7 @@ export class CommunityAgentsController {
           snapshot.frame,
           outer.created_at * 1_000,
           false,
+          true,
         );
         this.#applyWorkingFrame(
           request.agentPubkey,
@@ -1365,6 +1362,7 @@ export class CommunityAgentsController {
       const gap = Boolean(payload.migrationGap || payload.replayGap);
       if (complete) {
         clearTimeout(request.timer);
+        this.#syncSelection?.pending.delete(request.agentPubkey);
         this.#syncRequest = undefined;
         if (this.#syncQueue.length > 0) {
           this.#update({
@@ -1758,6 +1756,7 @@ export class CommunityAgentsController {
     frame: CommunityAgentActivityItem["frame"],
     observedAt?: number,
     live = false,
+    snapshot = false,
   ): void {
     const patch = this.#frames.apply(
       this.#state,
@@ -1766,6 +1765,7 @@ export class CommunityAgentsController {
       this.#now() * 1000,
       observedAt,
       live,
+      snapshot,
     );
     if (patch) this.#update(patch);
     this.#sweepExpiredPermissions();

@@ -5,10 +5,14 @@ import type {
 import { ActivityPermissionLedger } from "./activity-sync-permissions.js";
 import { AgentPermissionNotices } from "./agent-permission-notices.js";
 import { observerRecord, observerText } from "./agent-observer.js";
-import { observerScope, controllerScopeId } from "./agent-activity-context.js";
+import {
+  activityMatches,
+  observerScope,
+  controllerScopeId,
+} from "./agent-activity-context.js";
 import { activityScopeStorageKey } from "./activity-frame-state.js";
 import { projectActivityScope } from "./activity-scope-projection.js";
-import { turnFrameIsTerminal } from "./agent-turn-state.js";
+import { turnFrameIsTerminal, turnIsTerminal } from "./agent-turn-state.js";
 
 /** One sequence-checked projection for live frames, archive replay and signed snapshots. */
 export class AgentFrameProjection {
@@ -22,6 +26,7 @@ export class AgentFrameProjection {
     nowMs: number,
     observedAt?: number,
     live = false,
+    snapshot = false,
   ): Partial<CommunityAgentsState> | undefined {
     const payload = observerRecord(frame.payload);
     const scopeKey = observerText(payload.scopeKey, 4096);
@@ -30,7 +35,12 @@ export class AgentFrameProjection {
       frame.streamId ?? "legacy",
     ]);
     const previousSequence = this.sequences.get(sequenceKey);
-    if (previousSequence !== undefined && frame.seq <= previousSequence) return;
+    if (
+      previousSequence !== undefined &&
+      (frame.seq < previousSequence ||
+        (frame.seq === previousSequence && !snapshot))
+    )
+      return;
     this.sequences.set(sequenceKey, frame.seq);
     const pending = this.permissions.apply(
       state.pendingPermissions,
@@ -45,7 +55,7 @@ export class AgentFrameProjection {
       frame.turnId ||
       "";
     const key = activityScopeStorageKey(agentPubkey, scopeKey, requestId);
-    const scope = projectActivityScope(
+    let scope = projectActivityScope(
       agentPubkey,
       frame,
       state.conversationScopes?.[key],
@@ -53,6 +63,18 @@ export class AgentFrameProjection {
       nowMs,
       observedAt,
     );
+    if (
+      scope &&
+      !live &&
+      !snapshot &&
+      !turnIsTerminal(scope.state) &&
+      state.activityUnavailable?.some(
+        (target) =>
+          target.agentPubkey === agentPubkey &&
+          activityMatches(target.context, scope!),
+      )
+    )
+      scope = { ...scope, state: "unknown", preview: "Status unavailable" };
     return {
       ...(pending ? { pendingPermissions: pending } : {}),
       ...(scope

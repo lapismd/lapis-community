@@ -1141,3 +1141,7 @@ action opens the exact conversation's Activity and focuses its turn. Toasts are
 dismissed when their request resolves, expires or the application signs out;
 remounting Activity or the application cannot replay an already claimed toast.
 The Activity permission stack renders actionable cards without creating toasts.
+
+For LC-UI-044, unavailable activity MUST stop thinking, tool and progress
+animation together. Transcript presentation MUST preserve observed content and
+show Status unavailable until an exact current turn projection is restored.

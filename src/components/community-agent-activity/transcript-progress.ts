@@ -1,5 +1,13 @@
-import { activityPayloadState } from "../../community/activity-frame-state.js";
-import { turnStateLabel } from "../../community/agent-turn-state.js";
+import {
+  transcriptExecutionState,
+  type TranscriptExecution,
+} from "./transcript-execution.js";
+import { transcriptProgressStatus } from "./transcript-progress-status.js";
+import { observerRecord as record } from "../../community/agent-observer.js";
+import {
+  turnStateLabel,
+  turnIsTerminal,
+} from "../../community/agent-turn-state.js";
 import type {
   CommunityAgentActivityContext,
   CommunityAgentActivityItem,
@@ -21,6 +29,7 @@ export function pendingTranscriptStatuses(
   agentPubkey: string,
   context?: CommunityAgentActivityContext,
   nowMs = Date.now(),
+  execution?: Partial<TranscriptExecution>,
 ): { id: string; text: string; streaming: boolean }[] {
   const pending = new Map<
     string,
@@ -40,41 +49,28 @@ export function pendingTranscriptStatuses(
     const entry = payload.entry as CommunityAgentTranscriptEntry | undefined;
     const key = transcriptRequestKey(item.frame, entry);
     if (!key) continue;
-    if (closeTranscriptProgress(item, key, ended, pending, activity, nowMs))
+    const current = transcriptExecutionState(item, execution);
+    if (current && turnIsTerminal(current)) {
+      pending.delete(key);
+      ended.add(key);
       continue;
+    }
+    if (closeTranscriptProgress(item, key, ended, pending, activity, nowMs)) {
+      const status = pending.get(key);
+      if (status && current)
+        pending.set(key, {
+          ...status,
+          text: turnStateLabel(current),
+          streaming: current === "running",
+        });
+      continue;
+    }
     if (
       item.frame.kind === "request_status" ||
       (entry?.type === "turn" && entry.state === "started")
     ) {
-      const id =
-        payload.lifecycleRequestId ??
-        payload.requestId ??
-        item.frame.turnId ??
-        entry?.id;
-      const state =
-        entry?.type === "turn" && entry.state === "started"
-          ? "running"
-          : activityPayloadState(
-              item.frame.kind,
-              false,
-              String(payload.state ?? ""),
-              String(payload.preview ?? ""),
-            );
-      pending.set(key, {
-        id: String(id),
-        text:
-          typeof payload.preview === "string"
-            ? payload.preview
-            : turnStateLabel(state),
-        streaming: state === "running",
-      });
+      pending.set(key, transcriptProgressStatus(item, entry, current));
     }
   }
   return [...pending.values()];
-}
-
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
 }

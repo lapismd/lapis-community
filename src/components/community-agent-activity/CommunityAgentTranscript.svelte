@@ -1,18 +1,13 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
+  import { transcriptRecordStates } from "./transcript-execution.js";
+  import type { CommunityAgentTranscriptProps } from "./transcript-props.js";
   import * as Chat from "@lapismd/design-core/ai/chat";
   import { Reasoning } from "@lapismd/design-core/ai/experimental";
   import { transcriptToolProps } from "./transcript-tool-props.js";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
-  import type {
-    CommunityAgentActivityContext,
-    CommunityAgentActivityItem,
-    CommunityAgentIdentity,
-    CommunityAgentTranscriptEntry,
-  } from "../../community/agent-contracts.js";
-  import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import type { CommunityAgentTranscriptEntry } from "../../community/agent-contracts.js";
   import CommunityAgentTranscriptPlan from "./CommunityAgentTranscriptPlan.svelte";
   import { transcriptRecord } from "./transcript-entry.js";
   import {
@@ -27,6 +22,7 @@
 
   let {
     activity,
+    execution,
     agent,
     context,
     members = [],
@@ -37,28 +33,25 @@
     onLoadOlder,
     hasOlder = false,
     loading = false,
-  }: {
-    header?: Snippet;
-    messageContent?: Snippet<
-      [Extract<CommunityAgentTranscriptEntry, { type: "message" }>]
-    >;
-    working?: boolean;
-    activity: readonly CommunityAgentActivityItem[];
-    agent: Pick<CommunityAgentIdentity, "pubkey" | "name" | "avatarUrl">;
-    context?: CommunityAgentActivityContext;
-    members?: readonly CommunityMemberModel[];
-    onOpenRequest?: (item: CommunityAgentActivityItem) => void;
-    onLoadOlder?: () => void | Promise<void>;
-    hasOlder?: boolean;
-    loading?: boolean;
-  } = $props();
+  }: CommunityAgentTranscriptProps = $props();
 
   const timeline = $derived(
     agentTranscriptTimeline(activity, agent.pubkey, context),
   );
   const pending = $derived(
-    pendingTranscriptStatuses(activity, agent.pubkey, context),
+    pendingTranscriptStatuses(
+      activity,
+      agent.pubkey,
+      context,
+      Date.now(),
+      execution,
+    ),
   );
+  const states = $derived(
+    transcriptRecordStates(activity, agent.pubkey, execution, context),
+  );
+  const streaming = (id: string) =>
+    !states.has(id) || states.get(id) === "running";
   const markdownMembers = $derived(transcriptMarkdownMembers(members, [agent]));
   const latestMessageId = $derived(
     [...timeline].reverse().find((entry) => entry.kind === "message")?.item.id,
@@ -104,7 +97,9 @@
       pending.some((status) => status.streaming) ||
       timeline.some(
         (entry) =>
-          entry.kind === "thinking" && entry.item.state === "streaming",
+          entry.kind === "thinking" &&
+          entry.item.state === "streaming" &&
+          streaming(entry.item.id),
       )}
     isEmpty={timeline.length === 0 && pending.length === 0 && !working}
     {emptyState}
@@ -163,16 +158,18 @@
         {/if}
       {:else if entry.kind === "thinking"}
         <Reasoning
-          streaming={entry.item.state === "streaming"}
+          streaming={entry.item.state === "streaming" &&
+            streaming(entry.item.id)}
           preview={entry.item.text}
-          expanded={entry.item.state === "streaming"}
+          expanded={entry.item.state === "streaming" &&
+            streaming(entry.item.id)}
         >
           {entry.item.text}
         </Reasoning>
       {:else if entry.kind === "tools"}
         <Chat.ToolCalls
           calls={entry.items.map((item) =>
-            transcriptToolProps(item, toolDetail),
+            transcriptToolProps(item, toolDetail, !streaming(item.id)),
           )}
           defaultExpanded={false}
         />
@@ -219,7 +216,9 @@
     {/each}
     {#if working || pending.length > 0}
       <Reasoning
-        label={pending.length === 1 ? pending[0]!.text : "Working"}
+        label={pending.length
+          ? [...new Set(pending.map((status) => status.text))].join(" · ")
+          : "Working"}
         streaming={pending.length > 0
           ? pending.some((status) => status.streaming)
           : working}

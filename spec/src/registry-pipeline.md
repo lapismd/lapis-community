@@ -317,3 +317,7 @@ Application permission notifications extract relay EOSE classification, frame
 projection, and application toast ownership. The architecture baseline lowers
 the touched controller, session, application and harness budgets; their tests
 and validation record do not alter registry ingestion.
+
+Agent alignment acceptance records distinguish temporary packed source dependencies
+from installed services. Freshness checks cover archived progress, exact thread
+isolation and signed snapshot recovery before installed-build acceptance.

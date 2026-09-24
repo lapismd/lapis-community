@@ -689,3 +689,8 @@ create new notifications. A request is claimed for notification at most once
 per controller lifetime, independently of Activity navigation; expired and
 settled requests cannot be claimed. Notifications preserve the exact agent,
 session, turn and originating conversation without publishing any new event.
+
+For LC-NOSTR-022, unavailable catch-up MUST project nonterminal execution in the
+requested conversations as unknown, without changing signed records or other
+conversations. Fresh authenticated snapshots MAY refresh equal-sequence state;
+older snapshots and duplicate replay MUST NOT override fresher execution.

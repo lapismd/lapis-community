@@ -159,3 +159,45 @@ and one project-relay integration test (56 non-selected cases skipped). The
 packaged UI consumer passed all six viewport/theme combinations. Static,
 specification and type checks, Storybook build, package build and publint passed.
 Visual review and installed-controller acceptance remain separate.
+
+## Catch-up freshness
+
+Three controller regressions and four transcript presentation regressions failed
+before implementation. Their exact targets now pass. An additional regression
+for reused record IDs across simultaneous threads failed once and now passes.
+Review reproduced two more failures: canonical fragment tools kept their running state,
+and one agent's failed catch-up invalidated a previously caught-up agent. Both
+now pass. The final focused freshness set passes twelve tests. A wider controller/permission/
+transcript lane passed 55 tests before the last two cases were added.
+
+Unavailable catch-up now projects only the requested agent/conversation's
+nonterminal state as unknown. Signed history remains unchanged. A fresh signed
+snapshot can restore an equal sequence; duplicate or newer replay cannot make
+unavailable execution current, and an older snapshot cannot replace live state.
+Thinking, progress and tools consume the same execution projection, including
+terminal snapshots whose events are absent from the local transcript.
+
+The cold recovery story passes. Its first two attempts exposed test query errors
+(an unavailable Testing Library method and an incorrect label query); the final
+story asserts the visible status text, stopped animations and restored activity.
+No product assertions were removed. Svelte autofixer reports no issues; its
+subscription-effect suggestions are intentional lifecycle ownership.
+
+Temporary validation installs use
+`/tmp/community-agent-alignment/freshness.pnpmfile.cjs` with
+`pnpm --config.pnpmfile=/tmp/community-agent-alignment/freshness.pnpmfile.cjs install --lockfile=false`.
+That hook selects the rebuilt Design Core tarball containing `ToolCallStatus`
+`unknown`. Canonical manifests and lockfiles are unchanged. The final complete
+`pnpm checks` aggregate passed: 1,143 unit tests (two skipped), 581 cold browser
+interaction/accessibility tests, 67 disposable-relay tests, one project-relay
+integration test (56 non-selected skipped), and all six packaged-consumer
+viewport/theme cases. Specification, format, architecture, UI and type checks,
+Storybook build, package build and publint passed. Visual review remains pending.
+
+Design Core's corresponding `unknown` tool status is committed as `5192bdbb`.
+Its focused tool, complete Storybook and packaged Lapis AI checks passed; shell
+browser readiness retries are recorded separately in its verification record.
+Lapis Notes desktop acceptance passed 201 tests, type checks and production
+build against the rebuilt controller and Community package. The corrected ready
+schema fixture is committed as `24d5ef89`. Full Lapis browser acceptance and the
+real-provider/disposable controller workflow remain separate gates.

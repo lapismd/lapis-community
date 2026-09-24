@@ -1,26 +1,20 @@
 import type { Snippet } from "svelte";
-import {
-  isOneLineToolAlert,
-  presentToolPayload,
-  toolCallTarget,
-} from "@lapismd/design-core/ai/chat";
 import type { CommunityAgentTranscriptEntry } from "../../community/agent-contracts.js";
-import { toolCallStatus } from "./model.js";
+import { transcriptToolPresentation } from "./transcript-tool-presentation.js";
 export function transcriptToolProps(
   item: Extract<CommunityAgentTranscriptEntry, { type: "tool" }>,
   toolDetail: Snippet<[{ data?: unknown; name?: string }]>,
+  unavailable = false,
 ) {
-  const error = item.error ? presentToolPayload(item.error) : undefined;
-  const target = toolCallTarget(item.input);
+  const { hasDetail, ...presentation } = transcriptToolPresentation(
+    item,
+    unavailable,
+  );
   return {
     id: item.toolId,
     name: item.name,
-    status: toolCallStatus(item.state),
-    ...(target ? { target } : {}),
-    ...(error && isOneLineToolAlert(error) ? { errorMessage: error.code } : {}),
+    ...presentation,
     data: item,
-    ...(item.input || item.output || (error && !isOneLineToolAlert(error))
-      ? { detail: toolDetail }
-      : {}),
+    ...(hasDetail ? { detail: toolDetail } : {}),
   };
 }

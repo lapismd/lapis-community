@@ -1,3 +1,4 @@
+import type { AgentActivityFreshnessState } from "./activity-freshness.js";
 import type { CommunityAgentPermissionRequest } from "./agent-permission-contracts.js";
 import type { AgentPermissionNotice } from "./agent-permission-notices.js";
 import type {
@@ -476,7 +477,7 @@ export type CommunityAgentActivityContext = { focusTurnId?: string } & (
 
 export type { CommunityAgentControllerScope } from "./agent-controller-scope.js";
 
-export interface CommunityAgentsState {
+export interface CommunityAgentsState extends AgentActivityFreshnessState {
   publicAgents?: readonly CommunityAgentIdentity[];
   status: "loading" | "ready" | "offline" | "error" | "unsupported";
   agents: readonly CommunityAgentIdentity[];
@@ -513,8 +514,6 @@ export interface CommunityAgentsState {
   activityAgent?: string;
   activityChannel?: string;
   activityLoading: boolean;
-  activitySyncStatus?: "checking" | "caught-up" | "unavailable";
-  activitySyncGap?: boolean;
   hasOlder: boolean;
 }
 

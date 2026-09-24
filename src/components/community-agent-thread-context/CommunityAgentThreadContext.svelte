@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { watchAgentConversationChannel } from "../community-agent-conversation/watch-agent-channel.svelte.js";
   import CommunityAgentCheckpointDivider from "../community-agent-checkpoint-divider/CommunityAgentCheckpointDivider.svelte";
   import { useAgentConversation } from "../community-agent-conversation/context.svelte.js";
   import { useAgentComposerActivity } from "../community-agent-composer-activity/context.js";
@@ -37,10 +37,7 @@
   const channel = $derived(
     conversation?.rooms.find((room) => room.id === roomId)?.groupId ?? roomId,
   );
-  $effect(() => {
-    const id = channel;
-    if (id && conversation) return untrack(() => conversation.watch(id));
-  });
+  watchAgentConversationChannel(() => channel, conversation);
   const segments = $derived(
     threadContextSegments(
       conversation?.checkpoints ?? [],
@@ -102,6 +99,7 @@
 <div style="--agent-transcript-min-height: 0">
   {#each ownerAgents as owner (owner.agent.pubkey)}
     <CommunityAgentTranscript
+      {...ownerModel ? { execution: ownerModel } : {}}
       activity={owner.activity}
       agent={owner.agent}
       {...threadContext ? { context: threadContext } : {}}
@@ -111,6 +109,7 @@
   {#each segments as segment (segment.checkpoint.eventId)}
     {#if segment.activity.length}
       <CommunityAgentTranscript
+        {...ownerModel ? { execution: ownerModel } : {}}
         activity={segment.activity}
         agent={{
           pubkey: segment.agent,

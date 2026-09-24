@@ -1,3 +1,4 @@
+import type { TranscriptExecution } from "./transcript-execution.js";
 import type { Snippet } from "svelte";
 import type {
   CommunityAgentActivityContext,
@@ -8,6 +9,7 @@ import type {
 import type { CommunityMemberModel } from "../community-workspace/model.js";
 
 export type CommunityAgentActivityFeedProps = {
+  execution?: Partial<TranscriptExecution>;
   header?: Snippet;
   messageContent?: Snippet<
     [Extract<CommunityAgentTranscriptEntry, { type: "message" }>]

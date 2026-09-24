@@ -854,3 +854,7 @@ Owner turn-control correlation and exact scope selection MUST have dedicated own
 Agent frame projection, notification eligibility and subscription delivery origin
 have bounded owners. Application notification effects live outside the application
 composition root; neither Activity mounting nor historical replay owns them.
+
+Activity freshness is projected separately from signed archive records, scoped to
+the exact agent and conversation. The controller state patch owner invalidates
+cached execution when catch-up is unavailable.
