@@ -66,6 +66,43 @@ describe("rich transcript tool output", () => {
     expect(detail?.kind === "file-edit" ? detail.files : []).toHaveLength(1);
   });
 
+  it("detects file edits from edit result arrays", () => {
+    const patch = [
+      "diff --git a/LICENSE b/LICENSE",
+      "--- a/LICENSE",
+      "+++ b/LICENSE",
+      "@@ -1 +1 @@",
+      "-old license",
+      "+new license",
+    ].join("\n");
+
+    const detail = richTranscriptToolDetail(
+      tool({
+        name: "Edit File",
+        input: JSON.stringify({ kind: "edit" }),
+        output: JSON.stringify([
+          {
+            path: "$WORKSPACE[default]/repo/LICENSE",
+            content: patch,
+            type: "diff",
+          },
+        ]),
+      }),
+    );
+
+    expect(detail).toMatchObject({
+      kind: "file-edit",
+      files: [
+        {
+          path: "$WORKSPACE[default]/repo/LICENSE",
+          patch,
+          additions: 1,
+          deletions: 1,
+        },
+      ],
+    });
+  });
+
   it("detects file edits from unified patches", () => {
     const patch = [
       "diff --git a/fixture.ts b/fixture.ts",

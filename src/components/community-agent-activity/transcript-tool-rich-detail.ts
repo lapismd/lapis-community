@@ -62,8 +62,9 @@ function dedupeFileEdits(files: RichFileEdit[]): RichFileEdit[] {
 function fileEditsFromValue(value: unknown): RichFileEdit[] {
   const direct = fileEditFromRecord(record(value));
   if (direct) return [direct];
-  const files =
-    arrayFromRecord(value, "files") ?? arrayFromRecord(value, "changes");
+  const files = Array.isArray(value)
+    ? value
+    : (arrayFromRecord(value, "files") ?? arrayFromRecord(value, "changes"));
   if (!files) return [];
   return files.flatMap((item) => {
     const edit = fileEditFromRecord(record(item));
@@ -73,9 +74,11 @@ function fileEditsFromValue(value: unknown): RichFileEdit[] {
 
 function fileEditFromRecord(value: Record<string, unknown> | undefined) {
   if (!value) return;
-  const patch = stringValue(
-    value.patch ?? value.diff ?? value.unifiedPatch ?? value.unified_diff,
-  );
+  const content = stringValue(value.content ?? value.text);
+  const patch =
+    stringValue(
+      value.patch ?? value.diff ?? value.unifiedPatch ?? value.unified_diff,
+    ) ?? patchText(content);
   const path =
     pathFromRecord(value) || (patch ? pathFromPatch(patch) : undefined);
   if (!path) return;
@@ -84,7 +87,7 @@ function fileEditFromRecord(value: Record<string, unknown> | undefined) {
     value.oldText ?? value.before ?? value.original ?? value.previous,
   );
   const newText = stringValue(
-    value.newText ?? value.after ?? value.updated ?? value.content,
+    value.newText ?? value.after ?? value.updated ?? content,
   );
   if (oldText === undefined && newText === undefined) return;
   return fileEdit(path, { oldText: oldText ?? null, newText: newText ?? "" });

@@ -25,6 +25,16 @@
         class="transcript-tool-rich__file"
         aria-label={`Diff for ${file.path}`}
       >
+        <header class="transcript-tool-rich__file-header">
+          <span class="transcript-tool-rich__file-path">{file.path}</span>
+          <span
+            class="transcript-tool-rich__diff-stats"
+            aria-label={`${file.additions} additions and ${file.deletions} deletions`}
+          >
+            <span data-kind="addition">+{file.additions}</span>
+            <span data-kind="deletion">−{file.deletions}</span>
+          </span>
+        </header>
         {#if file.patch}
           <FileDiff
             path={file.path}
@@ -88,13 +98,61 @@
   }
 
   .transcript-tool-rich__file {
+    display: grid;
     min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--background);
+  }
+
+  .transcript-tool-rich__file-header {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding: 0.5rem 0.75rem;
+    color: var(--muted-foreground);
+    font-size: var(--community-text-secondary);
+  }
+
+  .transcript-tool-rich__file-path {
+    min-width: 0;
+    overflow: hidden;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .transcript-tool-rich__diff-stats {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 0.375rem;
+    font-family: var(--font-mono, ui-monospace, monospace);
+  }
+
+  .transcript-tool-rich__diff-stats [data-kind="addition"] {
+    color: var(--foreground);
+  }
+
+  .transcript-tool-rich__diff-stats [data-kind="deletion"] {
+    color: var(--destructive);
   }
 
   .transcript-tool-rich__file :global([data-ui-component="file-diff"]) {
     max-height: 20rem;
-    overflow: auto;
-    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .transcript-tool-rich__file
+    :global([data-ui-component="file-diff"] [data-ui-part="scroll-area"]),
+  .transcript-tool-rich__file
+    :global(
+      [data-ui-component="file-diff"] [data-ui-part="scroll-area-viewport"]
+    ) {
+    max-height: 20rem;
   }
 
   .transcript-tool-rich__search {

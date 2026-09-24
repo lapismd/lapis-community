@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent } from "storybook/test";
+  import { expect, userEvent, within } from "storybook/test";
   import CommunityAgentTranscript from "./CommunityAgentTranscript.svelte";
   import {
     storyActivity,
@@ -47,12 +47,22 @@
     agent: storyAgent,
     activity: [
       toolEntry({
-        name: "edit_file",
-        input: JSON.stringify({
-          path: "fixture.ts",
-          oldText: 'export const smokeValue = "old";\n',
-          newText: 'export const smokeValue = "new";\n',
-        }),
+        name: "Edit File",
+        input: JSON.stringify({ kind: "edit" }),
+        output: JSON.stringify([
+          {
+            path: "fixture.ts",
+            type: "diff",
+            content: [
+              "diff --git a/fixture.ts b/fixture.ts",
+              "--- a/fixture.ts",
+              "+++ b/fixture.ts",
+              "@@ -1 +1 @@",
+              '-export const smokeValue = "old";',
+              '+export const smokeValue = "new";',
+            ].join("\n"),
+          },
+        ]),
       }),
     ],
   }}
@@ -60,7 +70,23 @@
     await userEvent.click(
       canvas.getByRole("button", { name: "Show details for Edited file" }),
     );
-    await expect(canvas.getByText("fixture.ts")).toBeVisible();
+    const fileDiff = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-component="file-diff"][data-diff-file-path="fixture.ts"]',
+    );
+    const fileHeader = canvasElement.querySelector<HTMLElement>(
+      '.transcript-tool-rich__file[aria-label="Diff for fixture.ts"] .transcript-tool-rich__file-header',
+    );
+    expect(fileHeader).not.toBeNull();
+    await expect(within(fileHeader!).getByText("fixture.ts")).toBeVisible();
+    await expect(within(fileHeader!).getByText("+1")).toBeVisible();
+    await expect(within(fileHeader!).getByText("−1")).toBeVisible();
+    expect(fileDiff).not.toBeNull();
+    expect(getComputedStyle(fileDiff!).overflow).toBe("hidden");
+    expect(
+      fileDiff!.querySelector(
+        '[data-ui-component="scroll-area"][data-ui-part="scroll-area"]',
+      ),
+    ).not.toBeNull();
     expect(canvasElement.textContent).toContain("smokeValue");
     expect(canvasElement.textContent).toContain("+1");
     expect(canvasElement.textContent).toContain("−1");

@@ -1,6 +1,6 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, waitFor } from "storybook/test";
+  import { expect, userEvent, waitFor, within } from "storybook/test";
   import CommunityAgentTranscript from "./CommunityAgentTranscript.svelte";
   import {
     storyActivity,
@@ -126,10 +126,20 @@
       permission!.closest('[data-ui-part="transcript-timed-row"]'),
     ).not.toBeNull();
     const style = getComputedStyle(permission!);
-    expect(style.paddingLeft).toBe("22px");
     expect(style.textAlign).toBe("left");
-    expect(style.whiteSpace).toBe("nowrap");
-    expect(style.textOverflow).toBe("ellipsis");
+    const label = permission!.querySelector<HTMLElement>(
+      ".agent-transcript-permission__label",
+    );
+    expect(label).not.toBeNull();
+    const labelStyle = getComputedStyle(label!);
+    expect(labelStyle.whiteSpace).toBe("nowrap");
+    expect(labelStyle.textOverflow).toBe("ellipsis");
+    expect(labelStyle.fontWeight).toBe("400");
+    await userEvent.click(permission!);
+    await waitFor(() =>
+      expect(permission!).toHaveAttribute("aria-expanded", "true"),
+    );
+    await expect(within(canvasElement).getByText(/\$ ls -la/)).toBeVisible();
   }}
 >
   {#snippet template(args)}
