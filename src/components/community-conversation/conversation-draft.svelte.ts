@@ -24,7 +24,7 @@ export function createConversationDraft(owner: {
   $effect(() => {
     const draft = value;
     const key = owner.presentation()?.key;
-    if (key && previousKey === owner.key())
+    if (key && previousKey === owner.key() && !owner.persist())
       untrack(() => owner.changed(key, draft));
   });
   $effect(() => {

@@ -288,9 +288,7 @@
     onOpenMember: () => onOpenMember,
     onMessageMember: () => onMessageMember,
     onWaveMember: () => onWaveMember,
-    onView(view) {
-      editorView = view;
-    },
+    onView: (view) => void (editorView = view),
     onSelection(state) {
       if (editorView !== state.view) editorView = state.view;
       if (selectionFrom !== state.selectionFrom)
@@ -310,15 +308,9 @@
           ?.scrollIntoView({ block: "nearest" });
       });
     },
-    onAutocompleteAccept() {
-      return selectAutocomplete(autocompleteSelectedIndex);
-    },
-    onAutocompleteDismiss() {
-      clearAutocomplete();
-    },
-    onSubmit() {
-      void submit();
-    },
+    onAutocompleteAccept: () => selectAutocomplete(autocompleteSelectedIndex),
+    onAutocompleteDismiss: clearAutocomplete,
+    onSubmit: () => void submit(),
     onEditLast() {
       if (!onEditLastMessage) return false;
       onEditLastMessage();
@@ -1471,6 +1463,7 @@
     position: relative;
     width: 100%;
     min-width: 0;
+    contain: layout style;
   }
 
   :global(
