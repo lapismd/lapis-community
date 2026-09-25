@@ -961,8 +961,19 @@
   const releaseSheetOpen = $derived(
     isPluginReleaseRoom && activeMainSurface !== undefined,
   );
+  const projectSheetProject = $derived(
+    selectedProjectSurface !== undefined &&
+      applicationLocation.projectRoute === undefined
+      ? activeChannelProject
+      : undefined,
+  );
+  const projectSheetRepositories = $derived(
+    projectSheetProject === activeChannelProject
+      ? activeChannelProjectRepositories
+      : selectedProjectRepositories,
+  );
   const projectSheetOpen = $derived(
-    selectedProject !== undefined && selectedProjectSurface !== undefined,
+    projectSheetProject !== undefined && selectedProjectSurface !== undefined,
   );
   const projectOverviewShown = $derived(
     !projectOverviewSidebar.closed && !projectOverviewSidebar.collapsed,
@@ -3171,6 +3182,7 @@
         projectDestinationIds: projectCatalog.projects.map((project) =>
           projectDestinationFromCoordinate(project.address.coordinate),
         ),
+        projectChannelDestinationIds: [...projectChannelRoomIds],
         agentIds: knownAgentIds,
         memberIds: [
           ...knownAgentIds,
@@ -3708,6 +3720,14 @@
     lastAction = "closed-project-review";
   }
 
+  function selectProjectSheetTask(task: ProjectTaskState): void {
+    selectedTaskId = task.root.id;
+    selectedPullRequestId = "";
+    selectedProjectCommit = undefined;
+    projectCommitDetail = undefined;
+    lastAction = `selected-channel-project-task:${task.root.id}`;
+  }
+
   function selectProjectTask(task: ProjectTaskState): void {
     if (selectedRepository?.address.coordinate === task.repository.coordinate) {
       selectedTaskId = task.root.id;
@@ -3871,13 +3891,11 @@
     projectPullRequestDiff = undefined;
     projectSourceError = "";
     projectOverviewInitialized = true;
-    pushLocation(
-      locationForProjectRoute({
-        kind: "project",
-        coordinate: project.address.coordinate,
-        surface,
-      }),
-    );
+    pushLocation({
+      destination: activeDestination,
+      panel: activePanel,
+      mainSurface: `project-${surface}`,
+    });
     lastAction = `opened-channel-project-${surface}`;
   }
 
@@ -6704,7 +6722,7 @@
     label={selectedProjectSurface ?? "Project"}
     coverPanelIds={["right"]}
     suspendPanelIds={[COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID]}
-    dismissLabel={`Back to ${selectedProject?.name ?? "project"}`}
+    dismissLabel={`Back to ${projectSheetProject?.name ?? "project"}`}
     onDismiss={closeProjectSurface}
     class="community-application__project-sheet-layer"
     style="--ui-shell-surface-layer-main-start-allowance: 7rem; --ui-shell-surface-layer-inline-end-inset: 0px"
@@ -6733,15 +6751,18 @@
         <CommunityProjects
           view={selectedProjectSurface}
           projects={projectCatalog.projects}
-          {...selectedProject === undefined ? {} : { selectedProject }}
+          {...projectSheetProject === undefined
+            ? {}
+            : { selectedProject: projectSheetProject }}
           {...selectedRepository === undefined ? {} : { selectedRepository }}
-          repositories={selectedProjectRepositories}
+          repositories={projectSheetRepositories}
           repositoryOptions={projectCatalog.repositories}
           repositoryCapabilities={projectRepositoryCapabilities}
           tasks={projectWorkItems.tasks}
           {taskListFilter}
           pullRequests={projectWorkItems.pullRequests}
           {reviewListFilter}
+          {...selectedTask === undefined ? {} : { selectedTask }}
           {...selectedPullRequest === undefined ? {} : { selectedPullRequest }}
           commits={projectCommits}
           commitActivity={projectCommitActivity}
@@ -6783,6 +6804,7 @@
           error={projectError}
           operation={projectOperation}
           canCollaborate={authenticated}
+          showNavigation={false}
           onOpenProfile={openProfile}
           onMessageMember={messageMember}
           onWaveMember={waveMember}
@@ -6791,6 +6813,8 @@
           onAttachRepository={attachRepository}
           onSelectRepository={selectRepository}
           onCreateTask={createTask}
+          onSelectTask={selectProjectSheetTask}
+          onCloseTask={() => (selectedTaskId = "")}
           onUpdateTaskLifecycle={updateTaskLifecycle}
           onCreatePullRequest={createPullRequest}
           onLoadRepositoryRefs={loadReviewRepositoryRefs}
@@ -8279,6 +8303,7 @@
   {/if}
   {#if isProjectsDestination || (activeChannelProject && usesRoomToolbar)}
     {@render projectOverviewRail()}
+    {@render projectSheet()}
   {/if}
 </CommunityAppShell>
 

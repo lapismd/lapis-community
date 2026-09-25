@@ -85,6 +85,7 @@ export interface CommunityApplicationLocationTargets {
   messageIds?: readonly string[];
   releaseRoomIds?: readonly string[];
   projectDestinationIds?: readonly string[];
+  projectChannelDestinationIds?: readonly string[];
 }
 
 export const COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY =
@@ -421,7 +422,9 @@ export function normalizeCommunityApplicationLocation(
     (location.mainSurface.startsWith("projects-") &&
       location.destination === "projects") ||
     (location.mainSurface.startsWith("project-") &&
-      targets.projectDestinationIds?.includes(location.destination) === true);
+      (targets.projectDestinationIds?.includes(location.destination) === true ||
+        targets.projectChannelDestinationIds?.includes(location.destination) ===
+          true));
   if (panelExists && surfaceExists) return location;
   return {
     destination: location.destination,

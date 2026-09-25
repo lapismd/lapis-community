@@ -1,3 +1,7 @@
+For LC-ARCH-028, the project-channel inline sheet regression records the
+application navigation and focused story budgets in `scripts/architecture-baseline.json`;
+no registry materialization or publication behavior changes.
+
 # Local Registry Pipeline
 
 LC-ARCH-021 repository Log replay acceptance is recorded in

@@ -902,6 +902,109 @@
 </Story>
 
 <Story
+  name="Project channel overview opens inline sheet"
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-project-work-item-read-count",
+          "2",
+        ),
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-project-session-open-count",
+          "1",
+        ),
+      { timeout: 15_000 },
+    );
+    const projectOverview = within(
+      await canvas.findByRole("navigation", { name: "Project overview" }),
+    );
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
+        "#/channels/general",
+      ),
+    );
+
+    const tasksButton = projectOverview.getByRole("button", {
+      name: /^Tasks\b/u,
+    });
+    await waitFor(() =>
+      expect(getComputedStyle(tasksButton).pointerEvents).not.toBe("none"),
+    );
+    await userEvent.click(tasksButton);
+
+    await waitFor(() =>
+      expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
+        "#/channels/general",
+      ),
+    );
+    await expect(
+      await canvas.findByRole("heading", { name: "Tasks", level: 1 }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("tab", { name: "Tasks" }),
+    ).not.toBeInTheDocument();
+    const task = await canvas.findByRole("button", {
+      name: /Polish the project overview rail/u,
+    });
+    await expect(task).toBeVisible();
+    await userEvent.click(task);
+    await expect(
+      await canvas.findByRole("heading", {
+        name: /Polish the project overview rail/u,
+        level: 2,
+      }),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByRole("button", { name: "Back to tasks" }),
+    ).toBeVisible();
+    await expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
+      "#/channels/general",
+    );
+
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Close project surface" }),
+    );
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("heading", { name: "Tasks", level: 1 }),
+      ).not.toBeInTheDocument(),
+    );
+    await expect(
+      await canvas.findByRole("navigation", { name: "Project overview" }),
+    ).toBeVisible();
+    await expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
+      "#/channels/general",
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="project-channel-inline-sheet"
+      projects
+      initialDestination="general"
+    />
+  {/snippet}
+</Story>
+
+<Story
   name="Registry breadcrumb replaces project chrome"
   play={async ({ canvas }) => {
     const application = await canvas.findByTestId(

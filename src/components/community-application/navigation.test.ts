@@ -435,6 +435,28 @@ describe("Community application location history", () => {
     ).toBe(candidate);
   });
 
+  it("retains project sheets over verified project channels", () => {
+    const candidate = location(
+      "general",
+      noCommunityApplicationPanel(),
+      "project-tasks",
+    );
+    expect(
+      normalizeCommunityApplicationLocation(candidate, {
+        roomIds: ["general"],
+        memberIds: ["steve"],
+        projectChannelDestinationIds: ["general"],
+      }),
+    ).toBe(candidate);
+    expect(
+      normalizeCommunityApplicationLocation(candidate, {
+        roomIds: ["general"],
+        memberIds: ["steve"],
+        projectChannelDestinationIds: [],
+      }),
+    ).toEqual(location("general"));
+  });
+
   it("preserves a project route while its catalog target is unresolved", () => {
     const candidate: CommunityApplicationLocation = {
       destination: "projects/30621%3Aowner%3Aroadmap",

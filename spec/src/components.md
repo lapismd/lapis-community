@@ -69,6 +69,15 @@ reuse unchanged room objects, and remove the hint when associations disappear.
 Omitting the hint MUST preserve existing component rendering; forums and direct
 messages MUST retain their existing icons.
 
+For LC-UI-036, project-bound channel overview rail items for Tasks, Reviews,
+Commits, Files, and People MUST open the matching project surface as an inline
+AppShell SurfaceLayer over the current channel. Opening and closing that layer
+MUST keep the channel URL and destination stable and MUST restore the channel
+project rail instead of navigating to the standalone project workspace. The
+inline sheet MUST hide the standalone project workspace tabs; selection inside
+the sheet, including task rows, MUST reveal the corresponding detail content in
+that sheet without changing the channel route.
+
 For LC-ARCH-028, workspace, inbox, and composer submission types are owned under
 `src/community`, and login-method types under `src/auth`. Component `model.ts`
 files re-export those types so the public `./components` entry stays compatible.
