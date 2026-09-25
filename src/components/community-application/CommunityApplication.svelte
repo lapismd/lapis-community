@@ -299,7 +299,7 @@
   import {
     COMMUNITY_APPLICATION_SHELL_LAYOUT_STORAGE_KEY,
     COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
-    COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID,
+    COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID as PROJECT_OVERVIEW_PANEL_ID,
     communityApplicationLocationsEqual,
     communityApplicationPanelKey,
     createCommunityApplicationHistory,
@@ -459,18 +459,14 @@
   );
   const projectOverviewSidebar = untrack(
     () =>
-      shell.getPanel(COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID) ??
-      shell.createSidebar(
-        COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID,
-        "right",
-        {
-          collapsed: initialShellLayout.projectOverview?.collapsed ?? false,
-          closed: initialShellLayout.projectOverview?.closed ?? true,
-          width: initialShellLayout.projectOverview?.width ?? 280,
-          minWidth: 220,
-          maxWidth: 440,
-        },
-      ),
+      shell.getPanel(PROJECT_OVERVIEW_PANEL_ID) ??
+      shell.createSidebar(PROJECT_OVERVIEW_PANEL_ID, "right", {
+        collapsed: initialShellLayout.projectOverview?.collapsed ?? false,
+        closed: initialShellLayout.projectOverview?.closed ?? true,
+        width: initialShellLayout.projectOverview?.width ?? 280,
+        minWidth: 220,
+        maxWidth: 440,
+      }),
   );
   const hasProjects = $derived(projectsOptions !== undefined);
   const hasRegistry = $derived(
@@ -981,9 +977,9 @@
   const projectOverviewMobileActive = $derived(
     shell.mobile.resolvedMode === "mobile" &&
       shell.mobile.stage === "right" &&
-      shell.mobile.activePanelId("right") ===
-        COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID,
+      shell.mobile.activePanelId("right") === PROJECT_OVERVIEW_PANEL_ID,
   );
+  const keepLane = $derived(projectSheetOpen && projectOverviewMobileActive);
   const releaseOverviewShown = $derived(
     activeMainSurface === undefined &&
       !releaseOverviewSidebar.closed &&
@@ -3308,7 +3304,8 @@
       }
     }
 
-    if (next.panel.kind === "none") shell.mobile.showMain();
+    if (next.panel.kind === "none")
+      void tick().then(() => keepLane || shell.mobile.showMain());
     else if (shell.mobile.resolvedMode === "mobile") {
       const returnFocus =
         document.activeElement instanceof HTMLElement
@@ -3903,14 +3900,16 @@
     projectPullRequestDiff = undefined;
     projectSourceError = "";
     projectOverviewInitialized = true;
+    const mobile = shell.mobile.resolvedMode === "mobile";
     pushLocation({
       destination: activeDestination,
-      panel:
-        shell.mobile.resolvedMode === "mobile"
-          ? noCommunityApplicationPanel()
-          : activePanel,
+      panel: mobile ? noCommunityApplicationPanel() : activePanel,
       mainSurface: `project-${surface}`,
     });
+    if (mobile)
+      void tick().then(() =>
+        shell.mobile.show("right", PROJECT_OVERVIEW_PANEL_ID),
+      );
     lastAction = `opened-channel-project-${surface}`;
   }
 
@@ -5727,7 +5726,7 @@
     coverPanelIds={["right"]}
     suspendPanelIds={[
       activeChannelProject
-        ? COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID
+        ? PROJECT_OVERVIEW_PANEL_ID
         : COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
     ]}
     dismissLabel={`Back to ${activeRoom.name}`}
@@ -6758,7 +6757,9 @@
     open={projectSheetOpen}
     label={selectedProjectSurface ?? "Project"}
     coverPanelIds={["right"]}
-    suspendPanelIds={[COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID]}
+    suspendPanelIds={projectOverviewMobileActive
+      ? []
+      : [PROJECT_OVERVIEW_PANEL_ID]}
     dismissLabel={`Back to ${projectSheetProject?.name ?? "project"}`}
     onDismiss={closeProjectSurface}
     class="community-application__project-sheet-layer"

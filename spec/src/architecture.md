@@ -8,9 +8,11 @@ budgets in `scripts/architecture-baseline.json`.
 
 For LC-UI-036, embedded project sheets pass a non-main body element through
 `CommunityProjects` so project workspace content keeps AppShell body scrolling
-without nesting a `main` landmark inside the channel surface. The public prop
-remains presentation-only; routing, project selection, and dialog ownership stay
-in the application composition root.
+without nesting a `main` landmark inside the channel surface. Project-bound
+channel sheets opened from the constrained project-overview lane keep that right
+lane active underneath the SurfaceLayer while the leading allowance exposes a
+small strip of the overview. The public prop remains presentation-only; routing,
+project selection, and dialog ownership stay in the application composition root.
 
 # Architecture
 

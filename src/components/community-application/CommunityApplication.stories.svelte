@@ -1078,7 +1078,7 @@
     await userEvent.click(tasksRow);
 
     await waitFor(() =>
-      expect(shell).toHaveAttribute("data-mobile-stage", "main"),
+      expect(shell).toHaveAttribute("data-mobile-stage", "right"),
     );
     await expect(
       await canvas.findByRole(

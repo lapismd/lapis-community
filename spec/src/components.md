@@ -82,8 +82,9 @@ changing the channel route. Mobile project and repository page toolbars MUST
 expose a trailing project-overview sidebar toggle without moving the existing
 left navigation and history controls. In constrained mobile presentation, that
 toggle MUST activate the AppShell right lane before a project-overview row is
-selected, and selecting Tasks, Reviews, Commits, Files, or People MUST close
-the right lane and reveal the inline sheet in the main mobile host.
+selected, and selecting Tasks, Reviews, Commits, Files, or People MUST keep
+the right lane active while revealing the inline sheet above the project
+overview with the configured leading allowance visible.
 
 For LC-ARCH-028, workspace, inbox, and composer submission types are owned under
 `src/community`, and login-method types under `src/auth`. Component `model.ts`
