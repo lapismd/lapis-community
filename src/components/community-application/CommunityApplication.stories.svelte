@@ -15,6 +15,7 @@
   import CommunityApplication from "./CommunityApplicationRoot.svelte";
   import CommunityApplicationStoryHarness from "./CommunityApplicationStoryHarness.svelte";
   import CommunityApplicationCacheStoryHarness from "./CommunityApplicationCacheStoryHarness.svelte";
+  import { closeProjectSurfaceInStory } from "./CommunityApplication.stories.helpers.js";
   import {
     COMMUNITY_APPLICATION_DESTINATION_STORAGE_KEY,
     COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
@@ -936,9 +937,10 @@
         ),
       { timeout: 15_000 },
     );
-    const projectOverview = within(
-      await canvas.findByRole("navigation", { name: "Project overview" }),
-    );
+    const projectOverviewElement = await canvas.findByRole("navigation", {
+      name: "Project overview",
+    });
+    const projectOverview = within(projectOverviewElement);
     await waitFor(() =>
       expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
         "#/channels/general",
@@ -965,6 +967,7 @@
         { timeout: 15_000 },
       ),
     ).toBeVisible();
+    await expect(projectOverviewElement).not.toBeVisible();
     await expect(
       canvas.queryByRole("tab", { name: "Tasks" }),
     ).not.toBeInTheDocument();
@@ -986,17 +989,8 @@
       "#/channels/general",
     );
 
-    await userEvent.click(
-      await canvas.findByRole("button", { name: "Close project surface" }),
-    );
-    await waitFor(() =>
-      expect(
-        canvas.queryByRole("heading", { name: "Tasks", level: 1 }),
-      ).not.toBeInTheDocument(),
-    );
-    await expect(
-      await canvas.findByRole("navigation", { name: "Project overview" }),
-    ).toBeVisible();
+    await closeProjectSurfaceInStory(application);
+    await expect(projectOverviewElement).toBeVisible();
     await expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
       "#/channels/general",
     );
@@ -1068,9 +1062,10 @@
     await waitFor(() =>
       expect(shell).toHaveAttribute("data-mobile-stage", "right"),
     );
-    const projectOverview = within(
-      await canvas.findByRole("navigation", { name: "Project overview" }),
-    );
+    const projectOverviewElement = await canvas.findByRole("navigation", {
+      name: "Project overview",
+    });
+    const projectOverview = within(projectOverviewElement);
     const tasksRow = projectOverview
       .getByText("Tasks", { exact: true })
       .closest<HTMLButtonElement>("button");
@@ -1087,6 +1082,7 @@
         { timeout: 15_000 },
       ),
     ).toBeVisible();
+    await expect(projectOverviewElement).toBeVisible();
     const layer = application.querySelector<HTMLElement>(
       '.community-application__project-sheet-layer[data-ui-part="surface-layer"]',
     );
@@ -1120,18 +1116,9 @@
       "#/channels/general",
     );
 
-    await userEvent.click(
-      await canvas.findByRole("button", { name: "Close project surface" }),
-    );
-    await waitFor(() =>
-      expect(
-        canvas.queryByRole("heading", { name: "Tasks", level: 1 }),
-      ).not.toBeInTheDocument(),
-    );
+    await closeProjectSurfaceInStory(application);
     await expect(shell).toHaveAttribute("data-mobile-stage", "right");
-    await expect(
-      await canvas.findByRole("navigation", { name: "Project overview" }),
-    ).toBeVisible();
+    await expect(projectOverviewElement).toBeVisible();
     await expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
       "#/channels/general",
     );

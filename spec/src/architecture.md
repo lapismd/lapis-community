@@ -866,7 +866,7 @@ For LC-UI-044, `agent-turn-state` owns the lifecycle vocabulary and labels; `act
 
 For LC-UI-044, approval selection and execution-policy parsing have dedicated owners. Runtime administration contracts are extracted from the controller facade. Editor and profile callbacks share the runtime-settings contract; the editor and custom model-fields owners shrink as approval selection becomes independent of provider catalogs.
 
-The profile editor interaction play lives in a bounded story helper so its existing story hotspot shrinks while testing policy migration alongside the saved agent name.
+The profile editor interaction play and project-sheet close assertions live in bounded story helpers so existing story hotspots shrink while testing policy migration, saved agent names, and desktop/mobile sheet lifecycle behavior.
 
 Owner turn-control correlation and exact scope selection MUST have dedicated owners outside the agent controller facade. Community action forwarding MUST preserve the displayed request/session/turn through each adapter.
 

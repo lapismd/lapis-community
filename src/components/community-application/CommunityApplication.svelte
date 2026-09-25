@@ -4112,7 +4112,7 @@
     selectedPullRequestId = "";
     selectedTaskId = "";
     projectPullRequestDiff = undefined;
-    if (selectedProject) {
+    if (projectSheetProject === undefined && selectedProject) {
       pushLocation(
         locationForProjectRoute({
           kind: "project",
@@ -4120,9 +4120,7 @@
           surface: "activity",
         }),
       );
-    } else {
-      pushLocation({ destination: activeDestination, panel: activePanel });
-    }
+    } else pushLocation({ destination: activeDestination, panel: activePanel });
     if (restoreProjectOverviewLane)
       void tick().then(() =>
         shell.mobile.show("right", PROJECT_OVERVIEW_PANEL_ID),
@@ -6932,7 +6930,7 @@
     open={projectSheetOpen}
     label={selectedProjectSurface ?? "Project"}
     coverPanelIds={["right"]}
-    suspendPanelIds={projectOverviewMobileActive
+    suspendPanelIds={shell.mobile.resolvedMode === "mobile"
       ? []
       : [PROJECT_OVERVIEW_PANEL_ID]}
     mobilePlacement={projectSheetMobileRoot ? "root" : "active-lane"}
