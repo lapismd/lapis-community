@@ -1,6 +1,10 @@
 import type { RelayFilter } from "../nostr/index.js";
 
 import { PROJECT_FORGE_KINDS } from "./model.js";
+import {
+  projectEventCursorFields,
+  type ProjectListCursor,
+} from "./project-list-cursor.js";
 
 export const KIND_JJ_OPERATION = 3901;
 export const KIND_JJ_REVISION = 3902;
@@ -76,4 +80,22 @@ export function buzzWorkItemFilters(
       limit: AGENT_CONTEXT_LIMIT,
     },
   ];
+}
+
+export interface BuzzWorkItemPageOptions {
+  limit?: number | undefined;
+  cursor?: ProjectListCursor | undefined;
+}
+
+export function pagedBuzzWorkItemFilters(
+  repositoryCoordinate: string,
+  options: BuzzWorkItemPageOptions = {},
+): RelayFilter[] {
+  const limit = Math.max(1, Math.min(options.limit ?? 100, WORK_ITEM_LIMIT));
+  const cursor = projectEventCursorFields(options.cursor);
+  return buzzWorkItemFilters(repositoryCoordinate).map((filter) => ({
+    ...filter,
+    ...cursor,
+    limit: Math.min(filter.limit ?? limit, limit),
+  }));
 }

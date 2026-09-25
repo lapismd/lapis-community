@@ -225,6 +225,7 @@ describe("NIP-34 project forge data source", () => {
     await expect(
       session.loadCommits(repository, "main", undefined, {
         path: "src/app.ts",
+        from: "d".repeat(40),
         limit: 1,
       }),
     ).resolves.toMatchObject({
@@ -233,7 +234,7 @@ describe("NIP-34 project forge data source", () => {
 
     expect(requests).toHaveLength(1);
     expect(requests[0]?.url).toBe(
-      `https://relay.example/api/git/${owner}/notes/commits?ref=main&path=src%2Fapp.ts&n=1`,
+      `https://relay.example/api/git/${owner}/notes/commits?ref=main&path=src%2Fapp.ts&from=${"d".repeat(40)}&n=1`,
     );
     const auth = authorizationEvent(requests[0]!.authorization);
     expect(auth.tags).toContainEqual(["u", requests[0]!.url]);

@@ -149,6 +149,8 @@
     updateProjectTemplate,
     GITHUB_REVIEW_COMMENT_REACTIONS,
     PROJECT_FORGE_KINDS,
+    decodeProjectListCursor,
+    encodeProjectListCursor,
     type ProjectForgeBlobResponse,
     type ProjectForgeCatalog,
     type ProjectForgeCatalogCacheScope,
@@ -170,6 +172,7 @@
     type ProjectForgeTreeResponse,
     type OwnersDocument,
     type ProjectForgeWorkItems,
+    type ProjectListCursor,
     type ProjectTaskState,
     type PullRequestComment,
     type PullRequestReviewKind,
@@ -343,11 +346,12 @@
   } from "./project-query-keys.js";
   import {
     loadProjectRepositoryView,
-    projectRepositoryViewQueryTarget,
     type ProjectRepositoryViewInput,
     type ProjectRepositoryViewResult,
   } from "./project-repository-view-query.js";
+  import { projectRepositoryViewQueryTarget } from "./project-repository-view-target.js";
   import { loadRepositoryPathCommitFromQuery } from "./project-repository-path-commit-query.js";
+  import { loadRepositoryCommitsFromQuery } from "./project-repository-read-query.js";
   import { createProjectApplicationQueryActions } from "./project-application-query-actions.js";
 
   type CommunityAuthenticatedAction = () => void | Promise<void>;
@@ -668,7 +672,10 @@
   );
   let projectDialogRequest = $state<CommunityProjectsDialogRequest>();
   let projectDialogSequence = 0;
+  let projectRouteCursorTimer: ReturnType<typeof setTimeout> | undefined;
   let projectCommits = $state.raw<readonly ProjectForgeCommit[]>([]);
+  let projectCommitsMore = $state(false);
+  let projectCommitsLoadingMore = $state(false);
   let projectCommitBranch = $state("");
   let projectRepositoryBranches = $state.raw<readonly ProjectForgeRef[]>([]);
   let projectSelectedRepositoryBranch = $state(
@@ -3035,6 +3042,7 @@
     projectRepositoryCapabilities = result.capabilities;
     projectCommitActivity = result.commitActivity;
     projectCommits = result.commits;
+    projectCommitsMore = result.commitsMore;
     projectCommitBranch = result.commitBranch;
     projectRepositoryBranches = result.branches;
     projectCommitDetail = result.selectedCommitDetail;
@@ -3828,6 +3836,73 @@
 
   function selectProjectCommit(commit: ProjectForgeCommit): void {
     requestProjectSourceAccess(() => activateProjectCommit(commit));
+  }
+
+  function replaceVisibleProjectRouteCursor(
+    encodedCursor: string | undefined,
+  ): void {
+    const cursor = decodeProjectListCursor(encodedCursor);
+    const route = applicationLocation.projectRoute;
+    if (!route || !cursor) return;
+    clearTimeout(projectRouteCursorTimer);
+    projectRouteCursorTimer = setTimeout(() => {
+      const current = applicationLocation.projectRoute;
+      if (!current) return;
+      if (
+        encodeProjectListCursor(current.cursor) ===
+        encodeProjectListCursor(cursor)
+      )
+        return;
+      replaceLocation({
+        ...applicationLocation,
+        projectRoute: projectRouteWithCursor(current, cursor),
+      });
+    }, 250);
+  }
+
+  function projectRouteWithCursor(
+    route: CommunityApplicationProjectRoute,
+    cursor: ProjectListCursor,
+  ): CommunityApplicationProjectRoute {
+    return { ...route, cursor } as CommunityApplicationProjectRoute;
+  }
+
+  async function loadMoreProjectCommits(): Promise<void> {
+    const session = projectSession;
+    const repository = projectSourceRepositoryCoordinate;
+    const from = projectCommits.at(-1)?.sha;
+    if (
+      !session ||
+      !repository ||
+      !from ||
+      !projectCommitsMore ||
+      projectCommitsLoadingMore
+    )
+      return;
+    projectCommitsLoadingMore = true;
+    try {
+      const result = await loadRepositoryCommitsFromQuery({
+        queryClient: communityQueryClient,
+        scope: communityQueryScope,
+        session,
+        repository,
+        revision: projectCommitBranch || undefined,
+        options: { limit: 50, from },
+      });
+      const seen = new Set(projectCommits.map((commit) => commit.sha));
+      projectCommits = [
+        ...projectCommits,
+        ...result.commits.filter((commit) => !seen.has(commit.sha)),
+      ];
+      projectCommitsMore = result.more;
+    } catch (cause) {
+      projectError = projectQueryErrorMessage(
+        cause,
+        "Older commit history could not be loaded",
+      );
+    } finally {
+      projectCommitsLoadingMore = false;
+    }
   }
 
   function closeProjectCommit(): void {
@@ -6898,6 +6973,10 @@
           commits={projectCommits}
           commitActivity={projectCommitActivity}
           commitBranch={projectCommitBranch}
+          commitsMore={projectCommitsMore}
+          commitsLoadingMore={projectCommitsLoadingMore}
+          onLoadMoreCommits={loadMoreProjectCommits}
+          onVisibleCommitCursorChange={replaceVisibleProjectRouteCursor}
           repositoryBranches={projectRepositoryBranches}
           selectedRepositoryBranch={projectVisibleRepositoryBranch}
           {...selectedProjectCommit === undefined
@@ -7360,6 +7439,10 @@
             commits={projectCommits}
             commitActivity={projectCommitActivity}
             commitBranch={projectCommitBranch}
+            commitsMore={projectCommitsMore}
+            commitsLoadingMore={projectCommitsLoadingMore}
+            onLoadMoreCommits={loadMoreProjectCommits}
+            onVisibleCommitCursorChange={replaceVisibleProjectRouteCursor}
             repositoryBranches={projectRepositoryBranches}
             selectedRepositoryBranch={projectVisibleRepositoryBranch}
             {...selectedProjectCommit === undefined

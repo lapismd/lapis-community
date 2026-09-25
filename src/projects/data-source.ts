@@ -593,6 +593,7 @@ class Nip34ProjectForgeSession implements ProjectForgeSession {
     const query = new URLSearchParams();
     if (ref) query.set("ref", ref);
     if (options.path) query.set("path", options.path);
+    if (options.from) query.set("from", options.from);
     if (options.limit !== undefined) query.set("n", String(options.limit));
     const suffix = query.size > 0 ? `commits?${query.toString()}` : "commits";
     return await this.#forgeGet(repository, suffix, signal);

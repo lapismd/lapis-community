@@ -14,6 +14,7 @@ export interface RepositoryQueryTarget {
   commitSha?: string | undefined;
   pullRequestId?: string | undefined;
   limit?: number | undefined;
+  cursor?: string | undefined;
 }
 
 export function communityQueryRelayUrls(
@@ -88,7 +89,7 @@ export const communityProjectQueryKeys = {
     scope: CommunityQueryScope,
     target: Pick<
       RepositoryQueryTarget,
-      "repository" | "revision" | "path" | "limit"
+      "repository" | "revision" | "path" | "limit" | "cursor"
     >,
   ) =>
     [
@@ -97,6 +98,39 @@ export const communityProjectQueryKeys = {
       target.revision ?? "default",
       target.path ?? "all",
       target.limit ?? "all",
+      target.cursor ?? "start",
+    ] as const,
+
+  repositoryListPage: (
+    scope: CommunityQueryScope,
+    target: Pick<
+      RepositoryQueryTarget,
+      "repository" | "surface" | "revision" | "path" | "limit" | "cursor"
+    >,
+  ) =>
+    [
+      ...communityProjectQueryKeys.repository(scope, target.repository),
+      "list-page",
+      target.surface ?? "activity",
+      target.revision ?? "default",
+      target.path ?? "all",
+      target.limit ?? "default",
+      target.cursor ?? "start",
+    ] as const,
+  projectListPage: (
+    scope: CommunityQueryScope,
+    target: Pick<RepositoryQueryTarget, "surface" | "limit" | "cursor"> & {
+      project: string;
+    },
+  ) =>
+    [
+      ...communityProjectQueryKeys.projects(scope),
+      "project",
+      target.project,
+      "list-page",
+      target.surface ?? "activity",
+      target.limit ?? "default",
+      target.cursor ?? "start",
     ] as const,
   repositoryCommit: (
     scope: CommunityQueryScope,

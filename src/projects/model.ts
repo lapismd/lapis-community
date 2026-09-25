@@ -461,6 +461,8 @@ export interface ProjectForgeCommitsOptions {
   path?: string;
   /** Maximum number of commits requested from the relay gateway. */
   limit?: number;
+  /** Exclusive commit cursor used to load older history. */
+  from?: string;
 }
 
 export interface ProjectForgeCommitResponse {

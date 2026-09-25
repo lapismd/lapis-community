@@ -1119,6 +1119,15 @@ observations remain retryable; removed/replaced repositories and session changes
 abort and discard their resources. Late reads and callbacks MUST NOT repopulate
 an obsolete view or identity. Existing custom project source contracts remain valid.
 
+Project and repository Activity, Tasks, Reviews, Commits, Log, and Op Log views
+MUST keep headers, filters, composers, and detail panes outside their virtual row
+streams. Their row owners MUST use stable item keys, Community-owned estimates,
+measured heights, overscan, and edge loading callbacks so rendered DOM remains
+bounded while URL cursor replacement records the first stable visible item.
+Repository commit history MUST request bounded pages with an exclusive commit
+cursor; relay-backed project work-item page filters MUST carry bounded limits and
+exclusive event cursors for the corresponding repository coordinate.
+
 The NIP-29 registry source MUST reuse release inspection and review results for
 an unchanged verified event set. The cache belongs to that source and its copied
 authorities, preserves deterministic ordering, and shares pending work without

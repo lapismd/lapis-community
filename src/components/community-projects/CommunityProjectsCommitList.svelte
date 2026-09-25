@@ -5,6 +5,7 @@
   import GitCommitHorizontalIcon from "@lucide/svelte/icons/git-commit-horizontal";
 
   import {
+    encodeProjectListCursor,
     groupItemsByProjectRepository,
     type ProjectForgeCommit,
     type ProjectForgeCommitActivity,
@@ -15,6 +16,8 @@
   import CommunityProjectsGitAuthorAvatar from "./CommunityProjectsGitAuthorAvatar.svelte";
   import CommunityProjectsRepositorySections from "./CommunityProjectsRepositorySections.svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import CommunityProjectsVirtualRows from "./CommunityProjectsVirtualRows.svelte";
+  import { estimateCommunityProjectRow } from "./virtual-project-row-estimates.js";
 
   let {
     commits = [],
@@ -26,6 +29,10 @@
     repositories = [],
     onSelectCommit,
     onCopyCommit,
+    onLoadMore,
+    onVisibleCursorChange,
+    hasMore = false,
+    loading = false,
   }: {
     commits?: readonly ProjectForgeCommit[] | undefined;
     members?: readonly CommunityMemberModel[];
@@ -36,7 +43,37 @@
     repositories?: readonly ProjectForgeRepository[] | undefined;
     onSelectCommit?: ((commit: ProjectForgeCommit) => void) | undefined;
     onCopyCommit?: ((sha: string) => void) | undefined;
+    onLoadMore?: (() => void) | undefined;
+    onVisibleCursorChange?: ((cursor: string | undefined) => void) | undefined;
+    hasMore?: boolean | undefined;
+    loading?: boolean | undefined;
   } = $props();
+
+  function commitEstimate(commit: ProjectForgeCommit | undefined): number {
+    return estimateCommunityProjectRow(
+      commit
+        ? { kind: "commit", text: commit.subject, detail: commit.body }
+        : undefined,
+    );
+  }
+
+  function commitCursor(commit: ProjectForgeCommit): string | undefined {
+    return encodeProjectListCursor({ kind: "commit", sha: commit.sha });
+  }
+
+  function commitsForRepository(
+    repository: ProjectForgeRepository,
+  ): readonly ProjectForgeCommit[] {
+    return (
+      grouped
+        .find(
+          (group) =>
+            group.repository.address.coordinate ===
+            repository.address.coordinate,
+        )
+        ?.items.map((entry) => entry.commit) ?? []
+    );
+  }
 
   const grouped = $derived(
     selectedProject && !selectedRepository
@@ -109,20 +146,38 @@
   >
     {#snippet children(repository)}
       <div class="community-projects__commit-list">
-        {#each grouped.find((group) => group.repository.address.coordinate === repository.address.coordinate)?.items ?? [] as entry (entry.commit.sha)}
-          {@render commitRow(entry.commit)}
-        {/each}
+        <CommunityProjectsVirtualRows
+          rows={commitsForRepository(repository)}
+          row={commitRow}
+          estimateSize={commitEstimate}
+          cursorForRow={commitCursor}
+          getKey={(commit) => commit.sha}
+          {loading}
+          {hasMore}
+          {onLoadMore}
+          {onVisibleCursorChange}
+        />
       </div>
     {/snippet}
   </CommunityProjectsRepositorySections>
 {:else}
   <div class="community-projects__commit-list">
-    {#each commits as commit (commit.sha)}
-      {@render commitRow(commit)}
+    {#if commits.length > 0}
+      <CommunityProjectsVirtualRows
+        rows={commits}
+        row={commitRow}
+        estimateSize={commitEstimate}
+        cursorForRow={commitCursor}
+        getKey={(commit) => commit.sha}
+        {loading}
+        {hasMore}
+        {onLoadMore}
+        {onVisibleCursorChange}
+      />
     {:else}
       <p class="community-projects__status">
         No repository commit history is available.
       </p>
-    {/each}
+    {/if}
   </div>
 {/if}

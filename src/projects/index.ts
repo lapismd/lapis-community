@@ -15,3 +15,5 @@ export * from "./protection-document.js";
 export * from "./protection-ruleset.js";
 export * from "./hosted-merge.js";
 export * from "./github-repository-match.js";
+
+export * from "./project-list-cursor.js";

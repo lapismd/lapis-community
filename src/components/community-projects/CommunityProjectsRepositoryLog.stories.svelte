@@ -4,13 +4,48 @@
 
   import CommunityProjectsRepositoryLogReviewHarness from "./CommunityProjectsRepositoryLogReviewHarness.svelte";
   import { expectLogCreateReviewDialog } from "./repository-log-review-story.js";
+  import { KIND_JJ_VIEW } from "../../projects/work-item-filters.js";
   import {
+    event,
+    revision,
     parent,
     left,
     merge,
     operation,
     events,
   } from "./repository-log-story-fixtures.js";
+
+  const virtualCommits = Array.from({ length: 160 }, (_, index) =>
+    (index + 1).toString(16).padStart(40, "0"),
+  );
+  const virtualEvents = [
+    ...virtualCommits.map((commit, index) =>
+      revision(
+        (index + 1).toString(16).padStart(2, "0"),
+        1_800 + index,
+        commit,
+        index === 0 ? [] : [virtualCommits[index - 1]!],
+        `virtualized revision ${index + 1}`,
+      ),
+    ),
+    event("f0", KIND_JJ_VIEW, 2_000, {
+      schema: "jj-sync/view",
+      view_id: "e".repeat(128),
+      head_commit_ids: [virtualCommits.at(-1)],
+      local_bookmarks: [
+        {
+          name: "main",
+          target: { state: "resolved", commit_id: virtualCommits.at(-1) },
+        },
+      ],
+      workspaces: [
+        {
+          native_workspace_name: "default",
+          working_copy_commit_id: virtualCommits.at(-1),
+        },
+      ],
+    }),
+  ];
 
   const { Story } = defineMeta({
     title: "Community/Projects/Repository Log",
@@ -291,5 +326,23 @@
       await canvas.findByRole("region", { name: "Agent context" }),
     ).toBeVisible();
     await expect(await canvas.findByText("lanes.md")).toBeVisible();
+  }}
+/>
+
+<Story
+  name="Virtualized repository log window"
+  args={{
+    events: virtualEvents,
+    canMaintain: false,
+    branches: [{ name: "main", sha: virtualCommits.at(-1)! }],
+  }}
+  play={async ({ canvas }) => {
+    const graph = await canvas.findByRole("list", { name: "Revision graph" });
+    await expect(canvas.getByText("virtualized revision 160")).toBeVisible();
+    await waitFor(() => {
+      const rows = graph.querySelectorAll('[data-ui-part="virtual-row"]');
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.length).toBeLessThan(80);
+    });
   }}
 />

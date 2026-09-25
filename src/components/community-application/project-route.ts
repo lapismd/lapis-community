@@ -2,7 +2,10 @@ import {
   isProjectForgeSurface,
   normalizeProjectRouteSurface,
   projectRouteDefaultSurface,
+  decodeProjectListCursor,
+  encodeProjectListCursor,
 } from "../../projects/index.js";
+import type { ProjectListCursor } from "../../projects/index.js";
 import type { CommunityApplicationProjectRoute } from "./navigation.js";
 import { validRouteCoordinate } from "./project-route-coordinate.js";
 import {
@@ -26,14 +29,20 @@ export function projectRouteToHash(
     route.surface === "files" &&
     route.revision
   ) {
-    return repositoryFilesHash(route.coordinate, route.revision, route.path);
+    return withProjectRouteCursor(
+      repositoryFilesHash(route.coordinate, route.revision, route.path),
+      route,
+    );
   }
   if (route.kind === "project" && route.surface === "files") {
-    return projectFilesHash(
-      route.coordinate,
-      route.repositoryCoordinate,
-      route.revision,
-      route.path,
+    return withProjectRouteCursor(
+      projectFilesHash(
+        route.coordinate,
+        route.repositoryCoordinate,
+        route.revision,
+        route.path,
+      ),
+      route,
     );
   }
   const surface =
@@ -48,13 +57,17 @@ export function projectRouteToHash(
           : "")
       : "";
   const commit = trailing ? `/${trailing}` : "";
-  return `#/projects/${route.kind}/${encodeURIComponent(route.coordinate).replaceAll("%3A", ":")}${surface}${commit}`;
+  return withProjectRouteCursor(
+    `#/projects/${route.kind}/${encodeURIComponent(route.coordinate).replaceAll("%3A", ":")}${surface}${commit}`,
+    route,
+  );
 }
 
 export function projectRouteFromHash(
   hash: string,
 ): CommunityApplicationProjectRoute | null {
-  const files = repositoryFilesRouteFromHash(hash);
+  const { baseHash, cursor } = splitProjectRouteCursor(hash);
+  const files = repositoryFilesRouteFromHash(baseHash);
   if (files) {
     return {
       kind: "repository",
@@ -62,9 +75,10 @@ export function projectRouteFromHash(
       surface: "files",
       revision: files.revision,
       ...(files.path ? { path: files.path } : {}),
+      ...(cursor ? { cursor } : {}),
     };
   }
-  const projectFiles = projectFilesRouteFromHash(hash);
+  const projectFiles = projectFilesRouteFromHash(baseHash);
   if (projectFiles) {
     return {
       kind: "project",
@@ -75,11 +89,12 @@ export function projectRouteFromHash(
         : {}),
       ...(projectFiles.revision ? { revision: projectFiles.revision } : {}),
       ...(projectFiles.path ? { path: projectFiles.path } : {}),
+      ...(cursor ? { cursor } : {}),
     };
   }
   const match =
     /^#\/projects\/(project|repository)\/([^/]+)(?:\/([^/]+))?(?:\/([a-f0-9]{40}|[a-f0-9]{64}|[zyxwvutsrqponmlk]{32}))?$/u.exec(
-      hash,
+      baseHash,
     );
   if (!match) return null;
   try {
@@ -112,6 +127,7 @@ export function projectRouteFromHash(
       surface,
       ...(token && !changeId ? { commitSha: token } : {}),
       ...(changeId ? { revision: token } : {}),
+      ...(cursor ? { cursor } : {}),
     };
   } catch {
     return null;
@@ -149,6 +165,7 @@ export function parseStoredProjectRoute(
         ...(route.kind === "repository"
           ? storedRepositoryFilesFields(route)
           : storedProjectFilesFields(route)),
+        ...storedProjectRouteCursor(route.cursor),
       }
     : undefined;
 }
@@ -158,7 +175,7 @@ export function projectRouteKey(
 ): string {
   return route === undefined
     ? ""
-    : `${route.kind}:${route.coordinate}:${route.surface}:${route.kind === "repository" ? `${route.commitSha ?? ""}:${route.revision ?? ""}:${route.path ?? ""}` : `${route.repositoryCoordinate ?? ""}:${route.revision ?? ""}:${route.path ?? ""}`}`;
+    : `${route.kind}:${route.coordinate}:${route.surface}:${route.kind === "repository" ? `${route.commitSha ?? ""}:${route.revision ?? ""}:${route.path ?? ""}` : `${route.repositoryCoordinate ?? ""}:${route.revision ?? ""}:${route.path ?? ""}`}:${encodeProjectListCursor(route.cursor) ?? ""}`;
 }
 
 export function repositoryRouteState(
@@ -167,4 +184,37 @@ export function repositoryRouteState(
   return route?.kind === "repository"
     ? route
     : { coordinate: "", surface: "overview" as const };
+}
+
+function splitProjectRouteCursor(hash: string): {
+  baseHash: string;
+  cursor?: ProjectListCursor;
+} {
+  const [baseHash = hash, query = ""] = hash.split("?", 2);
+  const cursor = decodeProjectListCursor(
+    new URLSearchParams(query).get("at") ?? undefined,
+  );
+  return { baseHash, ...(cursor ? { cursor } : {}) };
+}
+
+function withProjectRouteCursor(
+  hash: string,
+  route: CommunityApplicationProjectRoute,
+): string {
+  const encoded = encodeProjectListCursor(route.cursor);
+  return encoded ? `${hash}?at=${encodeURIComponent(encoded)}` : hash;
+}
+
+function storedProjectRouteCursor(value: unknown): {
+  cursor?: ProjectListCursor;
+} {
+  const cursor =
+    typeof value === "string"
+      ? decodeProjectListCursor(value)
+      : typeof value === "object" && value !== null
+        ? decodeProjectListCursor(
+            encodeProjectListCursor(value as ProjectListCursor),
+          )
+        : undefined;
+  return cursor ? { cursor } : {};
 }

@@ -82,6 +82,36 @@ it("separates repository reads by branch, path, commit, and pull request", () =>
     }),
   );
   expect(
+    communityProjectQueryKeys.repositoryCommits(baseScope, {
+      repository: "30617:owner:repo",
+      revision: "main",
+      limit: 50,
+      cursor: "commit:" + "a".repeat(40),
+    }),
+  ).not.toEqual(
+    communityProjectQueryKeys.repositoryCommits(baseScope, {
+      repository: "30617:owner:repo",
+      revision: "main",
+      limit: 50,
+      cursor: "commit:" + "b".repeat(40),
+    }),
+  );
+  expect(
+    communityProjectQueryKeys.repositoryListPage(baseScope, {
+      repository: "30617:owner:repo",
+      surface: "activity",
+      limit: 25,
+      cursor: "event:1:" + "c".repeat(64),
+    }),
+  ).not.toEqual(
+    communityProjectQueryKeys.repositoryListPage(baseScope, {
+      repository: "30617:owner:repo",
+      surface: "tasks",
+      limit: 25,
+      cursor: "event:1:" + "c".repeat(64),
+    }),
+  );
+  expect(
     communityProjectQueryKeys.githubRepositories(baseScope, "connection-a"),
   ).not.toEqual(
     communityProjectQueryKeys.githubRepositories(baseScope, "connection-b"),

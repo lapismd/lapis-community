@@ -1,6 +1,13 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, fn, userEvent, within } from "storybook/test";
+  import {
+    expect,
+    fireEvent,
+    fn,
+    userEvent,
+    waitFor,
+    within,
+  } from "storybook/test";
 
   import {
     createBrowserProjectActivityFilterStore,
@@ -47,6 +54,24 @@
       projectCoordinate,
     },
   ];
+  const virtualActivity: ProjectForgeActivityItem[] = Array.from(
+    { length: 160 },
+    (_, index) => ({
+      id: `activity-row-${index}`,
+      kind: index % 3 === 0 ? "task" : index % 3 === 1 ? "review" : "commit",
+      createdAt: 1_700_100_000 - index,
+      actorPubkey: owner,
+      action: index % 3 === 0 ? "updated a task in" : "published activity in",
+      title: `Virtual activity ${index + 1}`,
+      body:
+        index % 5 === 0
+          ? "This row has enough supporting prose to exercise the variable row-height estimate."
+          : "",
+      detail: index % 3 === 2 ? String(index).padStart(40, "a") : undefined,
+      projectCoordinate,
+      repositoryCoordinate: projectCoordinate,
+    }),
+  );
 
   const { Story } = defineMeta({
     title: "Community/Projects/Activity Feed",
@@ -212,3 +237,43 @@
     ).not.toBeInTheDocument();
   }}
 />
+
+<Story
+  name="Virtualized Activity row window"
+  args={{
+    activity: virtualActivity,
+    filterStore: createBrowserProjectActivityFilterStore({
+      storage: {
+        getItem: () => null,
+        setItem: () => undefined,
+        removeItem: () => undefined,
+      },
+    }),
+    hasMore: true,
+    onLoadMore: fn(),
+  }}
+  play={async ({ args, canvas, canvasElement }) => {
+    await expect(await canvas.findByText("Virtual activity 1")).toBeVisible();
+    const viewport = canvasElement.querySelector<HTMLElement>(
+      '[data-story-part="bounded-scroll"]',
+    );
+    if (!viewport) throw new Error("Missing bounded scroll story host");
+    await waitFor(() => {
+      const rows = viewport.querySelectorAll('[data-ui-part="virtual-row"]');
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.length).toBeLessThan(48);
+    });
+    viewport.scrollTop = viewport.scrollHeight;
+    await fireEvent.scroll(viewport);
+    await waitFor(() => expect(args.onLoadMore).toHaveBeenCalled());
+  }}
+>
+  {#snippet template(args)}
+    <div
+      data-story-part="bounded-scroll"
+      style="height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 0.75rem;"
+    >
+      <CommunityProjectsActivityFeed {...args} />
+    </div>
+  {/snippet}
+</Story>

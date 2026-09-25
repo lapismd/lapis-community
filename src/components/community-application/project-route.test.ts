@@ -90,6 +90,23 @@ describe("project route hashes", () => {
     });
   });
 
+  it("round-trips list cursors in project route hashes", () => {
+    const route = {
+      kind: "repository" as const,
+      coordinate: "30617:owner:probe",
+      surface: "commits" as const,
+      cursor: { kind: "commit" as const, sha: "b".repeat(40) },
+    };
+    expect(projectRouteToHash(route)).toContain("?at=commit%3A");
+    expect(projectRouteFromHash(projectRouteToHash(route))).toEqual(route);
+    expect(projectRouteKey(route)).not.toBe(
+      projectRouteKey({
+        ...route,
+        cursor: { kind: "commit", sha: "c".repeat(40) },
+      }),
+    );
+  });
+
   it("uses a main surface for selected-project Activity", () => {
     expect(
       locationForProjectRoute({

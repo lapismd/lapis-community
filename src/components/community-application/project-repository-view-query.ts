@@ -15,7 +15,7 @@ import type {
   OwnersDocument,
 } from "../../projects/index.js";
 import { loadProjectCommitActivity } from "../../projects/index.js";
-import { readRepositoryDefaultCommits } from "../../projects/repository-default-history.js";
+import { readRepositoryDefaultCommitPage } from "../../projects/repository-default-history.js";
 import { repositorySupportsBrowsing } from "./repository-browsing.js";
 import { loadRepositorySource } from "./project-repository-view-source.js";
 import {
@@ -51,6 +51,7 @@ export interface ProjectRepositoryViewResult {
   capabilityError: string;
   commitActivity: readonly ProjectForgeCommitActivity[];
   commits: readonly ProjectForgeCommit[];
+  commitsMore: boolean;
   commitBranch: string;
   branches: readonly ProjectForgeRef[];
   revision: string;
@@ -61,19 +62,6 @@ export interface ProjectRepositoryViewResult {
   pullRequestDiff: ProjectForgePullRequestDiff | undefined;
   pullRequestDiffError: string;
   sourceError: string;
-}
-
-export function projectRepositoryViewQueryTarget(
-  input: ProjectRepositoryViewInput,
-) {
-  return {
-    repository: input.repositoryCoordinate ?? "project-overview",
-    surface: input.surface ?? input.overviewSurface,
-    revision: input.filesRouteRevision || input.requestedRepositoryBranch,
-    path: input.selectedPath,
-    commitSha: input.selectedCommitSha,
-    pullRequestId: input.pullRequestId,
-  };
 }
 
 export async function loadProjectRepositoryView(
@@ -191,7 +179,7 @@ async function maybeLoadCommitActivity(
   repositories: readonly ProjectForgeRepository[],
   projects: ProjectForgeCatalog["projects"],
   signal: AbortSignal,
-): Promise<readonly ProjectForgeCommitActivity[]> {
+) {
   if (
     input.repositoryCoordinate ||
     !(
@@ -217,6 +205,7 @@ function emptyRepositoryResult(
     capabilityError,
     commitActivity,
     commits: [],
+    commitsMore: false,
     commitBranch: "",
     branches: [],
     revision: "",
@@ -253,18 +242,21 @@ async function loadSourceRepositoryView(
     input.surface === "commits" ||
     input.surface === "activity"
   ) {
-    result.commits = await readRepositoryDefaultCommits(
+    const commitPage = await readRepositoryDefaultCommitPage(
       session,
       repository,
       signal,
+      { limit: 50 },
     ).catch((cause: unknown) => {
       if (signal.aborted) throw cause;
       result.sourceError =
         input.surface === "commits"
           ? failureMessage(cause, "The commit history could not be loaded")
           : "";
-      return [];
+      return { ref: "", sha: "", commits: [], more: false };
     });
+    result.commits = commitPage.commits;
+    result.commitsMore = commitPage.more;
   }
   if (input.surface === "commits" && input.selectedCommitSha) {
     try {

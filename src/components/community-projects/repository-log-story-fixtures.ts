@@ -17,7 +17,7 @@ const scope = "019d0000-0000-7000-8000-000000000001";
 export const operation = "2".repeat(128);
 const address = "30617:owner:probe";
 
-function event(
+export function event(
   id: string,
   kind: number,
   createdAt: number,
@@ -35,7 +35,7 @@ function event(
   };
 }
 
-function revision(
+export function revision(
   id: string,
   createdAt: number,
   commitId: string,

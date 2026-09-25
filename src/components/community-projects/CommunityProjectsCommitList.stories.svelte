@@ -1,8 +1,9 @@
 <script module lang="ts">
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect } from "storybook/test";
+  import { expect, fireEvent, fn, waitFor } from "storybook/test";
 
   import type {
+    ProjectForgeCommit,
     ProjectForgeCommitActivity,
     ProjectForgeProject,
     ProjectForgeRepository,
@@ -36,6 +37,17 @@
       },
     },
   ] as ProjectForgeCommitActivity[];
+  const virtualCommits = Array.from({ length: 160 }, (_, index) => ({
+    sha: (index + 1).toString(16).padStart(40, "0"),
+    subject: `Virtualized commit ${index + 1}`,
+    body:
+      index % 7 === 0
+        ? "A longer commit body exercises the measured row-height handoff."
+        : undefined,
+    author: index % 2 === 0 ? "Noor Patel" : "Maya Chen",
+    author_email: index % 2 === 0 ? "noor@example.test" : "maya@example.test",
+    commit_date: new Date(Date.UTC(2026, 8, 18, 9, index)).toISOString(),
+  })) satisfies ProjectForgeCommit[];
 
   const { Story } = defineMeta({
     title: "Community/Projects/Commit list",
@@ -62,5 +74,42 @@
 >
   {#snippet template(args)}
     <CommunityProjectsCommitList {...args} />
+  {/snippet}
+</Story>
+
+<Story
+  name="Repository commits virtualized window"
+  args={{
+    commits: virtualCommits,
+    selectedRepository: notes,
+    repositories: [notes],
+    hasMore: true,
+    onLoadMore: fn(),
+  }}
+  play={async ({ args, canvas, canvasElement }) => {
+    await expect(
+      canvas.getByRole("button", { name: "Virtualized commit 1" }),
+    ).toBeVisible();
+    const viewport = canvasElement.querySelector<HTMLElement>(
+      '[data-story-part="bounded-scroll"]',
+    );
+    if (!viewport) throw new Error("Missing bounded scroll story host");
+    await waitFor(() => {
+      const rows = viewport.querySelectorAll('[data-ui-part="virtual-row"]');
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.length).toBeLessThan(48);
+    });
+    viewport.scrollTop = viewport.scrollHeight;
+    await fireEvent.scroll(viewport);
+    await waitFor(() => expect(args.onLoadMore).toHaveBeenCalled());
+  }}
+>
+  {#snippet template(args)}
+    <div
+      data-story-part="bounded-scroll"
+      style="height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 0.75rem;"
+    >
+      <CommunityProjectsCommitList {...args} />
+    </div>
   {/snippet}
 </Story>

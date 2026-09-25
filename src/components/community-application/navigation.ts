@@ -12,6 +12,7 @@ import {
   isProjectForgeSurface,
   type ProjectForgeOverviewSurface,
   type ProjectForgeSurface,
+  type ProjectListCursor,
 } from "../../projects/index.js";
 
 export type CommunityApplicationDestination =
@@ -66,6 +67,7 @@ export type CommunityApplicationProjectRoute =
       repositoryCoordinate?: string;
       revision?: string;
       path?: string;
+      cursor?: ProjectListCursor;
     }
   | {
       kind: "repository";
@@ -74,6 +76,7 @@ export type CommunityApplicationProjectRoute =
       commitSha?: string;
       revision?: string;
       path?: string;
+      cursor?: ProjectListCursor;
     };
 
 export interface CommunityApplicationHistory {

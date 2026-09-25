@@ -38,7 +38,10 @@ For LC-UI-040, virtualized conversation estimates live in the extracted
 and `topic-row-estimate`, and the small production/story host wiring budgets are
 recorded in `scripts/architecture-baseline.json`. Latency-sensitive conversation
 scroll strategy is passed through the existing Design Core Layout boundary
-without adding a Community scroll owner.
+without adding a Community scroll owner. Project growth-surface virtualization
+lives in `CommunityProjectsVirtualRows` and `virtual-project-row-estimates`; the
+task list and repository-view query target are extracted owners so the project
+composition root and repository-view query stay below their current budgets.
 Project query-backed GitHub, review-ref, and repository commit actions live in
 `project-application-query-actions` so `CommunityApplication.svelte` shrinks
 while the query cache slice expands.

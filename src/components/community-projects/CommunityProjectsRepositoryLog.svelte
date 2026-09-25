@@ -21,11 +21,6 @@
     repositoryAgentContextsForSelection,
   } from "../../projects/repository-agent-context.js";
   import {
-    REPOSITORY_LOG_PAGE_SIZE,
-    nextRepositoryLogVisible,
-    takeRepositoryLogPage,
-  } from "../../projects/repository-log-page.js";
-  import {
     createRepositoryLogPane,
     useRepositoryLogPane,
   } from "../../projects/repository-log-pane.svelte.js";
@@ -76,10 +71,8 @@
   const opGraph = $derived(buildRepositoryOperationLog(events));
   const graph = $derived(pane.pane === "oplog" ? opGraph : logGraph);
   const revisionsTitle = $derived(pane.pane === "oplog" ? "Op Log" : "Log");
-  let visibleCount = $state(REPOSITORY_LOG_PAGE_SIZE);
   let previousLogBranch = $state(untrack(() => branch));
   let branchRefreshPending = $state(false);
-  const pagedGraph = $derived(takeRepositoryLogPage(graph, visibleCount));
   const hasRevisions = $derived(graph.revisions.length > 0);
   const showBranchSkeleton = $derived(branchRefreshPending && loading);
   const showInitialSkeleton = $derived(
@@ -102,9 +95,7 @@
     logGraph: () => logGraph,
     scope: () => repositoryAddress,
     loading: () => loading,
-    reveal: (count) => {
-      visibleCount = Math.max(REPOSITORY_LOG_PAGE_SIZE, count);
-    },
+    reveal: () => {},
     loadCommit: () => onLoadRepositoryCommit,
   });
   const agentContexts = $derived(buildRepositoryAgentContexts(events));
@@ -144,7 +135,6 @@
     if (branch !== previousLogBranch) {
       previousLogBranch = branch;
       branchRefreshPending = pane.pane === "log";
-      visibleCount = REPOSITORY_LOG_PAGE_SIZE;
     }
     if (!loading) branchRefreshPending = false;
   });
@@ -179,14 +169,7 @@
           branches={pane.pane === "log" ? branches : []}
           onSelectBranch={pane.pane === "log" ? selectLogBranch : undefined}
         />
-        <ColumnCanvas.Body
-          onScrollNearEnd={() => {
-            visibleCount = nextRepositoryLogVisible(
-              visibleCount,
-              graph.revisions.length,
-            );
-          }}
-        >
+        <ColumnCanvas.Body>
           {#if showBranchSkeleton}
             <div
               class="community-projects-repository-log__skeleton"
@@ -202,8 +185,8 @@
           {:else}
             <CommunityProjectsRevisionGraph
               {members}
-              revisions={pagedGraph.revisions}
-              devices={pagedGraph.devices}
+              revisions={graph.revisions}
+              devices={graph.devices}
               selectedId={selection.id}
               revisionHref={(revision) =>
                 repositoryAddress && pane.pane === "log"

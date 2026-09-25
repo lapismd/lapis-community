@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "bc3d5bfe055db1c850d1e20f963f2dc90ab59588",
+  "sourceCommit": "b942de5e4c4ff87d753721b74b715bdc17157fc9",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -2320,8 +2320,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9253,
-      "physicalLines": 9618,
+      "countedLines": 9333,
+      "physicalLines": 9701,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -2384,6 +2384,11 @@
     "src/components/community-application/CommunityApplicationRepositoryLoading.stories.svelte": {
       "countedLines": 83,
       "physicalLines": 87,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/CommunityApplicationRepositoryQueryCache.stories.svelte": {
+      "countedLines": 102,
+      "physicalLines": 106,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplicationRoot.svelte": {
@@ -2488,8 +2493,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/navigation.ts": {
-      "countedLines": 528,
-      "physicalLines": 571,
+      "countedLines": 531,
+      "physicalLines": 574,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -2497,6 +2502,16 @@
     "src/components/community-application/owned-agent-directory-actions.ts": {
       "countedLines": 23,
       "physicalLines": 24,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-application-query-actions.test.ts": {
+      "countedLines": 93,
+      "physicalLines": 106,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-application-query-actions.ts": {
+      "countedLines": 149,
+      "physicalLines": 153,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-commit-route.ts": {
@@ -2514,6 +2529,16 @@
       "physicalLines": 50,
       "forbiddenImportCount": 0
     },
+    "src/components/community-application/project-github-query.test.ts": {
+      "countedLines": 47,
+      "physicalLines": 56,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-github-query.ts": {
+      "countedLines": 36,
+      "physicalLines": 39,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-application/project-log-navigation.svelte.ts": {
       "countedLines": 21,
       "physicalLines": 22,
@@ -2527,6 +2552,66 @@
     "src/components/community-application/project-log-route.ts": {
       "countedLines": 66,
       "physicalLines": 70,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-query-client.ts": {
+      "countedLines": 15,
+      "physicalLines": 17,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-query-keys.test.ts": {
+      "countedLines": 218,
+      "physicalLines": 226,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-query-keys.ts": {
+      "countedLines": 193,
+      "physicalLines": 203,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-repository-path-commit-query.test.ts": {
+      "countedLines": 82,
+      "physicalLines": 90,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-repository-path-commit-query.ts": {
+      "countedLines": 44,
+      "physicalLines": 47,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-repository-read-query.test.ts": {
+      "countedLines": 136,
+      "physicalLines": 149,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-repository-read-query.ts": {
+      "countedLines": 231,
+      "physicalLines": 244,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-repository-view-query.test.ts": {
+      "countedLines": 36,
+      "physicalLines": 40,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-repository-view-query.ts": {
+      "countedLines": 291,
+      "physicalLines": 299,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-repository-view-selection.ts": {
+      "countedLines": 25,
+      "physicalLines": 26,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-repository-view-source.ts": {
+      "countedLines": 128,
+      "physicalLines": 132,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-repository-view-target.ts": {
+      "countedLines": 13,
+      "physicalLines": 14,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route-commit.ts": {
@@ -2555,13 +2640,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route.test.ts": {
-      "countedLines": 117,
-      "physicalLines": 120,
+      "countedLines": 133,
+      "physicalLines": 137,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route.ts": {
-      "countedLines": 163,
-      "physicalLines": 170,
+      "countedLines": 210,
+      "physicalLines": 220,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-task-route.test.ts": {
@@ -4051,8 +4136,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjects.svelte": {
-      "countedLines": 3620,
-      "physicalLines": 3754,
+      "countedLines": 3534,
+      "physicalLines": 3668,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
@@ -4063,14 +4148,16 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.stories.svelte": {
-      "countedLines": 207,
-      "physicalLines": 214,
+      "countedLines": 271,
+      "physicalLines": 279,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.svelte": {
-      "countedLines": 300,
-      "physicalLines": 307,
-      "forbiddenImportCount": 0
+      "countedLines": 341,
+      "physicalLines": 350,
+      "forbiddenImportCount": 0,
+      "kind": "legacy",
+      "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjectsActivityFilter.stories.svelte": {
       "countedLines": 71,
@@ -4098,13 +4185,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsCommitList.stories.svelte": {
-      "countedLines": 62,
-      "physicalLines": 66,
+      "countedLines": 110,
+      "physicalLines": 115,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsCommitList.svelte": {
-      "countedLines": 123,
-      "physicalLines": 128,
+      "countedLines": 175,
+      "physicalLines": 183,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsCreateDialogs.svelte": {
@@ -4228,8 +4315,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsPullRequestList.svelte": {
-      "countedLines": 124,
-      "physicalLines": 127,
+      "countedLines": 165,
+      "physicalLines": 170,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsPullRequestMeta.svelte": {
@@ -4298,16 +4385,14 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.stories.svelte": {
-      "countedLines": 292,
-      "physicalLines": 295,
+      "countedLines": 343,
+      "physicalLines": 348,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLog.svelte": {
-      "countedLines": 311,
-      "physicalLines": 322,
-      "forbiddenImportCount": 0,
-      "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "countedLines": 294,
+      "physicalLines": 305,
+      "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRepositoryLogBranch.stories.svelte": {
       "countedLines": 142,
@@ -4445,8 +4530,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraph.svelte": {
-      "countedLines": 242,
-      "physicalLines": 259,
+      "countedLines": 253,
+      "physicalLines": 271,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsRevisionGraphCopy.svelte": {
@@ -4494,9 +4579,19 @@
       "physicalLines": 242,
       "forbiddenImportCount": 0
     },
+    "src/components/community-projects/CommunityProjectsTaskList.svelte": {
+      "countedLines": 164,
+      "physicalLines": 170,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-projects/CommunityProjectStatusToasts.svelte": {
       "countedLines": 89,
       "physicalLines": 98,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/CommunityProjectsVirtualRows.svelte": {
+      "countedLines": 217,
+      "physicalLines": 233,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/create-dialogs.ts": {
@@ -4505,8 +4600,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/model.ts": {
-      "countedLines": 258,
-      "physicalLines": 289,
+      "countedLines": 262,
+      "physicalLines": 294,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/project-contributor-groups.ts": {
@@ -4599,6 +4694,16 @@
     "src/components/community-projects/task-link.ts": {
       "countedLines": 20,
       "physicalLines": 21,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/virtual-project-row-estimates.test.ts": {
+      "countedLines": 45,
+      "physicalLines": 49,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-projects/virtual-project-row-estimates.ts": {
+      "countedLines": 39,
+      "physicalLines": 41,
       "forbiddenImportCount": 0
     },
     "src/components/community-pulse/CommunityPulse.stories.svelte": {
@@ -5804,15 +5909,15 @@
       "forbiddenImportCount": 0
     },
     "src/projects/data-source.test.ts": {
-      "countedLines": 545,
-      "physicalLines": 571,
+      "countedLines": 546,
+      "physicalLines": 572,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/projects/data-source.ts": {
-      "countedLines": 925,
-      "physicalLines": 978,
+      "countedLines": 926,
+      "physicalLines": 979,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -5833,8 +5938,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/index.ts": {
-      "countedLines": 17,
-      "physicalLines": 17,
+      "countedLines": 18,
+      "physicalLines": 19,
       "forbiddenImportCount": 0
     },
     "src/projects/log-review.test.ts": {
@@ -5848,8 +5953,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/model.ts": {
-      "countedLines": 498,
-      "physicalLines": 582,
+      "countedLines": 499,
+      "physicalLines": 584,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -5872,6 +5977,16 @@
     "src/projects/project-identifier.ts": {
       "countedLines": 9,
       "physicalLines": 9,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/project-list-cursor.test.ts": {
+      "countedLines": 38,
+      "physicalLines": 42,
+      "forbiddenImportCount": 0
+    },
+    "src/projects/project-list-cursor.ts": {
+      "countedLines": 44,
+      "physicalLines": 48,
       "forbiddenImportCount": 0
     },
     "src/projects/project-rail.test.ts": {
@@ -5964,8 +6079,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-activity.ts": {
-      "countedLines": 166,
-      "physicalLines": 175,
+      "countedLines": 170,
+      "physicalLines": 179,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-address.ts": {
@@ -6014,8 +6129,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-default-history.ts": {
-      "countedLines": 22,
-      "physicalLines": 25,
+      "countedLines": 35,
+      "physicalLines": 39,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-evolution-log.test.ts": {
@@ -6253,9 +6368,14 @@
       "physicalLines": 86,
       "forbiddenImportCount": 0
     },
+    "src/projects/work-item-filters.test.ts": {
+      "countedLines": 37,
+      "physicalLines": 41,
+      "forbiddenImportCount": 0
+    },
     "src/projects/work-item-filters.ts": {
-      "countedLines": 75,
-      "physicalLines": 79,
+      "countedLines": 95,
+      "physicalLines": 101,
       "forbiddenImportCount": 0
     },
     "src/projects/work-item-resources.test.ts": {

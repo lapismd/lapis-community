@@ -129,6 +129,9 @@ export interface CommunityProjectsProps {
   commitActivity?: readonly import("../../projects/index.js").ProjectForgeCommitActivity[];
   /** Active repository head shown beside commit rows, when available. */
   commitBranch?: string;
+  /** Older commit history can be requested from the source gateway. */
+  commitsMore?: boolean;
+  commitsLoadingMore?: boolean;
   /** Selectable provider-neutral branch refs for the repository browser. */
   repositoryBranches?: readonly ProjectForgeRef[];
   /** Branch whose tree is currently loaded in the repository browser. */
@@ -270,6 +273,8 @@ export interface CommunityProjectsProps {
     emoji: string,
   ) => Promise<void>;
   onSelectCommit?: (commit: ProjectForgeCommit) => void;
+  onLoadMoreCommits?: () => void;
+  onVisibleCommitCursorChange?: (cursor: string | undefined) => void;
   onCloseCommit?: () => void;
   onSelectRepositoryBranch?: (branch: string) => void;
   onLoadRepositoryPathCommit?: (

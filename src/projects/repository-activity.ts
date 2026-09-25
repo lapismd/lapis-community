@@ -11,7 +11,11 @@ import type {
 } from "./model.js";
 import { KIND_JJ_OPERATION } from "./work-item-filters.js";
 
-export { buzzWorkItemFilters, KIND_JJ_OPERATION } from "./work-item-filters.js";
+export {
+  buzzWorkItemFilters,
+  pagedBuzzWorkItemFilters,
+  KIND_JJ_OPERATION,
+} from "./work-item-filters.js";
 
 export function buildRepositoryActivity(
   catalog: ProjectForgeCatalog,

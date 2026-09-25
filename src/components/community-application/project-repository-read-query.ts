@@ -172,6 +172,7 @@ export function loadRepositoryCommitsFromQuery(
       revision: input.revision,
       path: input.options?.path,
       limit: input.options?.limit,
+      cursor: input.options?.from,
     }),
     staleTime: PROJECT_REPOSITORY_READ_STALE_TIME_MS,
     queryFn: () =>

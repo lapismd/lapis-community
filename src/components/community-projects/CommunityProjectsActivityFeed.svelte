@@ -25,6 +25,7 @@
     type ProjectActivityFilterPage,
     type ProjectActivityFilterStore,
   } from "../../projects/activity-filters.js";
+  import { encodeProjectListCursor } from "../../projects/index.js";
   import type { ProjectForgeActivityItem } from "../../projects/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMarkdownContent from "../community-markdown-content/CommunityMarkdownContent.svelte";
@@ -42,6 +43,8 @@
   import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
   import CommunityProjectsAgentContextDisclosure from "./CommunityProjectsAgentContextDisclosure.svelte";
   import { communityProjectsMemberForPubkey } from "./projects-member.js";
+  import CommunityProjectsVirtualRows from "./CommunityProjectsVirtualRows.svelte";
+  import { estimateCommunityProjectRow } from "./virtual-project-row-estimates.js";
 
   let {
     loading = false,
@@ -58,6 +61,9 @@
     projectName,
     onOpenProject,
     onOpenItem,
+    onLoadMore,
+    onVisibleCursorChange,
+    hasMore = false,
   }: {
     loading?: boolean | undefined;
     activity?: readonly ProjectForgeActivityItem[] | undefined;
@@ -77,6 +83,9 @@
     projectName: (coordinate: string) => string;
     onOpenProject: (coordinate: string) => void;
     onOpenItem: (item: ProjectForgeActivityItem) => void;
+    onLoadMore?: (() => void) | undefined;
+    onVisibleCursorChange?: ((cursor: string | undefined) => void) | undefined;
+    hasMore?: boolean | undefined;
   } = $props();
 
   const activityFilterStore = $derived(
@@ -111,6 +120,30 @@
     pageFilters[filterPage] = value;
     activityFilterStore.save(value);
   }
+
+  function activityEstimate(
+    item: ProjectForgeActivityItem | undefined,
+  ): number {
+    return estimateCommunityProjectRow(
+      item
+        ? {
+            kind: "activity",
+            text: item.title,
+            detail: item.body,
+            hasBody: Boolean(item.body),
+            hasSupplement: Boolean(item.agentContext),
+          }
+        : undefined,
+    );
+  }
+
+  function activityCursor(item: ProjectForgeActivityItem): string | undefined {
+    return encodeProjectListCursor(
+      /^[a-f0-9]{64}$/u.test(item.id)
+        ? { kind: "event", createdAt: item.createdAt, eventId: item.id }
+        : { kind: "row", id: item.id },
+    );
+  }
 </script>
 
 <div
@@ -141,8 +174,8 @@
   <div class="community-projects__activity">
     {#if initialLoading}
       <CommunitySkeleton layout="timeline" label="Loading project activity" />
-    {:else}
-      {#each visibleActivity as item (item.id)}
+    {:else if visibleActivity.length > 0}
+      {#snippet activityRow(item: ProjectForgeActivityItem)}
         {@const actor = communityProjectsMemberForPubkey(
           members,
           item.actorPubkey || "relay",
@@ -295,13 +328,23 @@
             {/if}
           </div>
         </article>
-      {:else}
-        <p class="community-projects__status">
-          {isProjectActivityFilterAll(activityFilter)
-            ? "No project activity yet."
-            : "No matching activity."}
-        </p>
-      {/each}
+      {/snippet}
+      <CommunityProjectsVirtualRows
+        rows={visibleActivity}
+        row={activityRow}
+        loading={loading && visibleActivity.length > 0}
+        {hasMore}
+        {onLoadMore}
+        {onVisibleCursorChange}
+        estimateSize={activityEstimate}
+        cursorForRow={activityCursor}
+      />
+    {:else}
+      <p class="community-projects__status">
+        {isProjectActivityFilterAll(activityFilter)
+          ? "No project activity yet."
+          : "No matching activity."}
+      </p>
     {/if}
   </div>
 </div>

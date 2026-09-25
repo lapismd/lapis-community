@@ -97,6 +97,7 @@
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import CommunityProjectStatusToasts from "./CommunityProjectStatusToasts.svelte";
   import CommunityProjectsActivityFeed from "./CommunityProjectsActivityFeed.svelte";
+  import CommunityProjectsTaskList from "./CommunityProjectsTaskList.svelte";
   import CommunityProjectsCommitList from "./CommunityProjectsCommitList.svelte";
   import CommunityProjectsPeopleList from "./CommunityProjectsPeopleList.svelte";
   import CommunityProjectsPullRequestList from "./CommunityProjectsPullRequestList.svelte";
@@ -159,6 +160,8 @@
     commits = [],
     commitActivity = [],
     commitBranch = "",
+    commitsMore = false,
+    commitsLoadingMore = false,
     repositoryBranches = [],
     selectedRepositoryBranch = "",
     selectedCommit,
@@ -233,6 +236,8 @@
     onLoadRepositoryPathCommit,
     onLoadRepositoryCommit,
     onSelectCommit,
+    onLoadMoreCommits,
+    onVisibleCommitCursorChange,
     onSelectPath,
     onRetry,
   }: CommunityProjectsProps & CommunityProjectsFilterProps = $props();
@@ -3110,115 +3115,20 @@
           </article>
         {:else}
           {@render surfaceHeader("Tasks", "Project tasks")}
-          {#if groupByRepository}
-            <CommunityProjectsRepositorySections
-              sections={taskRepositorySections.map((group) => ({
-                repository: group.repository,
-                count: group.items.length,
-              }))}
-              empty="No tasks in this project."
-            >
-              {#snippet children(repository)}
-                <div
-                  class="community-projects__task-list"
-                  data-layout={listLayout}
-                >
-                  {#each scopedTasks.filter((task) => task.repository.coordinate === repository.address.coordinate) as task (task.root.id)}
-                    {@render taskListRow(task)}
-                  {/each}
-                </div>
-              {/snippet}
-            </CommunityProjectsRepositorySections>
-          {:else if mineTasks.length > 0 || otherTasks.length > 0}
-            <div class="community-projects__collection-groups">
-              {#if mineTasks.length > 0}
-                <Collapsible.Root
-                  class="community-projects__collection-group"
-                  bind:open={mineTasksOpen}
-                >
-                  <Collapsible.Trigger
-                    class="community-projects__list-group-heading"
-                  >
-                    <ListTodoIcon aria-hidden="true" />
-                    <strong>Mine</strong>
-                    {#if !mineTasksOpen}
-                      <span class="community-projects__list-group-count"
-                        >{mineTasks.length}</span
-                      >
-                    {/if}
-                    {#if mineTasksOpen}
-                      <ChevronDownIcon
-                        class="community-projects__list-group-chevron"
-                        aria-hidden="true"
-                      />
-                    {:else}
-                      <ChevronRightIcon
-                        class="community-projects__list-group-chevron"
-                        aria-hidden="true"
-                      />
-                    {/if}
-                  </Collapsible.Trigger>
-                  <Collapsible.Content>
-                    <div
-                      class="community-projects__task-list"
-                      data-layout={listLayout}
-                    >
-                      {#each mineTasks as task (task.root.id)}
-                        {@render taskListRow(task)}
-                      {/each}
-                    </div>
-                  </Collapsible.Content>
-                </Collapsible.Root>
-              {/if}
-              {#if otherTasks.length > 0}
-                <Collapsible.Root
-                  class="community-projects__collection-group"
-                  bind:open={otherTasksOpen}
-                >
-                  <Collapsible.Trigger
-                    class="community-projects__list-group-heading"
-                  >
-                    <ListTodoIcon aria-hidden="true" />
-                    <strong>Other tasks</strong>
-                    {#if !otherTasksOpen}
-                      <span class="community-projects__list-group-count"
-                        >{otherTasks.length}</span
-                      >
-                    {/if}
-                    {#if otherTasksOpen}
-                      <ChevronDownIcon
-                        class="community-projects__list-group-chevron"
-                        aria-hidden="true"
-                      />
-                    {:else}
-                      <ChevronRightIcon
-                        class="community-projects__list-group-chevron"
-                        aria-hidden="true"
-                      />
-                    {/if}
-                  </Collapsible.Trigger>
-                  <Collapsible.Content>
-                    <div
-                      class="community-projects__task-list"
-                      data-layout={listLayout}
-                    >
-                      {#each otherTasks as task (task.root.id)}
-                        {@render taskListRow(task)}
-                      {/each}
-                    </div>
-                  </Collapsible.Content>
-                </Collapsible.Root>
-              {/if}
-            </div>
-          {:else}
-            <p class="community-projects__status">
-              {selectedRepository
-                ? "No tasks in this repository."
-                : selectedProject
-                  ? "No tasks in this project."
-                  : "No project tasks are available."}
-            </p>
-          {/if}
+          <CommunityProjectsTaskList
+            {groupByRepository}
+            {scopedTasks}
+            {mineTasks}
+            {otherTasks}
+            {taskRepositorySections}
+            {listLayout}
+            selectedRepository={selectedRepository !== undefined}
+            selectedProject={selectedProject !== undefined}
+            bind:mineTasksOpen
+            bind:otherTasksOpen
+            row={taskListRow}
+            {loading}
+          />
         {/if}
       {:else if view === "reviews"}
         {#if groupByRepository && !selectedPullRequest}
@@ -3546,6 +3456,10 @@
                 {commits}
                 {commitActivity}
                 {commitBranch}
+                hasMore={commitsMore}
+                loading={commitsLoadingMore}
+                onLoadMore={onLoadMoreCommits}
+                onVisibleCursorChange={onVisibleCommitCursorChange}
                 {selectedProject}
                 {selectedRepository}
                 {repositories}

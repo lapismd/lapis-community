@@ -1,10 +1,11 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { tick } from "svelte";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
 
   import CommunityProjectsRevisionGraphCopy from "./CommunityProjectsRevisionGraphCopy.svelte";
   import CommunityProjectsRevisionGraphIds from "./CommunityProjectsRevisionGraphIds.svelte";
+  import CommunityProjectsVirtualRows from "./CommunityProjectsVirtualRows.svelte";
+  import { estimateCommunityProjectRow } from "./virtual-project-row-estimates.js";
   import type {
     RepositoryLogDevice,
     RepositoryLogRevision,
@@ -52,33 +53,36 @@
   const svgWidth = $derived(repositoryLogSvgWidth(rows));
   const rowHeight = REPOSITORY_LOG_ROW_HEIGHT;
   const radius = REPOSITORY_LOG_NODE_RADIUS;
-  let list: HTMLOListElement;
-  $effect(() => {
-    const selected = selectedId;
-    if (selected)
-      void tick().then(() => {
-        if (selectedId === selected)
-          list
-            ?.querySelector('[aria-current="true"]')
-            ?.scrollIntoView({ block: "nearest", inline: "nearest" });
-      });
-  });
+
+  function revisionEstimate(row: RepositoryLogGraphRow | undefined): number {
+    return estimateCommunityProjectRow(
+      row
+        ? {
+            kind: "repository-log",
+            text: row.revision.message,
+            detail: row.revision.eventId,
+            selected: selectedId === row.revision.eventId,
+          }
+        : undefined,
+    );
+  }
 
   function laneColor(row: RepositoryLogGraphRow, lane: number): string {
     return row.lanes[lane]?.color ?? "var(--primary)";
   }
 </script>
 
-<ol
-  bind:this={list}
+<div
   class="community-revision-graph"
   style:--community-revision-graph-row-height="{rowHeight}px"
+  role="list"
   aria-label={graphLabel}
 >
-  {#each rows as row (row.revision.eventId)}
+  {#snippet revisionRow(row: RepositoryLogGraphRow)}
     {@const commitX = repositoryLogLaneX(row.commitLane)}
     {@const centerY = rowHeight / 2}
-    <li
+    <div
+      role="listitem"
       class="community-revision-graph__item"
       class:community-revision-graph__item--selected={selectedId ===
         row.revision.eventId}
@@ -176,9 +180,17 @@
           {@render selectedFiles()}
         </div>
       {/if}
-    </li>
-  {/each}
-</ol>
+    </div>
+  {/snippet}
+  <CommunityProjectsVirtualRows
+    {rows}
+    row={revisionRow}
+    getKey={(row) => row.revision.eventId}
+    estimateSize={revisionEstimate}
+    scrollToKey={selectedId}
+    class="community-revision-graph__virtual"
+  />
+</div>
 
 <style>
   .community-revision-graph {
