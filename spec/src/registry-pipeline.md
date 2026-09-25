@@ -1,3 +1,8 @@
+For LC-UI-035, the CommunityRelativeTime time-ago label regression records only
+the component, formatter, unit test, and focused Storybook budgets in
+`scripts/architecture-baseline.json`; registry materialization and publication
+behavior are unchanged.
+
 For LC-UI-019, the room-browser create-row vertical spacing regression records the
 component and focused Storybook budgets in `scripts/architecture-baseline.json`;
 no registry materialization or publication behavior changes.

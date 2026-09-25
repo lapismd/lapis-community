@@ -30,9 +30,19 @@ export function formatCommunityRelativeTime(
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return relative.format(-hours, "hour");
   const days = Math.floor(hours / 24);
-  if (days < (options.absoluteAfterDays ?? 7))
-    return relative.format(-days, "day");
-  return new Intl.DateTimeFormat(options.locale, {
-    dateStyle: "medium",
-  }).format(timestamp * 1_000);
+  if (
+    options.absoluteAfterDays !== undefined &&
+    days >= options.absoluteAfterDays
+  ) {
+    return new Intl.DateTimeFormat(options.locale, {
+      dateStyle: "medium",
+    }).format(timestamp * 1_000);
+  }
+  if (days < 7) return relative.format(-days, "day");
+  const weeks = Math.floor(days / 7);
+  if (days < 30) return relative.format(-weeks, "week");
+  const months = Math.floor(days / 30);
+  if (days < 365) return relative.format(-months, "month");
+  const years = Math.floor(days / 365);
+  return relative.format(-years, "year");
 }

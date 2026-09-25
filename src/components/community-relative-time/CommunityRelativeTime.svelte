@@ -10,7 +10,7 @@
   let {
     timestamp,
     now,
-    absoluteAfterDays = 7,
+    absoluteAfterDays,
     href,
     ariaLabel,
     class: className = "",
@@ -29,10 +29,12 @@
   const currentTime = $derived(now ?? liveTime);
   const fullDate = $derived(formatCommunityFullDate(timestamp));
   const relativeDate = $derived(
-    formatCommunityRelativeTime(timestamp, {
-      now: currentTime,
-      absoluteAfterDays,
-    }),
+    formatCommunityRelativeTime(
+      timestamp,
+      absoluteAfterDays === undefined
+        ? { now: currentTime }
+        : { now: currentTime, absoluteAfterDays },
+    ),
   );
   const dateTime = $derived(new Date(timestamp * 1_000).toISOString());
 

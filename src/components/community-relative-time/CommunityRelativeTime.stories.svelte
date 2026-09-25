@@ -35,16 +35,22 @@
     await userEvent.hover(time);
     await expect(time).toHaveAttribute("data-state", "instant-open");
     await expect(time).toHaveAttribute("aria-describedby");
-    await expect(time).toHaveAttribute("title", expect.stringContaining("2026"));
+    await expect(time).toHaveAttribute(
+      "title",
+      expect.stringContaining("2026"),
+    );
   }}
 />
 
 <Story
   name="Older timestamp"
-  args={{ timestamp: now - 60 * 60 * 24 * 8 }}
+  args={{ timestamp: now - 60 * 60 * 24 * 21 }}
   play={async ({ canvas }) => {
-    const time = canvas.getByText(/2026/u);
-    await expect(time.textContent ?? "").not.toMatch(/\d:\d{2}/u);
-    await expect(time).toHaveAttribute("title", expect.stringMatching(/\d:\d{2}/u));
+    const time = canvas.getByText("3 weeks ago");
+    await expect(time).toBeVisible();
+    await expect(time).toHaveAttribute(
+      "title",
+      expect.stringMatching(/\d:\d{2}/u),
+    );
   }}
 />

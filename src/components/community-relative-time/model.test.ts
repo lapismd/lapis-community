@@ -26,9 +26,55 @@ describe("community relative time", () => {
     ).toBe("2 days ago");
   });
 
-  it("omits the time of day after the relative-time window", () => {
+  it("uses time-ago labels for weeks, months, and years by default", () => {
+    expect(
+      formatCommunityRelativeTime(now - 60 * 60 * 24, {
+        now,
+        locale: "en-GB",
+      }),
+    ).toBe("yesterday");
+    expect(
+      formatCommunityRelativeTime(now - 60 * 60 * 24 * 8, {
+        now,
+        locale: "en-GB",
+      }),
+    ).toBe("last week");
+    expect(
+      formatCommunityRelativeTime(now - 60 * 60 * 24 * 21, {
+        now,
+        locale: "en-GB",
+      }),
+    ).toBe("3 weeks ago");
+    expect(
+      formatCommunityRelativeTime(now - 60 * 60 * 24 * 30 * 9, {
+        now,
+        locale: "en-GB",
+      }),
+    ).toBe("9 months ago");
+    expect(
+      formatCommunityRelativeTime(now - 60 * 60 * 24 * 365 * 2, {
+        now,
+        locale: "en-GB",
+      }),
+    ).toBe("2 years ago");
+  });
+
+  it("clamps future clock skew to just now", () => {
+    expect(
+      formatCommunityRelativeTime(now + 60 * 60 * 24 * 2, {
+        now,
+        locale: "en-GB",
+      }),
+    ).toBe("just now");
+  });
+
+  it("supports an explicit absolute-date cutoff", () => {
     const old = now - 60 * 60 * 24 * 7;
-    const label = formatCommunityRelativeTime(old, { now, locale: "en-GB" });
+    const label = formatCommunityRelativeTime(old, {
+      now,
+      locale: "en-GB",
+      absoluteAfterDays: 7,
+    });
     const full = formatCommunityFullDate(old, "en-GB");
     expect(full.startsWith(`${label},`)).toBe(true);
   });

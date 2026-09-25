@@ -4649,23 +4649,23 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-relative-time/CommunityRelativeTime.stories.svelte": {
-      "countedLines": 47,
-      "physicalLines": 51,
+      "countedLines": 52,
+      "physicalLines": 56,
       "forbiddenImportCount": 0
     },
     "src/components/community-relative-time/CommunityRelativeTime.svelte": {
-      "countedLines": 85,
-      "physicalLines": 91,
+      "countedLines": 87,
+      "physicalLines": 93,
       "forbiddenImportCount": 0
     },
     "src/components/community-relative-time/model.test.ts": {
-      "countedLines": 40,
-      "physicalLines": 44,
+      "countedLines": 75,
+      "physicalLines": 81,
       "forbiddenImportCount": 0
     },
     "src/components/community-relative-time/model.ts": {
-      "countedLines": 36,
-      "physicalLines": 41,
+      "countedLines": 46,
+      "physicalLines": 48,
       "forbiddenImportCount": 0
     },
     "src/components/community-relay-settings/CommunityRelaySettings.stories.svelte": {

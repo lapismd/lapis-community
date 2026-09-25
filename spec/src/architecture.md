@@ -1,3 +1,7 @@
+For LC-UI-035, the CommunityRelativeTime component, formatter, unit regression,
+and focused Storybook story budgets are recorded in
+`scripts/architecture-baseline.json`.
+
 For LC-UI-019, the room-browser create-row vertical spacing assertion records the updated
 CommunityRoomBrowser component and focused Storybook budgets in
 `scripts/architecture-baseline.json`.
