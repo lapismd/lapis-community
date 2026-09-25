@@ -145,10 +145,13 @@ For LC-UI-040, project and repository request-style views MAY use the scoped
 Community query cache for presentation data, but they MUST preserve existing
 project loading and error props. Returning to repository Files, Log, commit
 details, pull-request diff, and channel canvas views MUST keep cached content
-visible while the matching scoped query refreshes. A refresh failure MUST retain
-the previous rendered resource when one exists, expose the existing retry/error
-treatment, and MUST NOT replace signed-event projections, history windows, or
-controller-owned mutations with query-cache state.
+visible while the matching scoped query refreshes. Repository Files per-path
+commit metadata MUST use the same scoped repository, revision and path cache so
+remounting a warmed file table does not repeat identical path-history reads. A
+refresh failure MUST retain the previous rendered resource when one exists,
+expose the existing retry/error treatment, and MUST NOT replace signed-event
+projections, history windows, or controller-owned mutations with query-cache
+state.
 
 For LC-UI-036, a connected external repository's contextual GitHub action MUST
 open an administrator-facing connection dialog that shows active and error

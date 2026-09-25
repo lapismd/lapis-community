@@ -91,6 +91,18 @@ export const communityProjectQueryKeys = {
       "commit",
       target.commitSha,
     ] as const,
+  repositoryPathCommit: (
+    scope: CommunityQueryScope,
+    target: Required<
+      Pick<RepositoryQueryTarget, "repository" | "revision" | "path">
+    >,
+  ) =>
+    [
+      ...communityProjectQueryKeys.repository(scope, target.repository),
+      "path-commit",
+      target.revision,
+      target.path,
+    ] as const,
   repositoryPullRequestDiff: (
     scope: CommunityQueryScope,
     target: Required<

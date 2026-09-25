@@ -146,7 +146,6 @@
     PROJECT_REPOSITORY_TABS,
     PROJECT_WORKSPACE_TABS,
     preferredProjectForRepository,
-    readRepositoryPathCommit,
     updateProjectTemplate,
     GITHUB_REVIEW_COMMENT_REACTIONS,
     PROJECT_FORGE_KINDS,
@@ -168,7 +167,6 @@
     type ProjectForgeRepository,
     type ProjectForgeRepositoryCapabilitiesByCoordinate,
     type ProjectForgeRef,
-    type ProjectForgeRefsResponse,
     type ProjectForgeSession,
     type ProjectForgeSurface,
     type ProjectForgeOverviewSurface,
@@ -353,6 +351,7 @@
     type ProjectRepositoryViewInput,
     type ProjectRepositoryViewResult,
   } from "./project-repository-view-query.js";
+  import { loadRepositoryPathCommitFromQuery } from "./project-repository-path-commit-query.js";
 
   type CommunityAuthenticatedAction = () => void | Promise<void>;
   type CommunityParticipationAction = "message" | "post" | "reaction" | "reply";
@@ -4446,22 +4445,21 @@
     );
   }
 
-  async function loadReviewRepositoryRefs(
-    repositoryCoordinate: string,
-  ): Promise<ProjectForgeRefsResponse> {
-    const session = projectSession;
-    if (!session) throw new Error("Repository source is not ready");
-    return await session.loadRefs(repositoryCoordinate);
+  async function loadReviewRepositoryRefs(repositoryCoordinate: string) {
+    if (!projectSession) throw new Error("Repository source is not ready");
+    return await projectSession.loadRefs(repositoryCoordinate);
   }
 
   async function loadRepositoryPathCommit(path: string, signal?: AbortSignal) {
-    return readRepositoryPathCommit(
-      projectSession,
-      projectSourceRepositoryCoordinate,
-      projectRepositoryRevision,
+    return loadRepositoryPathCommitFromQuery({
+      queryClient: communityQueryClient,
+      scope: communityQueryScope,
+      session: projectSession,
+      repository: projectSourceRepositoryCoordinate,
+      revision: projectRepositoryRevision,
       path,
       signal,
-    );
+    });
   }
   const loadRepositoryCommit = createRepositoryCommitReader({
     session: () => projectSession,

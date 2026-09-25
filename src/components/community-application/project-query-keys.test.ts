@@ -84,6 +84,19 @@ it("separates repository reads by branch, path, commit, and pull request", () =>
     }),
   );
   expect(
+    communityProjectQueryKeys.repositoryPathCommit(baseScope, {
+      repository: "30617:owner:repo",
+      revision: "main",
+      path: "README.md",
+    }),
+  ).not.toEqual(
+    communityProjectQueryKeys.repositoryPathCommit(baseScope, {
+      repository: "30617:owner:repo",
+      revision: "main",
+      path: "src/index.ts",
+    }),
+  );
+  expect(
     communityProjectQueryKeys.repositoryView(baseScope, {
       repository: "30617:owner:repo",
       revision: "main",
