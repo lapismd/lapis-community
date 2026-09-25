@@ -1,5 +1,9 @@
 <script lang="ts">
   import CommunityAvatarPicker from "../community-avatar-picker/CommunityAvatarPicker.svelte";
+  import {
+    COMMUNITY_AVATAR_IMAGE_ACCEPT,
+    resolveCommunityAvatarImage,
+  } from "../community-avatar-picker/image-files.js";
   import CommunityChatComposer from "../community-chat-composer/CommunityChatComposer.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as Field from "@lapismd/design-core/shadcn/field";
@@ -9,7 +13,6 @@
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
-  import UploadCloudIcon from "@lucide/svelte/icons/upload-cloud";
 
   import type {
     CommunityAccountSession,
@@ -35,6 +38,8 @@
     emojiOperation,
     section = "profile",
     onUpdateProfile,
+    onUploadProfileImage,
+    onUploadCustomEmojiImage,
     onAddCustomEmoji,
     onRemoveCustomEmoji,
     account,
@@ -50,10 +55,12 @@
     onSignOut,
   }: {
     model: CommunitySettingsState;
-    profileOperation?: CommunityOperationState;
-    emojiOperation?: CommunityOperationState;
+    profileOperation?: CommunityOperationState | undefined;
+    emojiOperation?: CommunityOperationState | undefined;
     section?: CommunitySettingsSection;
     onUpdateProfile: (profile: CommunityProfileUpdate) => Promise<void>;
+    onUploadProfileImage?: ((file: File) => Promise<string>) | undefined;
+    onUploadCustomEmojiImage?: ((file: File) => Promise<string>) | undefined;
     onAddCustomEmoji: (shortcode: string, url: string) => Promise<void>;
     onRemoveCustomEmoji: (shortcode: string) => Promise<void>;
     account?: CommunityAccountSession | undefined;
@@ -77,11 +84,12 @@
   let picture = $state("");
   let shortcode = $state("");
   let emojiUrl = $state("");
-  let localError = $state("");
-  let localMessage = $state("");
+  let localError = $state(""),
+    message = $state("");
   let editingProfile = $state(false);
   let avatarEditorOpen = $state(false);
-  let emojiFileName = $state("");
+  let emojiFileName = $state(""),
+    uploading = $state(false);
   let rootElement = $state<HTMLElement>();
 
   const ownedEmojis = $derived(
@@ -106,7 +114,7 @@
     avatarEditorOpen = false;
     editingProfile = false;
     localError = "";
-    localMessage = "";
+    message = "";
     if (!element) return;
     requestAnimationFrame(() => {
       element
@@ -122,10 +130,10 @@
 
   async function persistProfile(successMessage: string): Promise<boolean> {
     localError = "";
-    localMessage = "";
+    message = "";
     try {
       await onUpdateProfile(profilePayload());
-      localMessage = successMessage;
+      message = successMessage;
       return true;
     } catch (cause) {
       localError =
@@ -150,13 +158,13 @@
   async function addEmoji(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     localError = "";
-    localMessage = "";
+    message = "";
     try {
       await onAddCustomEmoji(shortcode, emojiUrl);
       shortcode = "";
       emojiUrl = "";
       emojiFileName = "";
-      localMessage = "Custom emoji saved to the relay.";
+      message = "Custom emoji saved to the relay.";
     } catch (cause) {
       localError = cause instanceof Error ? cause.message : "Emoji save failed";
     }
@@ -164,42 +172,39 @@
 
   async function removeEmoji(value: string): Promise<void> {
     localError = "";
-    localMessage = "";
+    message = "";
     try {
       await onRemoveCustomEmoji(value);
-      localMessage = `:${value}: removed from your emoji set.`;
+      message = `:${value}: removed from your emoji set.`;
     } catch (cause) {
       localError =
         cause instanceof Error ? cause.message : "Emoji removal failed";
     }
   }
 
-  function readImage(
-    event: Event,
-    assign: (value: string, fileName: string) => void,
-  ): void {
-    const input = event.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      localError = "Choose an image file.";
-      return;
+  async function uploadEmojiImage(event: Event): Promise<void> {
+    const file = (event.currentTarget as HTMLInputElement).files?.[0];
+    if (!file || uploading) return;
+    localError = "";
+    message = "";
+    uploading = true;
+    try {
+      emojiUrl = await resolveCommunityAvatarImage(file, {
+        upload: onUploadCustomEmojiImage,
+      });
+      emojiFileName = file.name;
+      shortcode ||= file.name
+        .replace(/\.[^.]+$/, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      message = "Emoji image uploaded. Save emoji to publish it.";
+    } catch (cause) {
+      localError =
+        cause instanceof Error ? cause.message : "The image could not be read.";
+    } finally {
+      uploading = false;
     }
-    if (file.size > 1024 * 1024) {
-      localError = "Choose an image smaller than 1 MB.";
-      return;
-    }
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      if (typeof reader.result === "string") {
-        assign(reader.result, file.name);
-        localError = "";
-      }
-    });
-    reader.addEventListener("error", () => {
-      localError = "The image could not be read.";
-    });
-    reader.readAsDataURL(file);
   }
 </script>
 
@@ -241,6 +246,7 @@
           shape="circle"
           disabled={!model.identityConnected}
           communityEmojis={model.customEmojis}
+          onUploadImage={onUploadProfileImage}
         />
         {#if picture !== model.profile.picture}
           <div class="community-settings__avatar-actions">
@@ -348,10 +354,7 @@
       {/if}
 
       <p class="community-settings__status" role="status">
-        {localError ||
-          profileOperation?.message ||
-          localMessage ||
-          disabledReason}
+        {localError || profileOperation?.message || message || disabledReason}
       </p>
     </form>
   {:else}
@@ -389,23 +392,17 @@
                   <ImageIcon />
                 {/if}
               </span>
-              <span>{emojiFileName || "Upload image"}</span>
+              <span
+                >{uploading
+                  ? "Uploading…"
+                  : emojiFileName || "Upload image"}</span
+              >
               <input
                 type="file"
-                accept="image/png,image/jpeg,image/gif,image/webp"
+                accept={COMMUNITY_AVATAR_IMAGE_ACCEPT}
                 aria-label="Upload custom emoji image"
-                onchange={(event) =>
-                  readImage(event, (value, fileName) => {
-                    emojiUrl = value;
-                    emojiFileName = fileName;
-                    if (!shortcode) {
-                      shortcode = fileName
-                        .replace(/\.[^.]+$/, "")
-                        .toLowerCase()
-                        .replace(/[^a-z0-9_-]+/g, "-")
-                        .replace(/^-+|-+$/g, "");
-                    }
-                  })}
+                disabled={uploading}
+                onchange={(event) => void uploadEmojiImage(event)}
               />
             </label>
           </div>
@@ -458,6 +455,7 @@
               disabled={!model.identityConnected ||
                 !emojiUrl ||
                 !shortcode ||
+                uploading ||
                 emojiOperation?.status === "pending"}
               title={disabledReason || undefined}>Save emoji</Button
             >
@@ -503,10 +501,7 @@
       </section>
 
       <p class="community-settings__status" role="status">
-        {localError ||
-          emojiOperation?.message ||
-          localMessage ||
-          disabledReason}
+        {localError || emojiOperation?.message || message || disabledReason}
       </p>
     </form>
   {/if}

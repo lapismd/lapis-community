@@ -1,3 +1,8 @@
+For LC-UI-001, settings media uploads live in focused owners: Community image
+file validation stays beside the avatar picker, authenticated result forwarding
+stays beside the application shell, and relay media upload actions stay under
+`src/community` so settings and application hotspots do not grow.
+
 For LC-UI-035, the CommunityRelativeTime component, formatter, unit regression,
 and focused Storybook story budgets are recorded in
 `scripts/architecture-baseline.json`.

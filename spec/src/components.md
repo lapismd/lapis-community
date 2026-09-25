@@ -105,8 +105,13 @@ destination controls instead of stacking a generic Application navigation toolba
 above a page toolbar. Destination body controls such as Inbox filters and Pulse
 feed tabs remain inside their owning body regions. They do not
 replace AppShell or recreate header, viewport, sidebar, or structural-layer
-geometry. Projects named surfaces (activity, pull-request review, repository
-pane, and create dialogs) compose from the `CommunityProjects` root.
+geometry. Personal settings image pickers MUST upload selected profile-avatar
+and custom-emoji raster images to the authenticated relay media endpoint and
+store the returned URL before publishing profile metadata or the emoji set;
+generated emoji avatars and pasted image URLs remain local drafts until the
+existing save action publishes them. Projects named surfaces (activity,
+pull-request review, repository pane, and create dialogs) compose from the
+`CommunityProjects` root.
 
 The live NIP-29 registry catalog source hydrates manifests, opens catalog
 subscriptions, and builds portable release proofs through dedicated modules

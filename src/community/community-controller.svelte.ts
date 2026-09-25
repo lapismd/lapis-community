@@ -1,6 +1,7 @@
 import { agentControlActions } from "./agent-control-actions.js";
 import { historyPageKey, eventInHistoryWindow } from "./history-pages.js";
 import { createProjectionQueue, shareProjection } from "./projection-state.js";
+import { parseJsonObject } from "./materialize-shared.js";
 import {
   conversationKey,
   privateConversation,
@@ -96,6 +97,7 @@ import {
   normalizeShortcode,
 } from "./materialize-settings.js";
 import { createInlineCommunityEventRuntime } from "./event-runtime.js";
+import { createCommunitySettingsImageActions } from "./settings-image-actions.js";
 import { unwrapNip17GiftWrap } from "./nip17.js";
 import { registerCommunityControllerIdentityReader } from "./controller-identity-context.js";
 import {
@@ -294,6 +296,13 @@ export function createCommunityController(
     patchCache: (patch) => {
       cache = { ...cache, ...patch };
     },
+    now,
+  });
+  const settingsImageActions = createCommunitySettingsImageActions({
+    runOperation,
+    ensureIdentity,
+    getIdentity: () => identity,
+    getRelayUrl: () => activeScope().relayUrl,
     now,
   });
   const pulseCtl = createControllerPulse({
@@ -2691,6 +2700,7 @@ export function createCommunityController(
         tags: [],
       });
     },
+    uploadSettingsImage: settingsImageActions.uploadSettingsImage,
     async updateStatus(userStatus) {
       await ensureIdentity("settings:status");
       await publishTemplate("settings:status", {
@@ -4325,20 +4335,6 @@ function isGroupAdmin(
       )[0]
       ?.tags.some((tag) => tag[0] === "p" && tag[1] === pubkey) === true
   );
-}
-
-function parseJsonObject(value: string | undefined): Record<string, unknown> {
-  if (value === undefined) return {};
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed !== null &&
-      !Array.isArray(parsed) &&
-      typeof parsed === "object"
-      ? { ...(parsed as Record<string, unknown>) }
-      : {};
-  } catch {
-    return {};
-  }
 }
 
 function setProfileField(

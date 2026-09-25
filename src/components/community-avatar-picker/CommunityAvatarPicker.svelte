@@ -8,6 +8,10 @@
   import LinkIcon from "@lucide/svelte/icons/link-2";
   import CommunityEmojiPicker from "../community-emoji-picker/CommunityEmojiPicker.svelte";
   import { communityMemberAvatarFallbackTone } from "../community-member-avatar/model.js";
+  import {
+    COMMUNITY_AVATAR_IMAGE_ACCEPT,
+    resolveCommunityAvatarImage,
+  } from "./image-files.js";
   import type { CommunityCustomEmoji } from "../../community/index.js";
 
   let {
@@ -19,6 +23,7 @@
     shape = "rounded",
     size = "large",
     fallbackName = "",
+    onUploadImage,
   }: {
     value?: string;
     open?: boolean;
@@ -28,6 +33,7 @@
     shape?: "circle" | "rounded";
     size?: "medium" | "large";
     fallbackName?: string;
+    onUploadImage?: ((file: File) => Promise<string>) | undefined;
   } = $props();
   const emojis = [
     "😀",
@@ -62,11 +68,9 @@
   let selectedEmoji = $state("");
   let filename = $state("");
   let error = $state("");
+  let uploading = $state(false);
   let reader: FileReader | undefined;
   const fallbackInitials = $derived(initials(fallbackName));
-  const fallbackTone = $derived(
-    communityMemberAvatarFallbackTone(fallbackName),
-  );
   onDestroy(() => reader?.abort());
 
   function initials(value: string): string {
@@ -91,35 +95,28 @@
     value = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" rx="${radius}" fill="${color}"/><text x="128" y="166" font-size="128" text-anchor="middle">${safe}</text></svg>`)}`;
     error = "";
   }
-  function readImage(file: File | undefined) {
-    if (!file) return;
+  async function readImage(file: File | undefined) {
+    if (!file || uploading) return;
     error = "";
-    if (
-      !["image/png", "image/jpeg", "image/gif", "image/webp"].includes(
-        file.type,
-      )
-    ) {
-      error = "Choose a PNG, JPEG, GIF, or WebP image.";
-      return;
-    }
-    if (file.size > 1024 * 1024) {
-      error = "Choose an image smaller than 1 MB.";
-      return;
-    }
+    uploading = true;
     reader?.abort();
-    const next = new FileReader();
-    reader = next;
-    next.onload = () => {
-      if (reader === next && typeof next.result === "string") {
-        value = next.result;
-        filename = file.name;
-        selectedEmoji = "";
-      }
-    };
-    next.onerror = () => {
-      error = "The image could not be read. Try again.";
-    };
-    next.readAsDataURL(file);
+    try {
+      value = await resolveCommunityAvatarImage(file, {
+        upload: onUploadImage,
+        setReader: (next) => {
+          reader = next;
+        },
+      });
+      filename = file.name;
+      selectedEmoji = "";
+    } catch (cause) {
+      error =
+        cause instanceof Error
+          ? cause.message
+          : "The image could not be read. Try again.";
+    } finally {
+      uploading = false;
+    }
   }
 </script>
 
@@ -133,14 +130,14 @@
         data-size={size}
         data-shape={shape}
         aria-label={label}
-        {disabled}
+        disabled={disabled || uploading}
       >
         {#if value}<img
             src={value}
             alt="Selected avatar"
           />{:else if fallbackInitials}<span
             class="community-avatar-picker__fallback"
-            data-fallback-tone={fallbackTone}
+            data-fallback-tone={communityMemberAvatarFallbackTone(fallbackName)}
             aria-hidden="true">{fallbackInitials}</span
           >{:else}<PlusIcon aria-hidden="true" />{/if}
       </button>
@@ -165,17 +162,18 @@
           ondragover={(event) => event.preventDefault()}
           ondrop={(event) => {
             event.preventDefault();
-            readImage(event.dataTransfer?.files[0]);
+            void readImage(event.dataTransfer?.files[0]);
           }}
         >
           <UploadCloudIcon aria-hidden="true" /><span
-            >{filename || "Drop or browse"}</span
+            >{uploading ? "Uploading…" : filename || "Drop or browse"}</span
           >
           <input
             type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp"
+            accept={COMMUNITY_AVATAR_IMAGE_ACCEPT}
             aria-label="Upload avatar image"
-            onchange={(event) => readImage(event.currentTarget.files?.[0])}
+            disabled={uploading}
+            onchange={(event) => void readImage(event.currentTarget.files?.[0])}
           />
         </label>
         <div class="community-avatar-picker__url">

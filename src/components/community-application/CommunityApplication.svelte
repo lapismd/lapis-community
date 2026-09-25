@@ -352,6 +352,7 @@
   import { loadRepositoryPathCommitFromQuery } from "./project-repository-path-commit-query.js";
   import { loadRepositoryCommitsFromQuery } from "./project-repository-read-query.js";
   import { createProjectApplicationQueryActions } from "./project-application-query-actions.js";
+  import { runCommunityAuthenticatedResult } from "./authenticated-result.js";
 
   type CommunityAuthenticatedAction = () => void | Promise<void>;
   type CommunityParticipationAction = "message" | "post" | "reaction" | "reply";
@@ -7672,15 +7673,22 @@
               ? undefined
               : () => applicationAuthentication.connectGitHub?.()}
             onSignOut={signOutCurrentIdentity}
-            {...community.state.operations["settings:profile"] === undefined
-              ? {}
-              : {
-                  profileOperation:
-                    community.state.operations["settings:profile"],
-                }}
-            {...emojiOperation === undefined ? {} : { emojiOperation }}
+            profileOperation={community.state.operations["settings:profile"]}
+            {emojiOperation}
             onUpdateProfile={(profile) =>
               runAuthenticated(() => community.actions.updateProfile(profile))}
+            onUploadProfileImage={(file) =>
+              runCommunityAuthenticatedResult(
+                runAuthenticated,
+                () => community.actions.uploadSettingsImage(file, "profile"),
+                "Profile image upload was cancelled",
+              )}
+            onUploadCustomEmojiImage={(file) =>
+              runCommunityAuthenticatedResult(
+                runAuthenticated,
+                () => community.actions.uploadSettingsImage(file, "emoji"),
+                "Emoji image upload was cancelled",
+              )}
             onAddCustomEmoji={(shortcode, url) =>
               runAuthenticated(() =>
                 community.actions.setCustomEmoji(shortcode, url),

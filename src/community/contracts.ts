@@ -266,12 +266,8 @@ export interface CommunityConnectionSettings {
   relayUrlSource: "default" | "override";
 }
 
-export interface CommunityProfileSettings {
+export interface CommunityProfileSettings extends CommunityProfileUpdate {
   pubkey: string;
-  displayName: string;
-  username: string;
-  about: string;
-  picture: string;
 }
 
 export interface CommunityCustomEmoji {
@@ -880,6 +876,7 @@ export interface CommunityControllerActions extends CommunitySendActions {
   createGroupInvite?(roomId: string): Promise<CommunityGroupInvite>;
   joinWithInvite?(value: string): Promise<void>;
   updateProfile(profile: CommunityProfileUpdate): Promise<void>;
+  uploadSettingsImage(file: File, usage: "profile" | "emoji"): Promise<string>;
   updateStatus(status: string): Promise<void>;
   setCustomEmoji(shortcode: string, url: string): Promise<void>;
   removeCustomEmoji(shortcode: string): Promise<void>;

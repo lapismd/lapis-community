@@ -241,13 +241,8 @@
             <CommunitySettings
               model={community.state.settings}
               section={settingsSection}
-              {...community.state.operations["settings:profile"] === undefined
-                ? {}
-                : {
-                    profileOperation:
-                      community.state.operations["settings:profile"],
-                  }}
-              {...emojiOperation === undefined ? {} : { emojiOperation }}
+              profileOperation={community.state.operations["settings:profile"]}
+              {emojiOperation}
               onUpdateProfile={(profile) =>
                 community!.actions.updateProfile(profile)}
               onAddCustomEmoji={(shortcode, url) =>

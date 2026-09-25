@@ -16,6 +16,12 @@ re-exports registry-control helpers so Community internals can import them from
 `lapis-community://task?owner=&d=&id=` so composer slash chips open the same
 repository task as `#/projects/repository/<coord>/tasks/<id>`.
 
+For LC-NOSTR-021, profile-avatar and custom-emoji file selections use the
+relay's authenticated Blossom-compatible media upload endpoint before publishing
+profile metadata or the emoji set. Upload authorization binds the SHA-256 digest,
+short expiration, and relay host, and clients MUST verify the returned descriptor
+URL, digest, size, and image MIME type before storing the media URL in drafts.
+
 ## Relay Presence Extension
 
 Relays advertising `lapis_presence.version = 1` support authenticated kind-20001
