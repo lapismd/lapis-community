@@ -4,8 +4,9 @@ no registry materialization or publication behavior changes.
 
 For LC-ARCH-028 and LC-UI-036, the project-channel inline sheet regression records
 the mobile project-overview routing, embedded project-body semantics, application
-navigation and focused story budgets in `scripts/architecture-baseline.json`; no
-registry materialization or publication behavior changes.
+navigation, root-hosted Design Core surface-layer package integrity, and focused
+story budgets in `scripts/architecture-baseline.json`; no registry materialization
+or publication behavior changes.
 
 # Local Registry Pipeline
 

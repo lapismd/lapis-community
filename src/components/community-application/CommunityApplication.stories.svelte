@@ -1087,6 +1087,51 @@
         { timeout: 15_000 },
       ),
     ).toBeVisible();
+    const layer = application.querySelector<HTMLElement>(
+      '.community-application__project-sheet-layer[data-ui-part="surface-layer"]',
+    );
+    const surface = layer?.querySelector<HTMLElement>(
+      '[data-ui-part="surface-layer-surface"]',
+    );
+    const mainLane = application.querySelector<HTMLElement>(
+      '[data-ui-part="mobile-main-lane"]',
+    );
+    if (!layer || !surface || !mainLane) {
+      throw new Error("Expected a root-hosted mobile project sheet");
+    }
+    await expect(layer).toHaveAttribute("data-mobile-placement", "root");
+    expect(layer.parentElement).toBe(shell);
+    const rootRect = shell.getBoundingClientRect();
+    const surfaceRect = surface.getBoundingClientRect();
+    const topGutter = surfaceRect.top - rootRect.top;
+    const leftGutter = surfaceRect.left - rootRect.left;
+    const rightGutter = rootRect.right - surfaceRect.right;
+    const bottomGutter = rootRect.bottom - surfaceRect.bottom;
+    expect(topGutter).toBeGreaterThanOrEqual(6);
+    expect(topGutter).toBeLessThanOrEqual(16);
+    expect(leftGutter).toBeGreaterThanOrEqual(6);
+    expect(leftGutter).toBeLessThanOrEqual(16);
+    expect(rightGutter).toBeGreaterThanOrEqual(6);
+    expect(rightGutter).toBeLessThanOrEqual(16);
+    expect(bottomGutter).toBeGreaterThanOrEqual(6);
+    expect(bottomGutter).toBeLessThanOrEqual(16);
+    expect(surfaceRect.width).toBeGreaterThan(rootRect.width * 0.95);
+    await expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
+      "#/channels/general",
+    );
+
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Close project surface" }),
+    );
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("heading", { name: "Tasks", level: 1 }),
+      ).not.toBeInTheDocument(),
+    );
+    await expect(shell).toHaveAttribute("data-mobile-stage", "right");
+    await expect(
+      await canvas.findByRole("navigation", { name: "Project overview" }),
+    ).toBeVisible();
     await expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
       "#/channels/general",
     );

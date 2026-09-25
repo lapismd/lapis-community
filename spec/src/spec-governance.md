@@ -153,8 +153,9 @@ for cross-repository consumer verification; the hook retains the published
 semver dependency whenever that local artifact is absent. The committed
 lockfile pins the current tarball integrity so frozen local fixture builds use
 the same reviewed package bytes. Constrained AppShell SurfaceLayer validation
-MAY refresh that integrity after repacking the sibling Design Core artifact
-without changing the published dependency range.
+MAY refresh that integrity after repacking the sibling Design Core artifact,
+including the root-hosted mobile surface-layer API used by Community project
+sheets, without changing the published dependency range.
 
 For LC-SPEC-002, the package README describes implemented messaging transports,
 Inbox actions, unified Agents and project channel canvases, and links the owning

@@ -2308,14 +2308,14 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplication.stories.svelte": {
-      "countedLines": 5089,
+      "countedLines": 5133,
       "physicalLines": 5250,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9095,
+      "countedLines": 9117,
       "physicalLines": 9463,
       "forbiddenImportCount": 0,
       "kind": "legacy",

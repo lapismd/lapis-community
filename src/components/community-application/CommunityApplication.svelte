@@ -979,6 +979,14 @@
       shell.mobile.stage === "right" &&
       shell.mobile.activePanelId("right") === PROJECT_OVERVIEW_PANEL_ID,
   );
+  const projectSheetMobileRoot = $derived(
+    projectSheetOpen && shell.mobile.resolvedMode === "mobile",
+  );
+  const projectSheetLayerStyle = $derived(
+    projectSheetMobileRoot
+      ? "--ui-shell-surface-layer-main-start-allowance: 0.5rem; --ui-shell-surface-layer-inline-end-inset: 0.5rem"
+      : "--ui-shell-surface-layer-main-start-allowance: 7rem; --ui-shell-surface-layer-inline-end-inset: 0px",
+  );
   const keepLane = $derived(projectSheetOpen && projectOverviewMobileActive);
   const releaseOverviewShown = $derived(
     activeMainSurface === undefined &&
@@ -3938,6 +3946,8 @@
 
   function closeProjectSurface(): void {
     if (selectedProjectSurface === undefined) return;
+    const restoreProjectOverviewLane =
+      projectSheetProject !== undefined && projectOverviewMobileActive;
     selectedPullRequestId = "";
     selectedTaskId = "";
     projectPullRequestDiff = undefined;
@@ -3952,6 +3962,10 @@
     } else {
       pushLocation({ destination: activeDestination, panel: activePanel });
     }
+    if (restoreProjectOverviewLane)
+      void tick().then(() =>
+        shell.mobile.show("right", PROJECT_OVERVIEW_PANEL_ID),
+      );
     lastAction = "closed-project-surface";
   }
 
@@ -6760,10 +6774,11 @@
     suspendPanelIds={projectOverviewMobileActive
       ? []
       : [PROJECT_OVERVIEW_PANEL_ID]}
+    mobilePlacement={projectSheetMobileRoot ? "root" : "active-lane"}
     dismissLabel={`Back to ${projectSheetProject?.name ?? "project"}`}
     onDismiss={closeProjectSurface}
     class="community-application__project-sheet-layer"
-    style="--ui-shell-surface-layer-main-start-allowance: 7rem; --ui-shell-surface-layer-inline-end-inset: 0px"
+    style={projectSheetLayerStyle}
   >
     <AppShell.SurfaceLayer.Header
       class="community-application__project-sheet-header"
@@ -8892,6 +8907,14 @@
     font-size: var(--community-text-section);
     font-weight: 650;
     text-transform: capitalize;
+  }
+
+  :global(
+      .community-application__project-sheet-layer[data-mobile-placement="root"]
+        [data-ui-part="surface-layer-surface"]
+    ) {
+    inset-block-start: var(--ui-shell-main-block-inset);
+    inset-block-end: var(--ui-shell-main-block-inset);
   }
 
   :global(

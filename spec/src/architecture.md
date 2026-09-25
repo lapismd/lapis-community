@@ -10,9 +10,12 @@ For LC-UI-036, embedded project sheets pass a non-main body element through
 `CommunityProjects` so project workspace content keeps AppShell body scrolling
 without nesting a `main` landmark inside the channel surface. Project-bound
 channel sheets opened from the constrained project-overview lane keep that right
-lane active underneath the SurfaceLayer while the leading allowance exposes a
-small strip of the overview. The public prop remains presentation-only; routing,
-project selection, and dialog ownership stay in the application composition root.
+lane active underneath a root-hosted SurfaceLayer while the sheet covers the
+body and side lanes with small mobile gutters. The public prop remains
+presentation-only; routing, project selection, and dialog ownership stay in the
+application composition root. The refreshed local Design Core tarball lockfile
+integrity supplies the root-hosted mobile AppShell SurfaceLayer API without
+changing Community's publishable dependency range.
 
 # Architecture
 
