@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "126daa80dbad91a3ce91c17545d641f3a9a6d952",
+  "sourceCommit": "bc3d5bfe055db1c850d1e20f963f2dc90ab59588",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -2617,8 +2617,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-channel-canvas/CommunityChannelCanvas.svelte": {
-      "countedLines": 218,
-      "physicalLines": 222,
+      "countedLines": 220,
+      "physicalLines": 224,
       "forbiddenImportCount": 0
     },
     "src/components/community-channel-canvas/project-canvas-template.test.ts": {
@@ -5237,8 +5237,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/forum-topic-list/ForumTopicList.stories.svelte": {
-      "countedLines": 314,
-      "physicalLines": 326,
+      "countedLines": 302,
+      "physicalLines": 314,
       "forbiddenImportCount": 0
     },
     "src/components/forum-topic-list/ForumTopicList.svelte": {
@@ -5247,6 +5247,11 @@
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
+    },
+    "src/components/forum-topic-list/ForumTopicListVirtualizedStoryHarness.svelte": {
+      "countedLines": 47,
+      "physicalLines": 52,
+      "forbiddenImportCount": 0
     },
     "src/components/forum-topic-list/topic-row-estimate.test.ts": {
       "countedLines": 28,

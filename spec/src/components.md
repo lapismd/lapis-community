@@ -947,9 +947,10 @@ project canvas opens with a project-specific starter draft; the application
 MUST NOT publish that draft until Save or replace existing relay content.
 
 The canvas editor MUST use the available settings body height and keep its
-actions visible at the bottom of the body. Direct project Activity routes MUST
-resolve the project after a cold catalog load. Repository Activity agent
-transcripts MUST be collapsed by default and remain keyboard-expandable.
+actions visible at the bottom of the body, with block-end padding so read and
+edit action rows do not touch the settings canvas edge. Direct project Activity
+routes MUST resolve the project after a cold catalog load. Repository Activity
+agent transcripts MUST be collapsed by default and remain keyboard-expandable.
 
 `CommunityChannelCanvas` composes `CommunityMarkdownContent`,
 `CommunityChatComposer mode="form"`, and the shared confirmation control for

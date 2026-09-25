@@ -11,6 +11,9 @@ For LC-UI-040, bounded conversation and forum-index virtualization records
 message-row and topic-row estimate owners plus focused story budgets in
 `scripts/architecture-baseline.json`; relay query windows, registry
 materialization, and publication behavior are unchanged.
+For LC-UI-046, project channel canvas action clearance records only the
+component style budget; relay canvas save/load and registry behavior are
+unchanged.
 
 # Local Registry Pipeline
 

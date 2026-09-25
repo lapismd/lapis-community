@@ -154,9 +154,11 @@
 
 <style>
   .lc-channel-canvas {
+    box-sizing: border-box;
     display: grid;
     gap: 1rem;
     min-width: 0;
+    padding-block-end: 1rem;
     overflow-wrap: anywhere;
   }
   .lc-channel-canvas--editing,
