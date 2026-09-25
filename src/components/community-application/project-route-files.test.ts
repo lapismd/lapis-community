@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { repositoryFilesPathLocation } from "./project-commit-route.js";
 import { noCommunityApplicationPanel } from "./navigation.js";
 import {
+  projectFilesHash,
   repositoryFilePermalink,
   repositoryFilesHash,
   repositoryFilesLoadKey,
@@ -26,6 +27,12 @@ describe("repository files routes", () => {
       );
     }
     expect(repositoryFilesLoadKey(undefined, "main")).toBe("");
+    expect(
+      repositoryFilesLoadKey(
+        { kind: "project", surface: "files", revision: "main" },
+        "",
+      ),
+    ).toBe("main");
   });
 
   it("round-trips a branch or commit in front of files", () => {
@@ -47,6 +54,28 @@ describe("repository files routes", () => {
       coordinate,
       surface: "files",
       revision,
+    });
+  });
+
+  it("round-trips project files with a selected repository", () => {
+    const route = {
+      kind: "project" as const,
+      coordinate: "30621:owner:road map",
+      surface: "files" as const,
+      repositoryCoordinate: coordinate,
+      revision: "feature/files",
+      path: "src/app.ts",
+    };
+    expect(projectRouteFromHash(projectRouteToHash(route))).toEqual(route);
+    expect(
+      projectRouteFromHash(
+        projectFilesHash(route.coordinate, route.repositoryCoordinate),
+      ),
+    ).toEqual({
+      kind: "project",
+      coordinate: route.coordinate,
+      surface: "files",
+      repositoryCoordinate: route.repositoryCoordinate,
     });
   });
 

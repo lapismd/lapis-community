@@ -353,3 +353,8 @@ live persistence, signed-target links, scoped reactions and deduplicated feedbac
 The message, reply-context and thread-composer architecture budgets ratchet down after extraction.
 Validation records MUST separate focused, browser, consumer and aggregate lanes;
 changed stories remain visual-pending and package publication is a later step.
+
+For LC-UI-036, restoring selected-project Files does not change registry
+materialization. The file browser continues to consume the verified project and
+repository announcements already present in the catalog; repository selection
+only chooses which member repository source loader to read.

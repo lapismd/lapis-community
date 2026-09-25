@@ -214,7 +214,7 @@ describe("Community application location history", () => {
       expect(projectRouteFromHash(projectRouteToHash(route))).toEqual(route);
     }
     expect(
-      projectRouteFromHash("#/projects/project/bad/files/extra"),
+      projectRouteFromHash("#/projects/project/bad/files/extra/ "),
     ).toBeNull();
     expect(
       projectRouteFromHash("#/projects/project/value/not-a-surface"),

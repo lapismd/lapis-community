@@ -6,8 +6,17 @@ export interface RepositoryFilesRoute {
   path?: string;
 }
 
+export interface ProjectFilesRoute {
+  coordinate: string;
+  repositoryCoordinate?: string;
+  revision?: string;
+  path?: string;
+}
+
 const FILES_HASH =
   /^#\/projects\/repository\/([^/]+)\/([^/]+)\/files(?:\/(.*))?$/u;
+const PROJECT_FILES_HASH =
+  /^#\/projects\/project\/([^/]+)\/files(?:\/([^/]+)(?:\/([^/]+)(?:\/(.*))?)?)?$/u;
 
 export function repositoryFilesHash(
   coordinate: string,
@@ -20,6 +29,22 @@ export function repositoryFilesHash(
   );
   const suffix = path ? `/${encodeFilePath(path)}` : "";
   return `#/projects/repository/${encodedCoordinate}/${encodeURIComponent(revision)}/files${suffix}`;
+}
+
+export function projectFilesHash(
+  coordinate: string,
+  repositoryCoordinate?: string,
+  revision?: string,
+  path?: string,
+): string {
+  const encodedCoordinate = encodeCoordinate(coordinate);
+  if (!repositoryCoordinate)
+    return `#/projects/project/${encodedCoordinate}/files`;
+  const encodedRepository = encodeCoordinate(repositoryCoordinate);
+  if (!revision)
+    return `#/projects/project/${encodedCoordinate}/files/${encodedRepository}`;
+  const suffix = path ? `/${encodeFilePath(path)}` : "";
+  return `#/projects/project/${encodedCoordinate}/files/${encodedRepository}/${encodeURIComponent(revision)}${suffix}`;
 }
 
 export function repositoryFilesRouteFromHash(
@@ -44,6 +69,39 @@ export function repositoryFilesRouteFromHash(
     : { coordinate, revision, ...(path ? { path } : {}) };
 }
 
+export function projectFilesRouteFromHash(
+  hash: string,
+): ProjectFilesRoute | null {
+  const match = PROJECT_FILES_HASH.exec(hash);
+  if (!match) return null;
+  let coordinate = "";
+  let repositoryCoordinate = "";
+  let revision = "";
+  try {
+    coordinate = decodeURIComponent(match[1] ?? "");
+    repositoryCoordinate = decodeURIComponent(match[2] ?? "");
+    revision = decodeURIComponent(match[3] ?? "");
+  } catch {
+    return null;
+  }
+  if (!validRouteCoordinate(coordinate)) return null;
+  if (!repositoryCoordinate) return { coordinate };
+  if (!validRouteCoordinate(repositoryCoordinate)) return null;
+  if (!revision) return { coordinate, repositoryCoordinate };
+  if (!validRevision(revision)) return null;
+  if (match[4] === undefined)
+    return { coordinate, repositoryCoordinate, revision };
+  const path = decodeFilePath(match[4]);
+  return path === undefined
+    ? null
+    : {
+        coordinate,
+        repositoryCoordinate,
+        revision,
+        ...(path ? { path } : {}),
+      };
+}
+
 export function storedRepositoryFilesFields(route: Record<string, unknown>): {
   revision?: string;
   path?: string;
@@ -53,6 +111,24 @@ export function storedRepositoryFilesFields(route: Record<string, unknown>): {
   return {
     revision: route.revision,
     ...(path && decodeFilePath(encodeFilePath(path)) === path ? { path } : {}),
+  };
+}
+
+export function storedProjectFilesFields(route: Record<string, unknown>): {
+  repositoryCoordinate?: string;
+  revision?: string;
+  path?: string;
+} {
+  if (route.surface !== "files") return {};
+  const repositoryCoordinate =
+    typeof route.repositoryCoordinate === "string" &&
+    validRouteCoordinate(route.repositoryCoordinate)
+      ? route.repositoryCoordinate
+      : "";
+  if (!repositoryCoordinate) return {};
+  return {
+    repositoryCoordinate,
+    ...storedRepositoryFilesFields(route),
   };
 }
 
@@ -106,7 +182,11 @@ export function repositoryFilesLoadKey(
 ): string {
   // Other surfaces discover and reset their revision inside the loader.
   // Feeding that result back into its dependencies cancels and restarts it.
-  if (route?.kind !== "repository" || route.surface !== "files") return "";
+  if (
+    (route?.kind !== "repository" && route?.kind !== "project") ||
+    route.surface !== "files"
+  )
+    return "";
   const revision = route.revision ?? "";
   if (loadedCommitSha && revision === loadedCommitSha)
     return loadedRevision || revision;
@@ -129,6 +209,10 @@ function encodeFilePath(path: string): string {
     .filter((segment) => segment.length > 0)
     .map((segment) => encodeURIComponent(segment))
     .join("/");
+}
+
+function encodeCoordinate(coordinate: string): string {
+  return encodeURIComponent(coordinate).replaceAll("%3A", ":");
 }
 
 function decodeFilePath(path: string): string | undefined {

@@ -223,6 +223,7 @@
   const onCloseTask = fn();
   const onSelectPath = fn();
   const onSelectRepositoryBranch = fn();
+  const onSelectFilesRepository = fn();
   const onAddPullRequestComment = fn(async () => undefined);
   const onAddInlineComment = fn(async () => undefined);
   const onSubmitPullRequestReview = fn(async () => undefined);
@@ -1087,7 +1088,7 @@ index 3333333..4444444 100644
     );
     await expect(
       Number.parseFloat(getComputedStyle(detail).paddingInlineStart),
-    ).toBeCloseTo(1.25 * rootFontSize, 1);
+    ).toBeCloseTo(0.85 * rootFontSize, 1);
     const description = detail.querySelector<HTMLElement>(
       ".community-projects__task-description-content",
     )!;
@@ -1566,6 +1567,64 @@ index 3333333..4444444 100644
     await expect(onSelectRepositoryBranch).toHaveBeenCalledWith(
       "feature/files",
     );
+  }}
+/>
+
+<Story
+  name="Project files repository selector"
+  args={{
+    view: "files",
+    selectedProject: {
+      ...fixture.project,
+      repositories: [
+        ...fixture.project.repositories,
+        { coordinate: mineRepository.address.coordinate },
+      ],
+    },
+    selectedRepository: githubRepository,
+    repositories: [githubRepository, mineRepository],
+    repositoryCapabilities: {
+      ...githubRepositoryCapabilities,
+      [mineRepositoryCoordinate]: {
+        ...githubRepositoryCapabilities[projectStoryRepositoryCoordinate],
+        content_backend: "relay" as const,
+        git_backend: "relay" as const,
+        collaboration_backend: "relay" as const,
+      },
+    },
+    repositoryBranches: [
+      { name: "main", sha: "d".repeat(40) },
+      { name: "feature/files", sha: "e".repeat(40) },
+    ],
+    selectedRepositoryBranch: "main",
+    tree: {
+      ref: "main",
+      sha: "d".repeat(40),
+      path: "",
+      entries: [
+        { name: "README.md", path: "README.md", type: "blob", size: 912 },
+        { name: "app.ts", path: "src/app.ts", type: "blob", size: 1_842 },
+      ],
+      commit: hostedCommit,
+    },
+    selectedPath: "",
+    onSelectPath,
+    onSelectRepositoryBranch,
+    onSelectFilesRepository,
+    onLoadRepositoryPathCommit,
+  }}
+  play={async ({ canvas, canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    onSelectFilesRepository.mockClear();
+    await expect(canvas.getByRole("heading", { name: "Files" })).toBeVisible();
+    await expect(canvas.getByLabelText("Repository files")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("combobox", { name: "Project files repository" }),
+    );
+    await userEvent.click(
+      page.getByRole("option", { name: /community-tools/u }),
+    );
+    await expect(onSelectFilesRepository).toHaveBeenCalledWith(mineRepository);
   }}
 />
 

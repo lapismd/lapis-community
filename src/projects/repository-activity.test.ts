@@ -107,6 +107,7 @@ describe("repository activity", () => {
       "activity",
       "repositories",
       "commits",
+      "files",
       "tasks",
       "reviews",
       "channels",

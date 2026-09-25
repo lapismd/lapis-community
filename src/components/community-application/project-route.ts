@@ -6,8 +6,11 @@ import {
 import type { CommunityApplicationProjectRoute } from "./navigation.js";
 import { validRouteCoordinate } from "./project-route-coordinate.js";
 import {
+  projectFilesHash,
+  projectFilesRouteFromHash,
   repositoryFilesHash,
   repositoryFilesRouteFromHash,
+  storedProjectFilesFields,
   storedRepositoryFilesFields,
 } from "./project-route-files.js";
 import { projectRouteHasTrailingId } from "./project-route-trailing.js";
@@ -24,6 +27,14 @@ export function projectRouteToHash(
     route.revision
   ) {
     return repositoryFilesHash(route.coordinate, route.revision, route.path);
+  }
+  if (route.kind === "project" && route.surface === "files") {
+    return projectFilesHash(
+      route.coordinate,
+      route.repositoryCoordinate,
+      route.revision,
+      route.path,
+    );
   }
   const surface =
     route.surface === projectRouteDefaultSurface(route.kind)
@@ -51,6 +62,19 @@ export function projectRouteFromHash(
       surface: "files",
       revision: files.revision,
       ...(files.path ? { path: files.path } : {}),
+    };
+  }
+  const projectFiles = projectFilesRouteFromHash(hash);
+  if (projectFiles) {
+    return {
+      kind: "project",
+      coordinate: projectFiles.coordinate,
+      surface: "files",
+      ...(projectFiles.repositoryCoordinate
+        ? { repositoryCoordinate: projectFiles.repositoryCoordinate }
+        : {}),
+      ...(projectFiles.revision ? { revision: projectFiles.revision } : {}),
+      ...(projectFiles.path ? { path: projectFiles.path } : {}),
     };
   }
   const match =
@@ -124,7 +148,7 @@ export function parseStoredProjectRoute(
           : {}),
         ...(route.kind === "repository"
           ? storedRepositoryFilesFields(route)
-          : {}),
+          : storedProjectFilesFields(route)),
       }
     : undefined;
 }
@@ -134,7 +158,7 @@ export function projectRouteKey(
 ): string {
   return route === undefined
     ? ""
-    : `${route.kind}:${route.coordinate}:${route.surface}:${route.kind === "repository" ? `${route.commitSha ?? ""}:${route.revision ?? ""}:${route.path ?? ""}` : ""}`;
+    : `${route.kind}:${route.coordinate}:${route.surface}:${route.kind === "repository" ? `${route.commitSha ?? ""}:${route.revision ?? ""}:${route.path ?? ""}` : `${route.repositoryCoordinate ?? ""}:${route.revision ?? ""}:${route.path ?? ""}`}`;
 }
 
 export function repositoryRouteState(

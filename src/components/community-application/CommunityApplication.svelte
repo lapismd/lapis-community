@@ -653,8 +653,18 @@
   let projectCommits = $state.raw<readonly ProjectForgeCommit[]>([]);
   let projectCommitBranch = $state("");
   let projectRepositoryBranches = $state.raw<readonly ProjectForgeRef[]>([]);
-  let projectSelectedRepositoryBranch = $state("");
-  let projectSelectedRepositoryBranchOwner = $state("");
+  let projectSelectedRepositoryBranch = $state(
+    initialApplicationLocation.projectRoute?.surface === "files"
+      ? (initialApplicationLocation.projectRoute.revision ?? "")
+      : "",
+  );
+  let projectSelectedRepositoryBranchOwner = $state(
+    initialApplicationLocation.projectRoute?.surface === "files"
+      ? initialApplicationLocation.projectRoute.kind === "repository"
+        ? initialApplicationLocation.projectRoute.coordinate
+        : (initialApplicationLocation.projectRoute.repositoryCoordinate ?? "")
+      : "",
+  );
   const projectVisibleRepositoryBranch = $derived(
     projectSelectedRepositoryBranch &&
       projectSelectedRepositoryBranchOwner === selectedRepositoryCoordinate
@@ -674,7 +684,12 @@
   let projectTree = $state.raw<ProjectForgeTreeResponse>();
   let projectOwners = $state.raw<OwnersDocument>();
   let projectBlob = $state.raw<ProjectForgeBlobResponse>();
-  let selectedProjectPath = $state("");
+  let selectedProjectPath = $state(
+    initialApplicationLocation.projectRoute?.surface === "files"
+      ? (initialApplicationLocation.projectRoute.path ?? "")
+      : "",
+  );
+  let projectFilesRepositoryCoordinate = $state("");
   let projectSourceRepositoryCoordinate = $state("");
   let projectRepositoryRevision = $state("");
   let projectPullRequestDiff = $state.raw<ProjectForgePullRequestDiff>();
@@ -967,6 +982,36 @@
     projectSheetProject === activeChannelProject
       ? activeChannelProjectRepositories
       : selectedProjectRepositories,
+  );
+  const selectedProjectFilesRoute = $derived(
+    applicationLocation.projectRoute?.kind === "project" &&
+      applicationLocation.projectRoute.surface === "files"
+      ? applicationLocation.projectRoute
+      : undefined,
+  );
+  const projectFilesRepositories = $derived(
+    (selectedProjectFilesRoute || selectedProjectSurface === "files"
+      ? projectSheetProject
+        ? projectSheetRepositories
+        : selectedProjectRepositories
+      : []
+    ).filter((repository) => repository.repositoryClass !== "task-anchor"),
+  );
+  const selectedProjectFilesRepository = $derived.by(() => {
+    const coordinate =
+      selectedProjectFilesRoute?.repositoryCoordinate ||
+      projectFilesRepositoryCoordinate;
+    return (
+      projectFilesRepositories.find(
+        (repository) => repository.address.coordinate === coordinate,
+      ) ?? projectFilesRepositories[0]
+    );
+  });
+  const communityProjectsSelectedRepository = $derived(
+    selectedRepository ??
+      (selectedProjectSurface === "files"
+        ? selectedProjectFilesRepository
+        : undefined),
   );
   const projectSheetOpen = $derived(
     projectSheetProject !== undefined && selectedProjectSurface !== undefined,
@@ -2499,6 +2544,25 @@
   });
 
   $effect(() => {
+    const route = selectedProjectFilesRoute;
+    if (!route) {
+      projectFilesRepositoryCoordinate = "";
+      return;
+    }
+    const repository = selectedProjectFilesRepository;
+    if (!repository) return;
+    projectFilesRepositoryCoordinate = repository.address.coordinate;
+    if (route.repositoryCoordinate === repository.address.coordinate) return;
+    replaceLocation({
+      ...applicationLocation,
+      projectRoute: {
+        ...route,
+        repositoryCoordinate: repository.address.coordinate,
+      },
+    });
+  });
+
+  $effect(() => {
     const reloadRevision = projectReloadRevision;
     const source = projectDataSource;
     const catalogStoreOption = projectCatalogStore;
@@ -2698,12 +2762,17 @@
       isProjectsDestination || channelProjectCoordinate !== undefined;
     const projectCoordinate =
       selectedProjectCoordinate ?? channelProjectCoordinate;
-    const repositoryCoordinate = selectedRepositoryCoordinate;
-    const surface = repositoryCoordinate
+    const projectFilesRepositoryCoordinate =
+      selectedProjectSurface === "files"
+        ? (selectedProjectFilesRepository?.address.coordinate ?? "")
+        : "";
+    const repositoryCoordinate =
+      selectedRepositoryCoordinate || projectFilesRepositoryCoordinate;
+    const surface = selectedRepositoryCoordinate
       ? activeRepositorySurface
       : selectedProjectSurface;
     const overviewSurface = projectsOverviewSurface;
-    const pullRequestSurface = repositoryCoordinate
+    const pullRequestSurface = selectedRepositoryCoordinate
       ? activeRepositorySurface
       : (selectedProjectSurface ?? overviewSurface);
     const pullRequestId = selectedPullRequestId;
@@ -2714,8 +2783,7 @@
     );
     const requestedRepositoryBranchOwner = projectSelectedRepositoryBranchOwner;
     const filesRouteRevision = untrack(() =>
-      applicationLocation.projectRoute?.kind === "repository" &&
-      applicationLocation.projectRoute.surface === "files"
+      applicationLocation.projectRoute?.surface === "files"
         ? applicationLocation.projectRoute.revision
         : undefined,
     );
@@ -2952,15 +3020,27 @@
               !filesRouteRevision &&
               view.branch
             ) {
-              replaceLocation(
-                repositorySurfaceLocation(
-                  repository,
-                  "files",
-                  activePanel,
-                  selectedRepositoryProject?.address.coordinate,
-                  view.branch,
-                ),
-              );
+              const route = applicationLocation.projectRoute;
+              const nextLocation =
+                route?.kind === "project" && route.surface === "files"
+                  ? {
+                      ...applicationLocation,
+                      projectRoute: {
+                        ...route,
+                        repositoryCoordinate: repository,
+                        revision: view.branch,
+                      },
+                    }
+                  : route?.kind === "repository" && route.surface === "files"
+                    ? repositorySurfaceLocation(
+                        repository,
+                        "files",
+                        activePanel,
+                        selectedRepositoryProject?.address.coordinate,
+                        view.branch,
+                      )
+                    : undefined;
+              if (nextLocation) replaceLocation(nextLocation);
             }
             if (
               revision &&
@@ -3268,10 +3348,36 @@
         selectedPullRequestId = next.projectRoute.commitSha;
       if (next.projectRoute.surface === "tasks" && next.projectRoute.commitSha)
         selectedTaskId = next.projectRoute.commitSha;
+    } else if (
+      next.projectRoute?.kind === "project" &&
+      next.projectRoute.surface === "files"
+    ) {
+      selectedRepositoryCoordinate = "";
+      activeRepositorySurface = "overview";
+      selectedProjectCommit = undefined;
+      projectFilesRepositoryCoordinate =
+        next.projectRoute.repositoryCoordinate ?? "";
+      selectedProjectPath = next.projectRoute.path ?? "";
+      if (
+        next.projectRoute.revision &&
+        next.projectRoute.repositoryCoordinate
+      ) {
+        projectSelectedRepositoryBranchOwner =
+          next.projectRoute.repositoryCoordinate;
+        projectSelectedRepositoryBranch = next.projectRoute.revision;
+      }
     } else if (previous.projectRoute?.kind === "repository") {
       selectedRepositoryCoordinate = "";
       selectedRepositoryProjectCoordinate = "";
       activeRepositorySurface = "overview";
+    }
+    if (
+      previous.projectRoute?.surface === "files" &&
+      next.projectRoute?.surface !== "files"
+    ) {
+      selectedProjectPath = "";
+      projectBlob = undefined;
+      projectFilesRepositoryCoordinate = "";
     }
 
     // Inbox activates its selected conversation after its shell has painted.
@@ -3516,6 +3622,32 @@
     lastAction = `selected-repository:${repository.address.coordinate}`;
   }
 
+  function selectProjectFilesRepository(
+    repository: ProjectForgeRepository,
+  ): void {
+    projectFilesRepositoryCoordinate = repository.address.coordinate;
+    selectedProjectPath = "";
+    projectBlob = undefined;
+    projectTree = undefined;
+    projectOwners = undefined;
+    projectRepositoryBranches = [];
+    projectRepositoryRevision = "";
+    projectSourceError = "";
+    const route = selectedProjectFilesRoute;
+    if (route) {
+      pushLocation({
+        ...applicationLocation,
+        projectRoute: {
+          kind: "project",
+          coordinate: route.coordinate,
+          surface: "files",
+          repositoryCoordinate: repository.address.coordinate,
+        },
+      });
+      lastAction = `selected-project-files-repository:${repository.address.coordinate}`;
+    }
+  }
+
   function closeRepository(): void {
     const project = selectedRepositoryProject;
     selectedRepositoryCoordinate = "";
@@ -3596,13 +3728,28 @@
           branch,
         ),
       );
+    if (route?.kind === "project" && route.surface === "files") {
+      const { path: _previousPath, ...baseRoute } = route;
+      const repositoryCoordinate =
+        route.repositoryCoordinate ||
+        selectedProjectFilesRepository?.address.coordinate;
+      if (!repositoryCoordinate) return;
+      pushLocation({
+        ...applicationLocation,
+        projectRoute: {
+          ...baseRoute,
+          repositoryCoordinate,
+          revision: branch,
+        },
+      });
+    }
   }
 
   function selectRepositoryPath(path: string): void {
     selectedProjectPath = path;
     projectBlob = undefined;
     const current =
-      applicationLocation.projectRoute?.kind === "repository"
+      applicationLocation.projectRoute?.surface === "files"
         ? applicationLocation.projectRoute.revision
         : undefined;
     const revision = path
@@ -3638,6 +3785,11 @@
       selectedProjectCommit = undefined;
       projectCommitDetail = undefined;
       projectSourceError = "";
+    }
+    if (surface !== "files") {
+      selectedProjectPath = "";
+      projectBlob = undefined;
+      projectFilesRepositoryCoordinate = "";
     }
     projectOverviewInitialized = true;
     pushLocation({
@@ -6807,7 +6959,9 @@
           {...projectSheetProject === undefined
             ? {}
             : { selectedProject: projectSheetProject }}
-          {...selectedRepository === undefined ? {} : { selectedRepository }}
+          {...communityProjectsSelectedRepository === undefined
+            ? {}
+            : { selectedRepository: communityProjectsSelectedRepository }}
           repositories={projectSheetRepositories}
           repositoryOptions={projectCatalog.repositories}
           repositoryCapabilities={projectRepositoryCapabilities}
@@ -6866,6 +7020,7 @@
           onUpdateProject={updateProject}
           onAttachRepository={attachRepository}
           onSelectRepository={selectRepository}
+          onSelectFilesRepository={selectProjectFilesRepository}
           onCreateTask={createTask}
           onSelectTask={selectProjectSheetTask}
           onCloseTask={() => (selectedTaskId = "")}
@@ -7247,7 +7402,9 @@
             ? projectCatalog.projects
             : listedProjects}
         {...selectedProject === undefined ? {} : { selectedProject }}
-        {...selectedRepository === undefined ? {} : { selectedRepository }}
+        {...communityProjectsSelectedRepository === undefined
+          ? {}
+          : { selectedRepository: communityProjectsSelectedRepository }}
         repositories={selectedRepository
           ? [selectedRepository]
           : selectedProject
@@ -7328,6 +7485,7 @@
         }}
         onSelectProject={selectProject}
         onSelectRepository={selectRepository}
+        onSelectFilesRepository={selectProjectFilesRepository}
         onSelectChannel={selectProjectChannelDestination}
         onOpenProfile={openProfile}
         onMessageMember={messageMember}

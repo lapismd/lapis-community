@@ -176,6 +176,7 @@ export interface CommunityProjectsProps {
   onBack?: () => void;
   onSelectProject?: (project: ProjectForgeProject) => void;
   onSelectRepository?: (repository: ProjectForgeRepository) => void;
+  onSelectFilesRepository?: (repository: ProjectForgeRepository) => void;
   onSelectChannel?: (roomId: string) => void;
   onOpenPeople?: (roomId: string) => void;
   onOpenProfile?: (member: CommunityMemberModel) => void;

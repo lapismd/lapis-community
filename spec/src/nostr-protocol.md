@@ -725,3 +725,9 @@ channel `h`, original `thread`, `record` and optional plan `part` tags. Aggregat
 and author-owned deletion MUST use that complete target. Message links MAY carry
 `checkpoint`, `record` and `part`; incomplete, ambiguous or mismatched references
 MUST fail closed. Copying an event MUST retain its genuine checkpoint signature.
+
+For LC-UI-036, selected-project Files navigation is local application route state
+over existing project and repository announcements. The selected repository
+coordinate MUST resolve to a member repository before source reads are prepared.
+The restored Files tab does not introduce a Nostr event kind, publication path,
+or signing requirement.

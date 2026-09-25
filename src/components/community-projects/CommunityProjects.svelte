@@ -108,6 +108,7 @@
   import CommunityProjectsGitAuthorAvatar from "./CommunityProjectsGitAuthorAvatar.svelte";
   import CommunityProjectsRepositoryOverview from "../community-projects-settings/CommunityProjectsRepositoryOverview.svelte";
   import CommunityProjectsRepositoryPane from "./CommunityProjectsRepositoryPane.svelte";
+  import CommunityProjectFilesRepositoryCommand from "./CommunityProjectFilesRepositoryCommand.svelte";
   import CommunityCommitDiff from "../community-commit-diff/CommunityCommitDiff.svelte";
   import { buildRepositoryAgentContexts } from "../../projects/repository-agent-context.js";
   import CommunityCommitAgentContext from "../community-commit-agent-context/CommunityCommitAgentContext.svelte";
@@ -191,6 +192,7 @@
     onBack,
     onSelectProject,
     onSelectRepository,
+    onSelectFilesRepository,
     onSelectChannel,
     onOpenPeople,
     onOpenProfile,
@@ -2929,6 +2931,7 @@
                 type="button"
                 variant="ghost"
                 size="icon-sm"
+                class="community-projects__detail-back"
                 aria-label="Back to tasks"
                 title="Back to tasks"
                 onclick={onCloseTask}
@@ -3553,44 +3556,80 @@
           </div>
         {/if}
       {:else if view === "files"}
-        <CommunityProjectsRepositoryPane
-          {loading}
-          {canCollaborate}
-          hasRepositorySources={repositorySources.length > 0}
-          sourceError={effectiveSourceError}
-          homeChannelId={projectHomeChannel?.channelId}
-          homeChannelName={projectHomeChannel
-            ? channelName(projectHomeChannel)
-            : undefined}
-          browsableCount={browsableRepositories.length}
-          {tree}
-          selectedPath={repositorySelectedPath}
-          blob={repositorySelectedBlob}
-          bind:fileTreeOpen={repositoryFileTreeOpen}
-          bind:markdownView={repositoryMarkdownView}
-          fileTreeEntries={repositoryFileTreeEntries}
-          isMarkdown={repositorySelectedIsMarkdown}
-          fileBreadcrumbs={repositorySelectedBreadcrumbs}
-          directoryBreadcrumbs={repositoryDirectoryBreadcrumbs}
-          currentPath={repositoryCurrentPath}
-          directoryEntries={repositoryEntries}
-          pathCommits={repositoryPathCommits}
-          {repositoryName}
-          branch={activeRepositoryBranch}
-          branches={repositoryBranches}
-          latestCommitAuthor={tree?.commit
-            ? commitAuthorMember(tree.commit)
-            : undefined}
-          {members}
-          {rooms}
-          {communityEmojis}
-          {onSelectChannel}
-          onSelectBranch={selectRepositoryBranch}
-          onOpenDirectory={openRepositoryDirectory}
-          onOpenFile={openRepositoryFile}
-          {onSelectCommit}
-          onLoadPathCommit={onLoadRepositoryPathCommit}
-        />
+        {#if selectedProject}
+          <header
+            class="community-projects__surface-header community-projects__files-header"
+          >
+            <div>
+              <FileIcon aria-hidden="true" />
+              <h2>Files</h2>
+              <span class="sr-only"
+                >Browse files in a selected project repository.</span
+              >
+            </div>
+            {#if repositorySources.length > 0}
+              <div class="community-projects__surface-actions">
+                <CommunityProjectFilesRepositoryCommand
+                  repositories={repositorySources}
+                  {selectedRepository}
+                  onSelectRepository={onSelectFilesRepository}
+                />
+              </div>
+            {/if}
+          </header>
+        {/if}
+        {#if selectedProject && repositorySources.length === 0 && !loading}
+          <Empty.Root class="community-projects__empty">
+            <Empty.Header>
+              <Empty.Media variant="icon">
+                <FileIcon aria-hidden="true" />
+              </Empty.Media>
+              <Empty.Title>No repository files</Empty.Title>
+              <Empty.Description>
+                Attach a hosted repository to this project to browse files.
+              </Empty.Description>
+            </Empty.Header>
+          </Empty.Root>
+        {:else}
+          <CommunityProjectsRepositoryPane
+            {loading}
+            {canCollaborate}
+            hasRepositorySources={repositorySources.length > 0}
+            sourceError={effectiveSourceError}
+            homeChannelId={projectHomeChannel?.channelId}
+            homeChannelName={projectHomeChannel
+              ? channelName(projectHomeChannel)
+              : undefined}
+            browsableCount={browsableRepositories.length}
+            {tree}
+            selectedPath={repositorySelectedPath}
+            blob={repositorySelectedBlob}
+            bind:fileTreeOpen={repositoryFileTreeOpen}
+            bind:markdownView={repositoryMarkdownView}
+            fileTreeEntries={repositoryFileTreeEntries}
+            isMarkdown={repositorySelectedIsMarkdown}
+            fileBreadcrumbs={repositorySelectedBreadcrumbs}
+            directoryBreadcrumbs={repositoryDirectoryBreadcrumbs}
+            currentPath={repositoryCurrentPath}
+            directoryEntries={repositoryEntries}
+            pathCommits={repositoryPathCommits}
+            {repositoryName}
+            branch={activeRepositoryBranch}
+            branches={repositoryBranches}
+            latestCommitAuthor={tree?.commit
+              ? commitAuthorMember(tree.commit)
+              : undefined}
+            {members}
+            {rooms}
+            {communityEmojis}
+            {onSelectChannel}
+            onSelectBranch={selectRepositoryBranch}
+            onOpenDirectory={openRepositoryDirectory}
+            onOpenFile={openRepositoryFile}
+            {onSelectCommit}
+            onLoadPathCommit={onLoadRepositoryPathCommit}
+          />
+        {/if}
       {:else if view === "people" || view === "contributors"}
         {@render surfaceHeader(
           "Contributors",

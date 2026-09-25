@@ -63,6 +63,9 @@ export type CommunityApplicationProjectRoute =
       kind: "project";
       coordinate: string;
       surface: ProjectForgeSurface;
+      repositoryCoordinate?: string;
+      revision?: string;
+      path?: string;
     }
   | {
       kind: "repository";

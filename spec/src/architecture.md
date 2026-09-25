@@ -892,3 +892,10 @@ native non-message records through the shared transcript role classifier. These
 boundaries remain independent of application composition and relay transport.
 
 For LC-ARCH-028, message and transcript interactions share `CommunityMessageActions` and `message-action-hover`; reply previews share `CommunityReplyPreview`. Typed transcript selection, draft scope, target navigation, reactions and chronological feedback projection have bounded owners. The extracted message, reply-context and thread-composer budgets MUST ratchet down. Link builders MUST share a neutral scheme constant without an import cycle.
+
+For LC-UI-036, selected-project Files routes carry the chosen member repository,
+revision and path in the project route instead of promoting the workspace to a
+repository route. Repository selection uses a bounded Command View owner, while
+the application root only adapts that selection into the existing repository
+file loader. The architecture baseline records the restored Files tab route
+surface, file-browser story, and selector owner in the same change.

@@ -16,6 +16,7 @@ export const PROJECT_WORKSPACE_TABS = [
   { value: "activity", label: "Activity" },
   { value: "repositories", label: "Repositories" },
   { value: "commits", label: "Commits" },
+  { value: "files", label: "Files" },
   { value: "tasks", label: "Tasks" },
   { value: "reviews", label: "Review" },
   { value: "channels", label: "Channels" },
@@ -42,7 +43,7 @@ export function normalizeProjectRouteSurface(
   kind: "project" | "repository",
   surface: string,
 ): string {
-  if (kind === "project" && (surface === "overview" || surface === "files")) {
+  if (kind === "project" && surface === "overview") {
     return "activity";
   }
   return surface;

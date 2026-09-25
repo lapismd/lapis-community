@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "1c39b14f93242c5ae8ec1603297617f8534f98e9",
+  "sourceCommit": "f75cac708e8566ccb615819e46769baf8afba2dd",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -2309,14 +2309,14 @@
     },
     "src/components/community-application/CommunityApplication.stories.svelte": {
       "countedLines": 5133,
-      "physicalLines": 5250,
+      "physicalLines": 5295,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9117,
-      "physicalLines": 9463,
+      "countedLines": 9273,
+      "physicalLines": 9644,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -2483,8 +2483,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/navigation.ts": {
-      "countedLines": 525,
-      "physicalLines": 568,
+      "countedLines": 528,
+      "physicalLines": 571,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -2495,8 +2495,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-commit-route.ts": {
-      "countedLines": 109,
-      "physicalLines": 114,
+      "countedLines": 105,
+      "physicalLines": 110,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-log-navigation.svelte.ts": {
@@ -2525,13 +2525,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route-files.test.ts": {
-      "countedLines": 136,
-      "physicalLines": 143,
+      "countedLines": 164,
+      "physicalLines": 172,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route-files.ts": {
-      "countedLines": 134,
-      "physicalLines": 148,
+      "countedLines": 213,
+      "physicalLines": 232,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route-trailing.ts": {
@@ -2540,13 +2540,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route.test.ts": {
-      "countedLines": 98,
-      "physicalLines": 101,
+      "countedLines": 117,
+      "physicalLines": 120,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-route.ts": {
-      "countedLines": 139,
-      "physicalLines": 146,
+      "countedLines": 163,
+      "physicalLines": 170,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-task-route.test.ts": {
@@ -4008,16 +4008,21 @@
       "physicalLines": 134,
       "forbiddenImportCount": 0
     },
+    "src/components/community-projects/CommunityProjectFilesRepositoryCommand.svelte": {
+      "countedLines": 136,
+      "physicalLines": 147,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-projects/CommunityProjects.stories.svelte": {
-      "countedLines": 1940,
-      "physicalLines": 1986,
+      "countedLines": 1998,
+      "physicalLines": 2045,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjects.svelte": {
-      "countedLines": 3581,
-      "physicalLines": 3715,
+      "countedLines": 3620,
+      "physicalLines": 3754,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
@@ -4470,8 +4475,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/model.ts": {
-      "countedLines": 257,
-      "physicalLines": 288,
+      "countedLines": 258,
+      "physicalLines": 289,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/project-contributor-groups.ts": {
@@ -5904,8 +5909,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/projects/repository-activity.test.ts": {
-      "countedLines": 249,
-      "physicalLines": 264,
+      "countedLines": 250,
+      "physicalLines": 265,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-activity.ts": {
@@ -6159,8 +6164,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/surfaces.ts": {
-      "countedLines": 50,
-      "physicalLines": 58,
+      "countedLines": 51,
+      "physicalLines": 59,
       "forbiddenImportCount": 0
     },
     "src/projects/transcript-comment-chain.test.ts": {

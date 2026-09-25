@@ -32,7 +32,7 @@ describe("project route hashes", () => {
       ),
     ).toBeNull();
   });
-  it("omits the project activity surface and remaps legacy hashes", () => {
+  it("omits the project activity surface and preserves project files", () => {
     expect(
       projectRouteToHash({
         kind: "project",
@@ -54,7 +54,26 @@ describe("project route hashes", () => {
     ).toEqual({
       kind: "project",
       coordinate: "30621:owner:road map",
-      surface: "activity",
+      surface: "files",
+    });
+    expect(
+      projectRouteFromHash(
+        projectRouteToHash({
+          kind: "project",
+          coordinate: "30621:owner:road map",
+          surface: "files",
+          repositoryCoordinate: "30617:owner:probe",
+          revision: "feature/files",
+          path: "src/app.ts",
+        }),
+      ),
+    ).toEqual({
+      kind: "project",
+      coordinate: "30621:owner:road map",
+      surface: "files",
+      repositoryCoordinate: "30617:owner:probe",
+      revision: "feature/files",
+      path: "src/app.ts",
     });
     expect(
       projectRouteFromHash(
