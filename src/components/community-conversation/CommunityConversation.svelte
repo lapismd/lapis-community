@@ -279,7 +279,7 @@
   {/snippet}
   <Layout
     {density}
-    scrollMode={history ? "history" : "stream"}
+    scrollMode={history ? "history" : "stream"} scrollAreaStrategy={virtualize ? "native" : "auto"}
     conversationKey={presentation?.key ?? draftKey}
     {...history?.unreadEventIds
       ? { hasNewMessages: history.unreadEventIds.length > 0 }

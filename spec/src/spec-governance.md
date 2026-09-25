@@ -4,7 +4,8 @@ Published UI dependency refreshes update the portable manifest and committed
 lockfile together while retaining the existing package-ownership boundary.
 Local packed-package validation of a sibling Design Core source fix MAY refresh
 the committed lockfile integrity for the existing package range without changing
-the publishable manifest range.
+the publishable manifest range. LC-UI-040 uses that validation path for the
+Design Core ScrollArea strategy consumed by virtualized conversations.
 LC-UI-040 adds `@tanstack/svelte-virtual` as a direct Community dependency for
 the package-owned forum topic virtual row owner; Design Core remains the owner of
 message-list virtualization.

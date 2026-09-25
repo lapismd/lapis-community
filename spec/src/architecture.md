@@ -30,7 +30,9 @@ For LC-UI-040, the padded thread-sidebar skeleton records its
 For LC-UI-040, virtualized conversation estimates live in the extracted
 `message-row-estimate` owner, forum index rows live in `VirtualForumTopicRows`
 and `topic-row-estimate`, and the small production/story host wiring budgets are
-recorded in `scripts/architecture-baseline.json`.
+recorded in `scripts/architecture-baseline.json`. Latency-sensitive conversation
+scroll strategy is passed through the existing Design Core Layout boundary
+without adding a Community scroll owner.
 
 For LC-UI-051, implicit mentions fold into the reply-summary avatar owner
 without growing `CommunityMessage.svelte`, and the extracted message metadata

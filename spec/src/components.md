@@ -1027,8 +1027,10 @@ Under LC-UI-040, Community conversation and thread components expose optional
 history, virtualized-row and controlled presentation inputs without removing
 existing snippet, message, composer or custom-source contracts. The application
 opts into Design Core history mode and passes `virtualize` on production Inbox,
-channel, forum-thread and thread-panel surfaces, while forum indexes use a
-Community-owned virtual topic-row stream. Unpaged workspace consumers retain their
+channel, forum-thread and thread-panel surfaces, while those latency-sensitive
+conversation hosts select Design Core's native ScrollArea strategy and forum
+indexes use a Community-owned virtual topic-row stream. Unpaged workspace
+consumers retain their
 existing `latestUnreadEventId` read-boundary callbacks; the history opt-in uses
 the displayed root/thread head and the corresponding scoped read receipt.
 `CommunityHistoryEdge` composes the shared
