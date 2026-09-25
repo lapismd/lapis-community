@@ -80,7 +80,10 @@ standalone project workspace tabs; selection inside the sheet, including task
 rows, MUST reveal the corresponding detail content in that sheet without
 changing the channel route. Mobile project and repository page toolbars MUST
 expose a trailing project-overview sidebar toggle without moving the existing
-left navigation and history controls.
+left navigation and history controls. In constrained mobile presentation, that
+toggle MUST activate the AppShell right lane before a project-overview row is
+selected, and selecting Tasks, Reviews, Commits, Files, or People MUST close
+the right lane and reveal the inline sheet in the main mobile host.
 
 For LC-ARCH-028, workspace, inbox, and composer submission types are owned under
 `src/community`, and login-method types under `src/auth`. Component `model.ts`

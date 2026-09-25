@@ -6132,10 +6132,9 @@
         projectOverviewSidebar.expand();
         return;
       }
-      if (projectOverviewSidebar.collapsed) projectOverviewSidebar.close();
-      lastAction = projectOverviewSidebar.closed
-        ? "closed-project-overview"
-        : "opened-project-overview";
+      if (projectOverviewSidebar.collapsed && !projectOverviewMobileActive)
+        projectOverviewSidebar.close();
+      lastAction = `${projectOverviewSidebar.closed ? "closed" : "opened"}-project-overview`;
     }}
   />
 {/snippet}
