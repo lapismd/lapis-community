@@ -1,3 +1,7 @@
+For LC-UI-019, the room-browser create-row spacing assertion records the updated
+CommunityRoomBrowser component and focused Storybook budgets in
+`scripts/architecture-baseline.json`.
+
 For LC-ARCH-028, project-bound channel inline sheet routing records the updated
 CommunityApplication, application-navigation, and focused Storybook interaction
 budgets in `scripts/architecture-baseline.json`.

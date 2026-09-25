@@ -141,7 +141,8 @@ read-only and does not infer a portable permission matrix from role labels.
 
 For LC-UI-019, the shared channel and forum browser MUST use the application's
 compact dialog type scale for its title, search, tabs, actions, results, and
-empty state rather than inheriting large command-palette typography. Joined
+empty state rather than inheriting large command-palette typography. The create
+room action MUST retain a small bottom gap before the results list. Joined
 room results MUST expose a destructive Leave button in place of Join.
 
 For LC-UI-031, the channel and forum member command MUST compose the public

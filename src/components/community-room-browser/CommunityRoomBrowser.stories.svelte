@@ -74,9 +74,16 @@
     await expect(args.onLeave).toHaveBeenCalledWith(
       expect.objectContaining({ id: "general" }),
     );
-    await userEvent.click(
-      overlay.getByRole("button", { name: "Create a new channel" }),
-    );
+    const create = overlay.getByRole("button", {
+      name: "Create a new channel",
+    });
+    const list = create.nextElementSibling;
+    if (!(list instanceof HTMLElement))
+      throw new Error("Expected the room list after the create button");
+    await expect(
+      list.getBoundingClientRect().top - create.getBoundingClientRect().bottom,
+    ).toBeGreaterThan(0);
+    await userEvent.click(create);
     await expect(args.onCreate).toHaveBeenCalledWith("channel");
     await userEvent.type(search, "help");
     await expect(overlay.queryByText("general")).toBeNull();
