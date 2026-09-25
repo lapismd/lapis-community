@@ -77,9 +77,16 @@
     const create = overlay.getByRole("button", {
       name: "Create a new channel",
     });
+    const controls = create.previousElementSibling;
     const list = create.nextElementSibling;
+    if (!(controls instanceof HTMLElement))
+      throw new Error("Expected the controls before the create button");
     if (!(list instanceof HTMLElement))
       throw new Error("Expected the room list after the create button");
+    await expect(
+      create.getBoundingClientRect().top -
+        controls.getBoundingClientRect().bottom,
+    ).toBeGreaterThan(0);
     await expect(
       list.getBoundingClientRect().top - create.getBoundingClientRect().bottom,
     ).toBeGreaterThan(0);

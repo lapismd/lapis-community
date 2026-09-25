@@ -1,4 +1,4 @@
-For LC-UI-019, the room-browser create-row spacing assertion records the updated
+For LC-UI-019, the room-browser create-row vertical spacing assertion records the updated
 CommunityRoomBrowser component and focused Storybook budgets in
 `scripts/architecture-baseline.json`.
 

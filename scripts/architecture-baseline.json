@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "cd4da9b432a0a78c1434fb65171ddea1cdd99524",
+  "sourceCommit": "5338248d5adeaa7498099f1b651d5fdfa131b80a",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -4761,8 +4761,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-room-browser/CommunityRoomBrowser.stories.svelte": {
-      "countedLines": 99,
-      "physicalLines": 100,
+      "countedLines": 106,
+      "physicalLines": 107,
       "forbiddenImportCount": 0
     },
     "src/components/community-room-browser/CommunityRoomBrowser.svelte": {

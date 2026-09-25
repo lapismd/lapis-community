@@ -286,7 +286,7 @@
     border: 1px solid var(--border);
     border-radius: 0.85rem;
     padding: 0.75rem 1rem;
-    margin-block-end: 0.5rem;
+    margin-block: 0.5rem;
     color: var(--foreground);
     background: color-mix(in srgb, var(--muted) 28%, transparent);
     font: inherit;
