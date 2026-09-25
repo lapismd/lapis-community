@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { canonicalFixtureRecord } from "../../fixture/canonical-agent-records.js";
 import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
-import { repositoryContextTurns } from "./repository-context-transcript.js";
+import {
+  formatRepositoryContextDuration,
+  repositoryContextTurns,
+} from "./repository-context-transcript.js";
 
 function checkpoint(
   eventId: string,
@@ -24,6 +27,47 @@ function checkpoint(
 }
 
 describe("repository context checkpoint links", () => {
+  it("reports session duration from the first and last context records", () => {
+    const turns = repositoryContextTurns([
+      {
+        ...checkpoint("ctx", []),
+        records: [
+          canonicalFixtureRecord({ kind: "thinking", text: "Started" }, 1),
+          canonicalFixtureRecord({ kind: "thinking", text: "Finished" }, 2),
+        ].map((record, index) => ({
+          id: `record-${index}`,
+          sequence: index,
+          createdAt: 1_700_000_000_000 + index * 125_000,
+          kind: "transcript" as const,
+          text: JSON.stringify(record),
+        })),
+      },
+    ]);
+
+    expect(turns[0]?.sessionTiming).toMatchObject({
+      durationMs: 125_000,
+      label: "2m 5s",
+    });
+  });
+
+  it("falls back to checkpoint event times when records are unavailable", () => {
+    const turns = repositoryContextTurns([
+      checkpoint("first", [], 10),
+      checkpoint("second", [], 72),
+    ]);
+
+    expect(turns[0]?.sessionTiming).toMatchObject({
+      durationMs: 62_000,
+      label: "1m 2s",
+    });
+  });
+
+  it("formats compact session durations", () => {
+    expect(formatRepositoryContextDuration(0)).toBe("0s");
+    expect(formatRepositoryContextDuration(2_000)).toBe("2s");
+    expect(formatRepositoryContextDuration(3_600_000)).toBe("1h");
+    expect(formatRepositoryContextDuration(90_000_000)).toBe("1d 1h");
+  });
   it("shows each commit once within and across checkpoints in a turn", () => {
     const first = "2".repeat(40);
     const second = "3".repeat(40);

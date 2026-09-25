@@ -5,7 +5,9 @@
 
   import type { RepositoryAgentCheckpoint } from "../../projects/repository-agent-context.js";
   import type { CommunityMemberModel } from "../community-workspace/model.js";
+  import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityProjectsRepositoryAgentContext from "./CommunityProjectsRepositoryAgentContext.svelte";
+  import { repositoryContextSessionTiming } from "./repository-context-transcript.js";
 
   let {
     checkpoints,
@@ -17,6 +19,7 @@
     repositoryAddress?: string;
   } = $props();
   let open = $state(false);
+  const sessionTiming = $derived(repositoryContextSessionTiming(checkpoints));
 </script>
 
 <Collapsible.Root
@@ -31,6 +34,17 @@
       <ChevronRightIcon aria-hidden="true" />
       <span>Agent context</span>
     </Collapsible.Trigger>
+    {#if sessionTiming}
+      <CommunityChip
+        class="community-projects-agent-context-disclosure__duration"
+        variant="subtle"
+        size="compact"
+        ariaLabel={`Session duration ${sessionTiming.label}`}
+        title={`Session duration ${sessionTiming.label}`}
+      >
+        {sessionTiming.label}
+      </CommunityChip>
+    {/if}
     <CommunityAgentContextReferences {checkpoints} {repositoryAddress} />
   </div>
   <Collapsible.Content>
@@ -70,8 +84,13 @@
   .community-projects-agent-context-disclosure__header {
     display: flex;
     align-items: center;
+    gap: 0.35rem;
     padding-inline-end: 0.4rem;
     background: var(--background);
+  }
+
+  :global(.community-projects-agent-context-disclosure__duration) {
+    flex-shrink: 0;
   }
 
   :global(

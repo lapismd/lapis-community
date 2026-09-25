@@ -4,6 +4,13 @@ import type {
 } from "../../projects/repository-agent-context.js";
 import { checkpointActivity } from "./repository-context-activity.js";
 
+export interface RepositoryContextSessionTiming {
+  startAtMs: number;
+  endAtMs: number;
+  durationMs: number;
+  label: string;
+}
+
 export function repositoryContextTurns(
   checkpoints: readonly RepositoryAgentCheckpoint[],
 ) {
@@ -45,6 +52,44 @@ export function repositoryContextTurns(
         activity: checkpointActivity(checkpoint, segment),
       };
     });
-    return { latest, segments };
+    return {
+      latest,
+      sessionTiming: repositoryContextSessionTiming(ordered),
+      segments,
+    };
   });
+}
+
+export function repositoryContextSessionTiming(
+  checkpoints: readonly RepositoryAgentCheckpoint[],
+): RepositoryContextSessionTiming | undefined {
+  const eventTimes = checkpoints.flatMap((checkpoint) =>
+    checkpoint.records.map((record) => record.createdAt),
+  );
+  const times = eventTimes.length
+    ? eventTimes
+    : checkpoints.map((checkpoint) => checkpoint.createdAt * 1_000);
+  const startAtMs = Math.min(...times);
+  const endAtMs = Math.max(...times);
+  if (!Number.isFinite(startAtMs) || !Number.isFinite(endAtMs)) return;
+  const durationMs = Math.max(0, endAtMs - startAtMs);
+  return {
+    startAtMs,
+    endAtMs,
+    durationMs,
+    label: formatRepositoryContextDuration(durationMs),
+  };
+}
+
+export function formatRepositoryContextDuration(durationMs: number): string {
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1_000));
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  if (minutes > 0)
+    return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  return `${seconds}s`;
 }

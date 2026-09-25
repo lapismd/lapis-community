@@ -4058,8 +4058,8 @@
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
     },
     "src/components/community-projects/CommunityProjectsActivityContext.stories.svelte": {
-      "countedLines": 206,
-      "physicalLines": 210,
+      "countedLines": 207,
+      "physicalLines": 211,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsActivityFeed.stories.svelte": {
@@ -4088,8 +4088,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsAgentContextDisclosure.svelte": {
-      "countedLines": 96,
-      "physicalLines": 106,
+      "countedLines": 114,
+      "physicalLines": 125,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/CommunityProjectsChannelPickerDialog.svelte": {
@@ -4550,13 +4550,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/repository-context-transcript.test.ts": {
-      "countedLines": 151,
-      "physicalLines": 158,
+      "countedLines": 191,
+      "physicalLines": 202,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/repository-context-transcript.ts": {
-      "countedLines": 49,
-      "physicalLines": 50,
+      "countedLines": 91,
+      "physicalLines": 95,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/repository-log-review-story.ts": {

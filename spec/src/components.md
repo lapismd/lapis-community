@@ -905,11 +905,13 @@ Commit details and Log diffs MUST reuse review line-comment controls, persist an
 For LC-UI-049, commit details MUST use the same full-width, keyboard-operable
 collapsible header for Agent context and Files changed: a leading chevron,
 left-aligned label, muted summary, matching padding, borders, hover feedback,
-and visible keyboard focus. Files changed starts expanded and retains its file
-count when collapsed; Agent context starts collapsed. Changed-file headers and
-toolbars retain their non-overlapping sticky positions. The commit title MUST
-not include a redundant Back to commits icon; the surrounding navigation
-continues to provide access to the commit list.
+and visible keyboard focus. Agent context headers MUST show a compact session
+duration beside the reference menu, measured from the first to last available
+context event. Files changed starts expanded and retains its file count when
+collapsed; Agent context starts collapsed. Changed-file headers and toolbars
+retain their non-overlapping sticky positions. The commit title MUST not include
+a redundant Back to commits icon; the surrounding navigation continues to
+provide access to the commit list.
 
 ## Agent context references
 

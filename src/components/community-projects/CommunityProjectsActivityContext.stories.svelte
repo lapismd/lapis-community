@@ -89,6 +89,7 @@
       );
     }
     await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    await expect(canvas.getByLabelText("Session duration 2s")).toBeVisible();
     await expect(
       canvas.queryByText("Updated the README and verified the diff."),
     ).not.toBeInTheDocument();
