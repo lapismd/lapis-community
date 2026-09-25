@@ -7,6 +7,10 @@ the mobile project-overview routing, embedded project-body semantics, applicatio
 navigation, root-hosted Design Core surface-layer package integrity, and focused
 story budgets in `scripts/architecture-baseline.json`; no registry materialization
 or publication behavior changes.
+For LC-UI-040, bounded conversation and forum-index virtualization records
+message-row and topic-row estimate owners plus focused story budgets in
+`scripts/architecture-baseline.json`; relay query windows, registry
+materialization, and publication behavior are unchanged.
 
 # Local Registry Pipeline
 

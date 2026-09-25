@@ -21,6 +21,7 @@
   import CommunityThreadPanelComposer from "./CommunityThreadPanelComposer.svelte";
   import CommunityThreadMessage from "./CommunityThreadMessage.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
+  import { estimateCommunityMessageRow } from "../community-conversation/message-row-estimate.js";
   import {
     memberById,
     type CommunityMemberModel,
@@ -142,6 +143,17 @@
       ? undefined
       : memberById(members, rootMessage.authorId),
   );
+  function estimateMessageRow(
+    message: import("../community-workspace/model.js").CommunityMessageModel,
+    index: number,
+  ): number {
+    return estimateCommunityMessageRow(message, {
+      density: "compact",
+      continuation: isMessageContinuation(messages, index),
+      hasSupplement: true,
+    });
+  }
+
   function startEditing(messageId: string): void {
     const message = thread.messages.find(
       (candidate) => candidate.id === messageId,
@@ -244,6 +256,7 @@
             items: messages,
             row: messageRow,
             virtualize: true,
+            estimateSize: estimateMessageRow,
             ...(focused
               ? {
                   initialPosition: {

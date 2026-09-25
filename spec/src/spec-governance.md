@@ -5,6 +5,9 @@ lockfile together while retaining the existing package-ownership boundary.
 Local packed-package validation of a sibling Design Core source fix MAY refresh
 the committed lockfile integrity for the existing package range without changing
 the publishable manifest range.
+LC-UI-040 adds `@tanstack/svelte-virtual` as a direct Community dependency for
+the package-owned forum topic virtual row owner; Design Core remains the owner of
+message-list virtualization.
 
 For LC-SPEC-004, the aggregate package checks include the isolated project
 Storybook Docker lane so the package manifest cannot claim hosted-project

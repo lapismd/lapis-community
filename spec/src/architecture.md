@@ -27,6 +27,10 @@ For LC-ARCH-028, the combined agent-editor model picker extracts catalog thinkin
 
 For LC-UI-040, the padded thread-sidebar skeleton records its
 `CommunitySkeleton` budget in `scripts/architecture-baseline.json`.
+For LC-UI-040, virtualized conversation estimates live in the extracted
+`message-row-estimate` owner, forum index rows live in `VirtualForumTopicRows`
+and `topic-row-estimate`, and the small production/story host wiring budgets are
+recorded in `scripts/architecture-baseline.json`.
 
 For LC-UI-051, implicit mentions fold into the reply-summary avatar owner
 without growing `CommunityMessage.svelte`, and the extracted message metadata

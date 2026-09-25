@@ -38,6 +38,7 @@
     onLoadOlder,
     readBoundary,
     emptyState,
+    virtualize = false,
     membershipFooter,
   }: {
     communityId: string;
@@ -59,6 +60,7 @@
     onLoadOlder?: () => Promise<void>;
     readBoundary: { key: string; onRead?: () => void };
     emptyState: Snippet;
+    virtualize?: boolean;
     membershipFooter?: Snippet;
   } = $props();
 
@@ -118,6 +120,8 @@
       ? {}
       : { onTopicAction: handlers.onTopicAction }}
     {emptyState}
+    {virtualize}
+    viewport={forumViewport}
   />
   {#if history && onLoadOlder}
     <CommunityHistoryEdge

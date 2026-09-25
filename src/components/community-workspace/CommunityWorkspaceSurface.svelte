@@ -567,6 +567,7 @@
       {...onLoadOlder === undefined ? {} : { onLoadOlder }}
       {readBoundary}
       emptyState={forumEmptyState}
+      {virtualize}
       {...knownNonmember ? { membershipFooter: roomMembershipFooter } : {}}
     />
   {:else}

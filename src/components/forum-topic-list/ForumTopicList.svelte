@@ -21,6 +21,7 @@
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityMemberHoverCard from "../community-member-hover-card/CommunityMemberHoverCard.svelte";
   import CommunityTopicComposer from "../community-topic-composer/CommunityTopicComposer.svelte";
+  import VirtualForumTopicRows from "./VirtualForumTopicRows.svelte";
   import {
     memberById,
     type CommunityMemberModel,
@@ -52,6 +53,8 @@
     embedded = false,
     showTopicActions = true,
     emptyState,
+    virtualize = false,
+    viewport,
   }: {
     title?: string;
     description?: string;
@@ -80,6 +83,8 @@
     embedded?: boolean;
     showTopicActions?: boolean;
     emptyState?: Snippet;
+    virtualize?: boolean;
+    viewport?: HTMLElement | null;
   } = $props();
 </script>
 
@@ -280,37 +285,48 @@
       <span>Topic</span><span>Replies</span><span>Activity</span>
     </div>
 
-    <div class="forum-topic-list__topics">
-      {#each topics as topic (topic.id)}
-        <div class="forum-topic-list__topic-row">
-          {#if showTopicActions}
-            <ContextMenu.Root
-              ><ContextMenu.Trigger
-                >{@render topicButton(topic)}</ContextMenu.Trigger
-              ><ContextMenu.Content
-                >{@render contextActions(topic)}</ContextMenu.Content
-              ></ContextMenu.Root
-            ><DropdownMenu.Root
-              ><DropdownMenu.Trigger
-                >{#snippet child({ props })}<Button
-                    {...props}
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    class="forum-topic-list__menu"
-                    aria-label={`Open ${topic.title} menu`}
-                    ><EllipsisIcon aria-hidden="true" /></Button
-                  >{/snippet}</DropdownMenu.Trigger
-              ><DropdownMenu.Content align="end"
-                >{@render dropdownActions(topic)}</DropdownMenu.Content
-              ></DropdownMenu.Root
-            >
-          {:else}
-            {@render topicButton(topic)}
-          {/if}
-          {@render topicContent(topic)}
-        </div>
-      {/each}
+    {#snippet topicRow(topic: CommunityTopicModel)}
+      <div class="forum-topic-list__topic-row" data-topic-id={topic.id}>
+        {#if showTopicActions}
+          <ContextMenu.Root
+            ><ContextMenu.Trigger
+              >{@render topicButton(topic)}</ContextMenu.Trigger
+            ><ContextMenu.Content
+              >{@render contextActions(topic)}</ContextMenu.Content
+            ></ContextMenu.Root
+          ><DropdownMenu.Root
+            ><DropdownMenu.Trigger
+              >{#snippet child({ props })}<Button
+                  {...props}
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  class="forum-topic-list__menu"
+                  aria-label={`Open ${topic.title} menu`}
+                  ><EllipsisIcon aria-hidden="true" /></Button
+                >{/snippet}</DropdownMenu.Trigger
+            ><DropdownMenu.Content align="end"
+              >{@render dropdownActions(topic)}</DropdownMenu.Content
+            ></DropdownMenu.Root
+          >
+        {:else}
+          {@render topicButton(topic)}
+        {/if}
+        {@render topicContent(topic)}
+      </div>
+    {/snippet}
+
+    <div
+      class="forum-topic-list__topics"
+      class:forum-topic-list__topics--virtual={virtualize && viewport}
+    >
+      {#if virtualize && viewport}
+        <VirtualForumTopicRows {topics} {viewport} row={topicRow} />
+      {:else}
+        {#each topics as topic (topic.id)}
+          {@render topicRow(topic)}
+        {/each}
+      {/if}
     </div>
   {/if}
 </section>
@@ -356,6 +372,10 @@
 
   .forum-topic-list__topics {
     display: grid;
+  }
+
+  .forum-topic-list__topics--virtual {
+    display: block;
   }
 
   :global(.forum-topic-list__empty) {

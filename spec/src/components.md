@@ -662,10 +662,11 @@ height constraint MUST NOT apply to nested conversation or composer
 scrollports; those inners MUST grow with the message list, and the conversation
 scrollport MUST keep the same overflow anchoring as channel conversations so
 history-mode prepend can stabilize the wheel. Production conversations MUST
-render the current 50-event history window in normal document flow and MUST
-NOT TanStack-virtualize variable-height messages; older windows MUST load
-from the guarded top-edge control. Optional `virtualize` inputs remain for
-Design Core and Storybook contracts. The thread pane viewport MUST use the same non-scrolling flex fill
+render the current 50-event history window through bounded Design Core
+virtualization with Community-owned item estimates and measured row heights;
+older windows MUST load from the guarded top-edge control. Main channel and
+forum-index rows MUST keep reply bodies lazy, mounting full reply rows only in
+the open thread or selected forum-thread view. The thread pane viewport MUST use the same non-scrolling flex fill
 as channel workspace content (`overflow: hidden`, `min-height: 0`,
 `width: 100%`) so Inbox does not wrap `CommunityConversation` in a second
 live scrollport or shrink it to content width. That overflow MUST compute
@@ -1025,8 +1026,9 @@ or Mark read is invoked. Read persistence failures MUST surface as app toasts.
 Under LC-UI-040, Community conversation and thread components expose optional
 history, virtualized-row and controlled presentation inputs without removing
 existing snippet, message, composer or custom-source contracts. The application
-opts into Design Core history mode and MUST NOT pass `virtualize` on production
-Inbox, channel, or thread surfaces. Unpaged workspace consumers retain their
+opts into Design Core history mode and passes `virtualize` on production Inbox,
+channel, forum-thread and thread-panel surfaces, while forum indexes use a
+Community-owned virtual topic-row stream. Unpaged workspace consumers retain their
 existing `latestUnreadEventId` read-boundary callbacks; the history opt-in uses
 the displayed root/thread head and the corresponding scoped read receipt.
 `CommunityHistoryEdge` composes the shared

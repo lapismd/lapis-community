@@ -8,6 +8,27 @@
   } from "../community-workspace/story-fixtures.js";
   import CommunityThreadPanel from "./CommunityThreadPanel.svelte";
 
+  const virtualThread = {
+    rootMessageId: "virtual-thread-root",
+    messages: [
+      {
+        id: "virtual-thread-root",
+        authorId: "ben",
+        timestamp: "09:00",
+        createdAt: "2026-09-01T09:00:00Z",
+        content: "Root message for a long thread.",
+      },
+      ...Array.from({ length: 260 }, (_, index) => ({
+        id: `virtual-thread-${index}`,
+        authorId: index % 3 === 0 ? "ada" : index % 3 === 1 ? "mara" : "ben",
+        parentMessageId: "virtual-thread-root",
+        timestamp: "09:15",
+        createdAt: new Date(1_700_030_000_000 + index * 60_000).toISOString(),
+        content: `Virtual thread reply ${index} ${"with variable Markdown content. ".repeat((index % 6) + 1)}`,
+      })),
+    ],
+  };
+
   const { Story } = defineMeta({
     title: "Community/Channels/Thread Panel",
     component: CommunityThreadPanel,
@@ -205,6 +226,38 @@
   {#snippet template(args)}
     <div
       style="width: min(100%, 28rem); height: 38rem; border: 1px solid var(--border);"
+    >
+      <CommunityThreadPanel {...args} />
+    </div>
+  {/snippet}
+</Story>
+
+<Story
+  name="Thread panel virtualized replies"
+  args={{
+    thread: virtualThread,
+    members: communityStoryMembers,
+    virtualize: true,
+    currentMemberId: "noor",
+    history: { hasOlder: false, loading: false },
+    presentation: { key: "story:thread-virtualized", draft: "" },
+    onSendReply: fn(),
+  }}
+  play={async ({ canvasElement }) => {
+    const viewport = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-area-viewport"]',
+    )!;
+    await waitFor(() => expect(viewport.scrollTop).toBeGreaterThan(1000));
+    const rows = () =>
+      canvasElement.querySelectorAll('[data-ui-part="virtual-row"]');
+    await waitFor(() => expect(rows().length).toBeGreaterThan(0));
+    expect(rows().length).toBeLessThan(40);
+    expect(canvasElement.textContent).not.toContain("Virtual thread reply 10 ");
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 30rem); height: 34rem; border: 1px solid var(--border);"
     >
       <CommunityThreadPanel {...args} />
     </div>

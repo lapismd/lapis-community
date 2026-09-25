@@ -40,6 +40,9 @@ importers:
       '@noble/hashes':
         specifier: ^2.4.0
         version: 2.4.0
+      '@tanstack/svelte-virtual':
+        specifier: ^3.13.39
+        version: 3.13.39(svelte@5.56.9)
       '@tursodatabase/database-wasm':
         specifier: 0.8.0-pre.11
         version: 0.8.0-pre.11
@@ -861,7 +864,7 @@ packages:
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
   '@lapismd/design-core@file:../design-core/.local/packages/lapismd-design-core-0.1.2.tgz':
-    resolution: {integrity: sha512-Zv72+86551AUZzOxzZv8oQn+g+JzYRJgNEDV47h1WaNSZ068jIh0sKUKeiPxKOITJGA1Lut4lgVT0b2b9Kw60g==, tarball: file:../design-core/.local/packages/lapismd-design-core-0.1.2.tgz}
+    resolution: {integrity: sha512-9bidnkKEyZoMcEoLethZmNR6P+OC170EpJBmD1Wb5Xpop/mkBzao4Kuk0cLRNn75vd/KbZ20s5umjny2pOVzCw==, tarball: file:../design-core/.local/packages/lapismd-design-core-0.1.2.tgz}
     version: 0.1.2
     engines: {node: '>=22'}
     peerDependencies:

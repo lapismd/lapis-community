@@ -11,6 +11,21 @@
   import HistoryFixture from "./CommunityConversationHistoryFixture.svelte";
 
   const generalRoom = communityStoryNavigation[0]!.rooms[1]!;
+  const directRoom = {
+    id: "dm-ada",
+    name: "Ada Lovelace",
+    kind: "direct" as const,
+    participantIds: ["noor", "ada"],
+    private: true,
+  };
+  const directMessages = Array.from({ length: 320 }, (_, index) => ({
+    id: `direct-${index}`,
+    authorId: index % 2 === 0 ? "noor" : "ada",
+    timestamp: "10:15",
+    createdAt: new Date(1_700_020_000_000 + index * 45_000).toISOString(),
+    content: `Direct message ${index} ${"with enough text to vary the row height. ".repeat((index % 5) + 1)}`,
+  }));
+
   const groupedMessages = [
     ...communityStoryMessages,
     {
@@ -438,7 +453,40 @@
 >
 
 <Story
-  name="Virtualized rich history"
+  name="DM virtualized timeline"
+  args={{
+    room: directRoom,
+    messages: directMessages,
+    members: communityStoryMembers,
+    currentMemberId: "noor",
+    virtualize: true,
+    history: { hasOlder: false, loading: false },
+    presentation: { key: "story:dm-virtualized", draft: "" },
+    onSend: fn(),
+  }}
+  play={async ({ canvasElement }) => {
+    const viewport = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-area-viewport"]',
+    )!;
+    await waitFor(() => expect(viewport.scrollTop).toBeGreaterThan(1000));
+    const rows = () =>
+      canvasElement.querySelectorAll('[data-ui-part="virtual-row"]');
+    await waitFor(() => expect(rows().length).toBeGreaterThan(0));
+    expect(rows().length).toBeLessThan(40);
+    expect(canvasElement.textContent).not.toContain("Direct message 12 ");
+  }}
+>
+  {#snippet template(args)}
+    <div
+      style="width: min(100%, 42rem); height: 34rem; border: 1px solid var(--border);"
+    >
+      <CommunityConversation {...args} />
+    </div>
+  {/snippet}
+</Story>
+
+<Story
+  name="Channel virtualized timeline and older prepend"
   exportName="VirtualizedRichHistory"
   parameters={{
     docs: {

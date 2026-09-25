@@ -5603,6 +5603,7 @@
 
   // Resolve optional props once per dependency change, rather than on every child prop read.
   const workspaceSurfaceOptions = $derived({
+    virtualize: true,
     ...(community.state.history ? { history: community.state.history } : {}),
     ...(community.state.timelinePresentation
       ? { presentation: community.state.timelinePresentation }
@@ -5650,6 +5651,7 @@
 
   // Inbox uses the same memoized prop boundary as channel surfaces.
   const inboxSurfaceOptions = $derived({
+    virtualize: true,
     ...(community.state.inboxHistory
       ? { listHistory: community.state.inboxHistory }
       : {}),
@@ -8291,6 +8293,7 @@
           <AppShell.Sidebar.Body scrollable={false}>
             {#if visibleThread}
               <CommunityThreadPanel
+                virtualize
                 thread={visibleThread}
                 {...community.state.threadHistory
                   ? { history: community.state.threadHistory }

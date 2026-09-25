@@ -7,6 +7,20 @@
     communityStoryTopics,
   } from "../community-workspace/story-fixtures.js";
   import ForumTopicList from "./ForumTopicList.svelte";
+  import ForumTopicListVirtualizedStoryHarness from "./ForumTopicListVirtualizedStoryHarness.svelte";
+
+  const manyTopics = Array.from({ length: 280 }, (_, index) => ({
+    ...communityStoryTopics[index % communityStoryTopics.length]!,
+    id: `virtual-topic-${index}`,
+    title: `Virtual topic ${index}`,
+    excerpt: `A virtualized topic row ${index}. ${"Extra excerpt content. ".repeat((index % 4) + 1)}`,
+    tags:
+      index % 5 === 0
+        ? ["ai", "support", "virtual", "history", "relay"]
+        : ["ai"],
+    replyCount: index % 37,
+    lastActivityLabel: `${index + 1}m`,
+  }));
 
   const { Story } = defineMeta({
     title: "Community/Forums/Topic List",
@@ -14,6 +28,7 @@
     tags: ["visual-pending"],
   });
 </script>
+
 
 <Story
   name="Active support topics"
@@ -259,3 +274,41 @@
     ).not.toBeInTheDocument();
   }}
 />
+
+<Story
+  name="Virtualized topic index"
+  args={{
+    title: "support-ai",
+    description: "Questions, guides, and support for the AI plugin",
+    topics: manyTopics,
+    members: communityStoryMembers,
+    virtualize: true,
+    onOpenTopic: fn(),
+  }}
+  play={async ({ canvasElement }) => {
+    const viewport = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="scroll-area-viewport"]',
+    )!;
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelectorAll(
+          '[data-ui-part="forum-topic-virtual-row"]',
+        ).length,
+      ).toBeGreaterThan(0),
+    );
+    expect(
+      canvasElement.querySelectorAll(".forum-topic-list__topic-row").length,
+    ).toBeLessThan(40);
+    expect(canvasElement.textContent).not.toContain("Virtual topic 120");
+    viewport.scrollTop = viewport.scrollHeight;
+    viewport.dispatchEvent(new Event("scroll"));
+    await waitFor(() => expect(viewport.scrollTop).toBeGreaterThan(0));
+    expect(
+      canvasElement.querySelectorAll(".forum-topic-list__topic-row").length,
+    ).toBeLessThan(40);
+  }}
+>
+  {#snippet template(args)}
+    <ForumTopicListVirtualizedStoryHarness {...args} />
+  {/snippet}
+</Story>

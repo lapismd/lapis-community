@@ -138,6 +138,7 @@
     "@lucide/svelte": "^1.21.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.4.0",
+    "@tanstack/svelte-virtual": "^3.13.39",
     "@tursodatabase/database-wasm": "0.8.0-pre.11",
     "emoji-mart": "^5.6.0",
     "idb": "8.0.3",

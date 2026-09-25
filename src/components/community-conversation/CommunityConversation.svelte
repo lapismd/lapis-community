@@ -28,6 +28,7 @@
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
   import { isMessageContinuation } from "../community-message/grouping.js";
+  import { estimateCommunityMessageRow } from "./message-row-estimate.js";
   import {
     memberById,
     type CommunityMemberModel,
@@ -183,6 +184,16 @@
 
   const density = $derived(room.kind === "forum" ? "spacious" : "compact");
   const composerRooms = $derived(rooms.length > 0 ? rooms : [room]);
+  function estimateMessageRow(
+    message: CommunityMessageModel,
+    index: number,
+  ): number {
+    return estimateCommunityMessageRow(message, {
+      density,
+      continuation: isMessageContinuation(messages, index),
+      hasSupplement: messageSupplement !== undefined,
+    });
+  }
   const displayedDirectMember = $derived(
     directMember ?? {
       id: room.id,
@@ -392,7 +403,7 @@
             items: messages,
             row: messageRow,
             virtualize: true,
-            estimateSize: 240,
+            estimateSize: estimateMessageRow,
             ...(presentation?.position
               ? { initialPosition: presentation.position }
               : {}),
