@@ -19,23 +19,20 @@ export function formatCommunityRelativeTime(
   options: CommunityRelativeTimeOptions = {},
 ): string {
   const now = options.now ?? Math.floor(Date.now() / 1_000);
-  const absoluteAfterDays = options.absoluteAfterDays ?? 7;
   const elapsedSeconds = Math.max(0, now - timestamp);
   if (elapsedSeconds < 60) return "just now";
-
   const relative = new Intl.RelativeTimeFormat(options.locale, {
     numeric: "auto",
     style: "long",
   });
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-  if (elapsedMinutes < 60) return relative.format(-elapsedMinutes, "minute");
-
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return relative.format(-elapsedHours, "hour");
-
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  if (elapsedDays < absoluteAfterDays) {
-    return relative.format(-elapsedDays, "day");
-  }
-  return formatCommunityFullDate(timestamp, options.locale);
+  const minutes = Math.floor(elapsedSeconds / 60);
+  if (minutes < 60) return relative.format(-minutes, "minute");
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return relative.format(-hours, "hour");
+  const days = Math.floor(hours / 24);
+  if (days < (options.absoluteAfterDays ?? 7))
+    return relative.format(-days, "day");
+  return new Intl.DateTimeFormat(options.locale, {
+    dateStyle: "medium",
+  }).format(timestamp * 1_000);
 }

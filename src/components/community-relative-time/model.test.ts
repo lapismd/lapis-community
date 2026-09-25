@@ -13,16 +13,10 @@ describe("community relative time", () => {
       formatCommunityRelativeTime(now - 30, { now, locale: "en-GB" }),
     ).toBe("just now");
     expect(
-      formatCommunityRelativeTime(now - 60 * 90, {
-        now,
-        locale: "en-GB",
-      }),
+      formatCommunityRelativeTime(now - 60 * 90, { now, locale: "en-GB" }),
     ).toBe("1 hour ago");
     expect(
-      formatCommunityRelativeTime(now - 60 * 60 * 3, {
-        now,
-        locale: "en-GB",
-      }),
+      formatCommunityRelativeTime(now - 60 * 60 * 3, { now, locale: "en-GB" }),
     ).toBe("3 hours ago");
     expect(
       formatCommunityRelativeTime(now - 60 * 60 * 24 * 2, {
@@ -32,13 +26,10 @@ describe("community relative time", () => {
     ).toBe("2 days ago");
   });
 
-  it("uses the full date after the relative-time window", () => {
-    const oldTimestamp = now - 60 * 60 * 24 * 7;
-    expect(
-      formatCommunityRelativeTime(oldTimestamp, {
-        now,
-        locale: "en-GB",
-      }),
-    ).toBe(formatCommunityFullDate(oldTimestamp, "en-GB"));
+  it("omits the time of day after the relative-time window", () => {
+    const old = now - 60 * 60 * 24 * 7;
+    const label = formatCommunityRelativeTime(old, { now, locale: "en-GB" });
+    const full = formatCommunityFullDate(old, "en-GB");
+    expect(full.startsWith(`${label},`)).toBe(true);
   });
 });
