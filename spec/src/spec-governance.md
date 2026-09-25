@@ -8,7 +8,9 @@ the publishable manifest range. LC-UI-040 uses that validation path for the
 Design Core ScrollArea strategy consumed by virtualized conversations.
 LC-UI-040 adds `@tanstack/svelte-virtual` as a direct Community dependency for
 the package-owned forum topic virtual row owner; Design Core remains the owner of
-message-list virtualization.
+message-list virtualization. The same requirement adds `@tanstack/svelte-query`
+as a private Community dependency for scoped request-style UI caches; signed
+event projection and history state remain owned by the Community controller.
 
 For LC-SPEC-004, the aggregate package checks include the isolated project
 Storybook Docker lane so the package manifest cannot claim hosted-project

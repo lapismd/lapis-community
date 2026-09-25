@@ -24,11 +24,7 @@
     repositoryFilesLoadKey,
   } from "./project-route-files.js";
   import * as communityCopy from "../../community/community-copy-links.js";
-  import { repositoryViewRevision } from "./project-route-files.js";
-  import {
-    preferredProjectFilesRepository,
-    projectFilesSurfaceLoadsTree,
-  } from "./project-files-selection.js";
+  import { preferredProjectFilesRepository } from "./project-files-selection.js";
   import { projectViewForSurface } from "./project-log-route.js";
   import { parseNip29ReleaseEvent } from "../../protocol/index.js";
   import {
@@ -42,6 +38,11 @@
   } from "../../community/agent-contracts.js";
   import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
   import { DialogFrame } from "@lapismd/design-core/forms/dialog";
+  import {
+    createQuery,
+    keepPreviousData,
+    QueryClientProvider,
+  } from "@tanstack/svelte-query";
 
   import type { ComposerStatus } from "@lapismd/design-core/ai/chat";
   import { Button } from "@lapismd/design-core/shadcn/button";
@@ -138,20 +139,16 @@
     createRepositoryTemplate,
     createTaskTemplate,
     createWorkItemStatusTemplate,
-    projectForgeBranchRefs,
     projectForgeBoundChannels,
     projectForgeChildChannels,
     projectForgeCatalogCacheKey,
     PROJECT_DIRECTORY_TABS,
     PROJECT_REPOSITORY_TABS,
     PROJECT_WORKSPACE_TABS,
-    loadProjectCommitActivity,
     preferredProjectForRepository,
-    loadProjectRepositoryFileTree,
     readRepositoryPathCommit,
     updateProjectTemplate,
     GITHUB_REVIEW_COMMENT_REACTIONS,
-    loadOwnersFromBlob,
     PROJECT_FORGE_KINDS,
     type ProjectForgeBlobResponse,
     type ProjectForgeCatalog,
@@ -169,7 +166,6 @@
     type ProjectForgeProject,
     type ProjectForgeProtectionDocumentInput,
     type ProjectForgeRepository,
-    type ProjectForgeRepositoryCapabilities,
     type ProjectForgeRepositoryCapabilitiesByCoordinate,
     type ProjectForgeRef,
     type ProjectForgeRefsResponse,
@@ -192,8 +188,6 @@
   } from "../../projects/log-review.js";
   import CommunityProjectsReviewDetails from "../community-projects/CommunityProjectsReviewDetails.svelte";
   import CommunityProjectsTaskDetails from "../community-projects/CommunityProjectsTaskDetails.svelte";
-  import { repositorySurfaceLoadsRefs } from "../../projects/repository-surface-refs.js";
-  import { readRepositoryDefaultCommits } from "../../projects/repository-default-history.js";
   import {
     registryRouteFromDestination,
     registryRouteToDestination,
@@ -339,6 +333,26 @@
   import CommunityApplicationInboxHost from "./CommunityApplicationInboxHost.svelte";
   import CommunityApplicationPulseHost from "./CommunityApplicationPulseHost.svelte";
   import CommunityApplicationSettings from "./CommunityApplicationSettings.svelte";
+  import { projectRepositoriesForView } from "./project-repository-view-selection.js";
+  import {
+    createCommunityQueryClient,
+    PROJECT_CHANNEL_READ_STALE_TIME_MS,
+    PROJECT_REPOSITORY_READ_GC_TIME_MS,
+    PROJECT_REPOSITORY_READ_STALE_TIME_MS,
+  } from "./project-query-client.js";
+  import {
+    communityProjectQueryKeys,
+    communityQueryRelayUrls,
+    communityQueryScopeStorageKey,
+    invalidateCommunityProjectQueries,
+    type CommunityQueryScope,
+  } from "./project-query-keys.js";
+  import {
+    loadProjectRepositoryView,
+    projectRepositoryViewQueryTarget,
+    type ProjectRepositoryViewInput,
+    type ProjectRepositoryViewResult,
+  } from "./project-repository-view-query.js";
 
   type CommunityAuthenticatedAction = () => void | Promise<void>;
   type CommunityParticipationAction = "message" | "post" | "reaction" | "reply";
@@ -352,12 +366,13 @@
     reject: (cause: unknown) => void;
   };
 
-  import {
-    repositorySupportsBrowsing,
-    findWorkspaceRoom,
-  } from "./repository-browsing.js";
+  import { findWorkspaceRoom } from "./repository-browsing.js";
 
   const pluginReleaseGroupId = lapisGroupId(LAPIS_GROUPS.pluginReleases);
+
+  function projectQueryErrorMessage(cause: unknown, fallback: string): string {
+    return cause instanceof Error ? cause.message : fallback;
+  }
 
   let releaseOverviewToggleElement = $state<HTMLButtonElement | null>(null);
   let projectOverviewToggleElement = $state<HTMLButtonElement | null>(null);
@@ -600,6 +615,9 @@
   let projectError = $state("");
   let projectOperation = $state("");
   let projectReloadRevision = $state(0);
+  let projectWorkItemsLoading = $state(false);
+  let communityQueryClient = $state.raw(createCommunityQueryClient());
+  let communityQueryClientScopeKey = $state("");
 
   onDestroy(() => {
     if (appSearchTimer !== undefined) clearTimeout(appSearchTimer);
@@ -1267,6 +1285,36 @@
     return relayUrl && memberId
       ? { relayUrl, communityId, memberId }
       : undefined;
+  });
+  const communityQueryScope = $derived<CommunityQueryScope>({
+    communityId:
+      activeConnectionCommunityId ?? workspace.activeCommunityId ?? "projects",
+    identityPubkey:
+      community.state.authentication.pubkey ??
+      workspace.currentMemberId ??
+      "anonymous",
+    relayUrls: communityQueryRelayUrls(
+      projectConfiguredRelayUrl,
+      activeConnectionRelayUrl,
+    ),
+  });
+  const communityQueryScopeKey = $derived(
+    communityQueryScopeStorageKey(communityQueryScope),
+  );
+  const communityQueryProviderKey = $derived(
+    communityQueryClientScopeKey || communityQueryScopeKey,
+  );
+  $effect.pre(() => {
+    const nextScopeKey = communityQueryScopeKey;
+    if (!communityQueryClientScopeKey) {
+      communityQueryClientScopeKey = nextScopeKey;
+      return;
+    }
+    if (communityQueryClientScopeKey === nextScopeKey) return;
+    const previousClient = communityQueryClient;
+    communityQueryClient = createCommunityQueryClient();
+    communityQueryClientScopeKey = nextScopeKey;
+    previousClient.clear();
   });
   const hasCommunityConnection = $derived(
     community.state.status === "connected",
@@ -1956,13 +2004,42 @@
         ])
       : "",
   );
+  const channelCanvasQuery = createQuery<
+    CommunityChannelCanvasModel | null,
+    Error
+  >(
+    () => {
+      const room = detailsRoom;
+      const roomId = room?.id ?? "";
+      const enabled = Boolean(
+        detailsCanvasLoadKey && community.actions.loadCanvas,
+      );
+      return {
+        queryKey: roomId
+          ? communityProjectQueryKeys.channelCanvas(communityQueryScope, roomId)
+          : [
+              ...communityProjectQueryKeys.root(communityQueryScope),
+              "channel-canvas",
+              "idle",
+            ],
+        enabled,
+        staleTime: PROJECT_CHANNEL_READ_STALE_TIME_MS,
+        gcTime: PROJECT_REPOSITORY_READ_GC_TIME_MS,
+        queryFn: async () => {
+          if (!roomId || !community.actions.loadCanvas) return null;
+          await community.actions.loadCanvas(roomId);
+          return (
+            community.state.canvases?.[
+              channelCanvasKey(workspace.activeCommunityId, roomId)
+            ] ?? null
+          );
+        },
+      };
+    },
+    () => communityQueryClient,
+  );
   $effect(() => {
-    if (detailsCanvasLoadKey)
-      untrack(() => {
-        void community.actions
-          .loadCanvas?.(detailsRoom!.id)
-          .catch(() => undefined);
-      });
+    if (channelCanvasQuery.isError) void channelCanvasQuery.error;
   });
   const visibleThread = $derived(
     communityApplicationThreadProjectionMatches(activePanel, workspace)
@@ -2584,8 +2661,12 @@
       configuredIdentity ?? applicationAuthentication?.identity();
     const communityStatus = community.state.status;
     const authenticationStatus = community.state.authentication.status;
+    const queryClient = communityQueryClient;
+    const queryScope = communityQueryScope;
+    const queryScopeKey = communityQueryScopeKey;
     const lifecycleKey = [
       reloadRevision,
+      queryScopeKey,
       source,
       catalogStoreOption,
       configuredRelayUrl,
@@ -2671,6 +2752,10 @@
         if (controller.signal.aborted) return;
         if (cached !== undefined) {
           projectCatalog = cached.catalog;
+          queryClient.setQueryData(
+            communityProjectQueryKeys.catalog(queryScope),
+            cached.catalog,
+          );
           projectCatalogVerifiedAt = cached.cachedAt;
           cachedProjectCatalogAt = cached.cachedAt;
         }
@@ -2697,6 +2782,10 @@
       );
       if (controller.signal.aborted) return;
       projectCatalog = catalog;
+      queryClient.setQueryData(
+        communityProjectQueryKeys.catalog(queryScope),
+        catalog,
+      );
       projectCatalogVerifiedAt = Date.now();
       cachedProjectCatalogAt = undefined;
       projectCatalogSettled = true;
@@ -2714,8 +2803,10 @@
         ],
         (event) => {
           if (event.type === "eose") catalogReady = true;
-          if (catalogReady && event.type === "event")
+          if (catalogReady && event.type === "event") {
             projectReloadRevision += 1;
+            void invalidateCommunityProjectQueries(queryClient, queryScope);
+          }
         },
         controller.signal,
       );
@@ -2756,421 +2847,159 @@
     ),
   );
 
-  $effect(() => {
+  const projectRepositoryViewInput = $derived.by<
+    ProjectRepositoryViewInput | undefined
+  >(() => {
     const session = projectSession;
-    const resources = projectWorkItemResources;
     const catalog = projectCatalog;
-    const catalogSettled = projectCatalogSettled;
-    const identity = projectIdentity ?? applicationAuthentication?.identity();
+    if (!session || !projectCatalogSettled) return undefined;
     const channelProjectCoordinate = isProjectsDestination
       ? undefined
       : activeChannelProjectCoordinate;
     const destinationActive =
       isProjectsDestination || channelProjectCoordinate !== undefined;
-    const projectCoordinate =
-      selectedProjectCoordinate ?? channelProjectCoordinate;
+    if (!destinationActive) return undefined;
     const activeProjectFilesRepositoryCoordinate =
       selectedProjectSurface === "files"
         ? (selectedProjectFilesRepository?.address.coordinate ?? "")
         : "";
-    const repositoryCoordinate =
-      selectedRepositoryCoordinate || activeProjectFilesRepositoryCoordinate;
+    const identity = projectIdentity ?? applicationAuthentication?.identity();
     const surface = selectedRepositoryCoordinate
       ? activeRepositorySurface
       : selectedProjectSurface;
     const overviewSurface = projectsOverviewSurface;
-    const pullRequestSurface = selectedRepositoryCoordinate
-      ? activeRepositorySurface
-      : (selectedProjectSurface ?? overviewSurface);
-    const pullRequestId = selectedPullRequestId;
-    const selectedCommitSha = selectedProjectCommit?.sha;
-    filesLoadKey;
-    const requestedRepositoryBranch = untrack(
-      () => projectSelectedRepositoryBranch,
-    );
-    const requestedRepositoryBranchOwner = projectSelectedRepositoryBranchOwner;
-    const inlineProjectFilesSheetOpen = projectSheetProject !== undefined;
-    const filesRouteRevision = untrack(() =>
+    const routeRevision =
       applicationLocation.projectRoute?.surface === "files"
         ? applicationLocation.projectRoute.revision
-        : undefined,
-    );
-    if (!session || !resources || !catalogSettled) return;
+        : undefined;
+    const input: ProjectRepositoryViewInput = {
+      catalog,
+      session,
+      identityAvailable: identity !== undefined,
+      overviewSurface,
+      pullRequestId: selectedPullRequestId,
+      requestedRepositoryBranch: projectSelectedRepositoryBranch,
+      requestedRepositoryBranchOwner: projectSelectedRepositoryBranchOwner,
+      inlineProjectFilesSheetOpen: projectSheetProject !== undefined,
+      ...((selectedProjectCoordinate ?? channelProjectCoordinate)
+        ? {
+            projectCoordinate:
+              selectedProjectCoordinate ?? channelProjectCoordinate,
+          }
+        : {}),
+      ...(selectedRepositoryCoordinate || activeProjectFilesRepositoryCoordinate
+        ? {
+            repositoryCoordinate:
+              selectedRepositoryCoordinate ||
+              activeProjectFilesRepositoryCoordinate,
+          }
+        : {}),
+      ...(surface === undefined ? {} : { surface }),
+      ...(selectedRepositoryCoordinate
+        ? { pullRequestSurface: activeRepositorySurface }
+        : { pullRequestSurface: selectedProjectSurface ?? overviewSurface }),
+      ...(selectedProjectCommit?.sha
+        ? { selectedCommitSha: selectedProjectCommit.sha }
+        : {}),
+      ...(routeRevision ? { filesRouteRevision: routeRevision } : {}),
+      ...(selectedProjectPath ? { selectedPath: selectedProjectPath } : {}),
+    };
+    filesLoadKey;
+    return input;
+  });
 
-    const openedSession = session;
+  const projectRepositoryViewQuery = createQuery<
+    ProjectRepositoryViewResult,
+    Error
+  >(
+    () => {
+      const input = projectRepositoryViewInput;
+      const queryKey = input
+        ? communityProjectQueryKeys.repositoryView(
+            communityQueryScope,
+            projectRepositoryViewQueryTarget(input),
+          )
+        : [
+            ...communityProjectQueryKeys.projects(communityQueryScope),
+            "view",
+            "idle",
+          ];
+      return {
+        queryKey,
+        enabled: input !== undefined,
+        staleTime: PROJECT_REPOSITORY_READ_STALE_TIME_MS,
+        gcTime: PROJECT_REPOSITORY_READ_GC_TIME_MS,
+        placeholderData: keepPreviousData,
+        queryFn: ({ signal }) => {
+          if (!input) throw new Error("Project view is not ready");
+          return loadProjectRepositoryView(input, signal);
+        },
+      };
+    },
+    () => communityQueryClient,
+  );
+
+  $effect(() => {
+    const input = projectRepositoryViewInput;
+    const resources = projectWorkItemResources;
+    if (!input || !resources) {
+      projectWorkItemsLoading = false;
+      return;
+    }
+
+    const repositories = projectRepositoriesForView({
+      catalog: input.catalog,
+      projectCoordinate: input.projectCoordinate,
+      repositoryCoordinate: input.repositoryCoordinate,
+    });
     const controller = new AbortController();
     let unsubscribeWorkItems: (() => void) | undefined;
-    let projectLoadStage = "Project work items";
+    projectWorkItemsLoading = true;
     projectLoading = true;
     projectError = "";
-    projectSourceError = "";
-    projectRepositoryCapabilities = {};
-    projectSourceRepositoryCoordinate = "";
-    projectRepositoryRevision = "";
-    projectBlob = undefined;
-    projectPullRequestDiff = undefined;
-    projectPullRequestDiffError = "";
 
-    void (async () => {
-      if (!destinationActive) return;
-
-      const project = catalog.projects.find(
-        (candidate) => candidate.address.coordinate === projectCoordinate,
-      );
-      const requestedRepository = catalog.repositories.find(
-        (repository) => repository.address.coordinate === repositoryCoordinate,
-      );
-      const projectsToLoad = project ? [project] : catalog.projects;
-      const repositoryCoordinates = new Set(
-        projectsToLoad.flatMap((candidate) =>
-          candidate.repositories.map((reference) => reference.coordinate),
-        ),
-      );
-      const repositories = requestedRepository
-        ? [requestedRepository]
-        : project
-          ? catalog.repositories.filter((repository) =>
-              repositoryCoordinates.has(repository.address.coordinate),
-            )
-          : catalog.repositories;
-      projectLoadStage = "Project work items";
-      const updateWorkItems = (error?: unknown) => {
-        if (controller.signal.aborted) return;
-        if (error) {
-          projectError =
-            error instanceof Error ? error.message : "Project updates failed";
-          return;
-        }
-        const bundles = repositories.map((repository) =>
-          resources.peek(repository.event),
+    const updateWorkItems = (error?: unknown) => {
+      if (controller.signal.aborted) return;
+      if (error) {
+        projectError = projectQueryErrorMessage(
+          error,
+          "Project updates failed",
         );
-        if (bundles.some((bundle) => bundle === undefined)) return;
-        projectWorkItems = {
-          tasks: bundles.flatMap((bundle) => bundle!.tasks),
-          pullRequests: bundles.flatMap((bundle) => bundle!.pullRequests),
-          events: bundles.flatMap((bundle) => bundle!.events),
-        };
+        return;
+      }
+      const bundles = repositories.map((repository) =>
+        resources.peek(repository.event),
+      );
+      if (bundles.some((bundle) => bundle === undefined)) return;
+      projectWorkItems = {
+        tasks: bundles.flatMap((bundle) => bundle!.tasks),
+        pullRequests: bundles.flatMap((bundle) => bundle!.pullRequests),
+        events: bundles.flatMap((bundle) => bundle!.events),
       };
-      // Only the view listener is cancelled by navigation. The session owns I/O.
-      unsubscribeWorkItems = resources.subscribe(
-        repositories.map((repository) => repository.event.id),
-        updateWorkItems,
-      );
-      updateWorkItems();
-      await Promise.all(
-        repositories.map((repository) =>
-          resources.load(repository.event, controller.signal),
-        ),
-      );
-      if (controller.signal.aborted) return;
-      updateWorkItems();
+    };
 
-      const capabilityFailures: unknown[] = [];
-      const capabilities: Record<string, ProjectForgeRepositoryCapabilities> =
-        {};
-      if (identity !== undefined) {
-        await Promise.all(
-          repositories
-            .filter(
-              (repository) => repository.repositoryClass !== "task-anchor",
-            )
-            .map(async (repository) => {
-              try {
-                const response = await openedSession!.loadCapabilities(
-                  repository.address.coordinate,
-                  controller.signal,
-                );
-                if (!controller.signal.aborted) {
-                  capabilities[repository.address.coordinate] =
-                    response.capabilities;
-                }
-              } catch (cause) {
-                if (controller.signal.aborted) throw cause;
-                capabilityFailures.push(cause);
-              }
-            }),
-        );
-      }
-      if (controller.signal.aborted) return;
-      projectRepositoryCapabilities = capabilities;
-      const browsableRepositories = repositories.filter((repository) =>
-        repositorySupportsBrowsing(
-          repository,
-          capabilities[repository.address.coordinate],
-        ),
-      );
-      if (
-        !requestedRepository &&
-        (project
-          ? surface === "activity" ||
-            surface === "commits" ||
-            surface === undefined
-          : overviewSurface === "activity" ||
-            overviewSurface === "repositories")
-      ) {
-        projectCommitActivity = await loadProjectCommitActivity(
-          openedSession,
-          browsableRepositories,
-          project ? [project] : catalog.projects,
-          controller.signal,
-        );
-      } else if (!requestedRepository) {
-        projectCommitActivity = [];
-      }
-
-      const sourceRepository = requestedRepository
-        ? browsableRepositories.find(
-            (repository) =>
-              repository.address.coordinate ===
-              requestedRepository.address.coordinate,
-          )
-        : undefined;
-      if (!sourceRepository) {
-        projectCommits = [];
-        projectCommitBranch = "";
-        projectRepositoryBranches = [];
-        projectCommitDetail = undefined;
-        const capabilityFailure = capabilityFailures[0];
-        projectSourceError =
-          identity !== undefined &&
-          requestedRepository !== undefined &&
-          repositories.some(
-            (repository) => repository.repositoryClass !== "task-anchor",
-          ) &&
-          capabilityFailure !== undefined
-            ? capabilityFailure instanceof Error
-              ? capabilityFailure.message
-              : "Repository capabilities could not be loaded"
-            : "";
-        projectTree = undefined;
-        projectOwners = undefined;
-        projectBlob = undefined;
-      } else {
-        const repository = sourceRepository.address.coordinate;
-        projectSourceRepositoryCoordinate = repository;
-        const readsRepository = repositorySurfaceLoadsRefs(surface);
-
-        if (
-          surface === undefined ||
-          surface === "overview" ||
-          surface === "commits" ||
-          surface === "activity"
-        ) {
-          try {
-            projectCommits = await readRepositoryDefaultCommits(
-              openedSession,
-              repository,
-              controller.signal,
-            );
-          } catch (cause) {
-            if (controller.signal.aborted) throw cause;
-            projectCommits = [];
-            if (surface === "commits") {
-              projectSourceError =
-                cause instanceof Error
-                  ? cause.message
-                  : "The commit history could not be loaded";
-            }
-          }
-        }
-
-        if (surface === "commits" && selectedCommitSha) {
-          try {
-            projectCommitDetail = await openedSession.loadCommit(
-              repository,
-              selectedCommitSha,
-              controller.signal,
-            );
-          } catch (cause) {
-            if (controller.signal.aborted) throw cause;
-            projectCommitDetail = undefined;
-            projectSourceError =
-              cause instanceof Error
-                ? cause.message
-                : "The commit diff could not be loaded";
-          }
-        } else {
-          projectCommitDetail = undefined;
-          if (surface !== "commits") projectSourceError = "";
-        }
-
-        if (readsRepository) {
-          try {
-            const refs = await openedSession.loadRefs(
-              repository,
-              controller.signal,
-            );
-            const branches = projectForgeBranchRefs(refs);
-            const view = repositoryViewRevision({
-              surface,
-              routeRevision: filesRouteRevision,
-              requestedBranch: requestedRepositoryBranch,
-              requestedOwnerMatches:
-                requestedRepositoryBranchOwner === repository,
-              branches,
-              ...(refs.head?.name ? { headName: refs.head.name } : {}),
-              ...(refs.head?.sha ? { headSha: refs.head.sha } : {}),
-            });
-            projectRepositoryBranches = branches;
-            projectCommitBranch = view.branch;
-            if (
-              projectSelectedRepositoryBranchOwner !== repository ||
-              projectSelectedRepositoryBranch !== view.branch
-            ) {
-              projectSelectedRepositoryBranchOwner = repository;
-              projectSelectedRepositoryBranch = view.branch;
-            }
-            const revision = view.revision;
-            projectRepositoryRevision = revision;
-            if (
-              !controller.signal.aborted &&
-              surface === "files" &&
-              !filesRouteRevision &&
-              view.branch
-            ) {
-              const route = applicationLocation.projectRoute;
-              const nextLocation =
-                route?.kind === "project" && route.surface === "files"
-                  ? {
-                      ...applicationLocation,
-                      projectRoute: {
-                        ...route,
-                        repositoryCoordinate: repository,
-                        revision: view.branch,
-                      },
-                    }
-                  : route?.kind === "repository" && route.surface === "files"
-                    ? repositorySurfaceLocation(
-                        repository,
-                        "files",
-                        activePanel,
-                        selectedRepositoryProject?.address.coordinate,
-                        view.branch,
-                      )
-                    : undefined;
-              if (nextLocation) replaceLocation(nextLocation);
-            }
-            if (
-              revision &&
-              projectFilesSurfaceLoadsTree(surface, {
-                filesRouteRevision,
-                inlineProjectFilesSheetOpen,
-              })
-            ) {
-              let tree =
-                surface === "files"
-                  ? await loadProjectRepositoryFileTree(
-                      openedSession,
-                      repository,
-                      revision,
-                      controller.signal,
-                    )
-                  : await openedSession.loadTree(
-                      repository,
-                      revision,
-                      "",
-                      controller.signal,
-                    );
-              if (surface === "files") {
-                const commits = await openedSession.loadCommits(
-                  repository,
-                  revision,
-                  controller.signal,
-                  { limit: 1 },
-                );
-                projectCommits = commits.commits;
-                if (commits.commits[0]) {
-                  tree = { ...tree, commit: commits.commits[0] };
-                }
-              }
-              if (
-                (surface === undefined || surface === "overview") &&
-                !tree.readme?.trim()
-              ) {
-                const readme = tree.entries.find(
-                  (entry) =>
-                    entry.type === "blob" &&
-                    /^readme(?:\.(?:md|markdown|mdown|rst|txt))?$/iu.test(
-                      entry.name,
-                    ),
-                );
-                if (readme) {
-                  try {
-                    const blob = await openedSession.loadBlob(
-                      repository,
-                      revision,
-                      readme.path ?? readme.name,
-                      controller.signal,
-                    );
-                    if (!blob.binary && !blob.too_large && blob.contents) {
-                      tree = { ...tree, readme: blob.contents };
-                    }
-                  } catch (cause) {
-                    if (controller.signal.aborted) throw cause;
-                  }
-                }
-              }
-              projectTree = tree;
-              if (surface === undefined || surface === "overview") {
-                projectOwners = await loadOwnersFromBlob(
-                  () =>
-                    openedSession.loadBlob(
-                      repository,
-                      revision,
-                      "OWNERS.md",
-                      controller.signal,
-                    ),
-                  controller.signal,
-                );
-              }
-            }
-          } catch (cause) {
-            if (controller.signal.aborted) throw cause;
-            projectCommitBranch = "";
-            projectRepositoryBranches = [];
-            projectRepositoryRevision = "";
-            projectTree = undefined;
-            projectOwners = undefined;
-            projectBlob = undefined;
-            projectSourceError =
-              cause instanceof Error
-                ? cause.message
-                : "The repository source could not be loaded";
-          }
-        }
-      }
-
-      if (pullRequestSurface === "reviews" && pullRequestId) {
-        try {
-          projectPullRequestDiff = await openedSession.loadPullRequestDiff(
-            pullRequestId,
-            { signal: controller.signal },
-          );
-        } catch (cause) {
-          if (controller.signal.aborted) throw cause;
-          projectPullRequestDiff = undefined;
-          projectPullRequestDiffError =
-            cause instanceof Error
-              ? cause.message
-              : "The pull request diff could not be loaded";
-        }
-      }
-    })()
+    unsubscribeWorkItems = resources.subscribe(
+      repositories.map((repository) => repository.event.id),
+      updateWorkItems,
+    );
+    updateWorkItems();
+    void Promise.all(
+      repositories.map((repository) =>
+        resources.load(repository.event, controller.signal),
+      ),
+    )
+      .then(() => updateWorkItems())
       .catch((cause) => {
         if (controller.signal.aborted) return;
-        if (
-          projectCatalog.events.length > 0 &&
-          projectCatalogVerifiedAt !== undefined
-        ) {
-          cachedProjectCatalogAt = projectCatalogVerifiedAt;
-        }
-        projectError =
-          cause instanceof Error
-            ? cause.message
-            : `${projectLoadStage} could not be loaded`;
+        projectError = projectQueryErrorMessage(
+          cause,
+          "Project work items could not be loaded",
+        );
       })
       .finally(() => {
-        if (!controller.signal.aborted) projectLoading = false;
+        if (controller.signal.aborted) return;
+        projectWorkItemsLoading = false;
+        if (!projectRepositoryViewQuery.isFetching) projectLoading = false;
       });
 
     return () => {
@@ -3180,34 +3009,151 @@
   });
 
   $effect(() => {
-    const session = projectSession;
-    const repository = projectSourceRepositoryCoordinate;
-    const revision = projectRepositoryRevision;
-    const path = selectedProjectPath;
+    const input = projectRepositoryViewInput;
+    const result = projectRepositoryViewQuery.data;
+    const pendingWithoutData =
+      projectRepositoryViewQuery.isFetching && result === undefined;
+    if (pendingWithoutData) projectLoading = true;
+    if (!input) return;
+    if (projectRepositoryViewQuery.isError) {
+      if (
+        projectCatalog.events.length > 0 &&
+        projectCatalogVerifiedAt !== undefined
+      ) {
+        cachedProjectCatalogAt = projectCatalogVerifiedAt;
+      }
+      projectError = projectQueryErrorMessage(
+        projectRepositoryViewQuery.error,
+        "Project repository view could not be loaded",
+      );
+      if (!result) {
+        projectLoading = projectWorkItemsLoading;
+        return;
+      }
+    }
+    if (!result) return;
+
+    projectRepositoryCapabilities = result.capabilities;
+    projectCommitActivity = result.commitActivity;
+    projectCommits = result.commits;
+    projectCommitBranch = result.commitBranch;
+    projectRepositoryBranches = result.branches;
+    projectCommitDetail = result.selectedCommitDetail;
+    projectSourceRepositoryCoordinate = result.sourceRepositoryCoordinate;
+    projectRepositoryRevision = result.revision;
+    projectTree = result.tree;
+    projectOwners = result.owners;
+    projectSourceError = result.sourceError;
+    projectPullRequestDiff = result.pullRequestDiff;
+    projectPullRequestDiffError = result.pullRequestDiffError;
+
+    if (
+      !projectRepositoryViewQuery.isPlaceholderData &&
+      result.sourceRepositoryCoordinate &&
+      result.commitBranch
+    ) {
+      if (
+        projectSelectedRepositoryBranchOwner !==
+          result.sourceRepositoryCoordinate ||
+        projectSelectedRepositoryBranch !== result.commitBranch
+      ) {
+        projectSelectedRepositoryBranchOwner =
+          result.sourceRepositoryCoordinate;
+        projectSelectedRepositoryBranch = result.commitBranch;
+      }
+      if (
+        input.surface === "files" &&
+        !input.filesRouteRevision &&
+        result.commitBranch
+      ) {
+        const route = applicationLocation.projectRoute;
+        const nextLocation =
+          route?.kind === "project" && route.surface === "files"
+            ? {
+                ...applicationLocation,
+                projectRoute: {
+                  ...route,
+                  repositoryCoordinate: result.sourceRepositoryCoordinate,
+                  revision: result.commitBranch,
+                },
+              }
+            : route?.kind === "repository" && route.surface === "files"
+              ? repositorySurfaceLocation(
+                  result.sourceRepositoryCoordinate,
+                  "files",
+                  activePanel,
+                  selectedRepositoryProject?.address.coordinate,
+                  result.commitBranch,
+                )
+              : undefined;
+        if (nextLocation) replaceLocation(nextLocation);
+      }
+    }
+
+    projectLoading =
+      projectWorkItemsLoading ||
+      (projectRepositoryViewQuery.isFetching && result === undefined);
+  });
+
+  const projectBlobQuery = createQuery<ProjectForgeBlobResponse, Error>(
+    () => {
+      const session = projectSession;
+      const repository = projectSourceRepositoryCoordinate;
+      const revision = projectRepositoryRevision;
+      const path = selectedProjectPath;
+      const surface = selectedRepositoryCoordinate
+        ? activeRepositorySurface
+        : selectedProjectSurface;
+      const enabled =
+        surface === "files" &&
+        session !== undefined &&
+        Boolean(repository) &&
+        Boolean(revision) &&
+        Boolean(path);
+      return {
+        queryKey:
+          enabled && session
+            ? communityProjectQueryKeys.repositoryBlob(communityQueryScope, {
+                repository,
+                revision,
+                path,
+              })
+            : [
+                ...communityProjectQueryKeys.projects(communityQueryScope),
+                "blob",
+                "idle",
+              ],
+        enabled,
+        staleTime: PROJECT_REPOSITORY_READ_STALE_TIME_MS,
+        gcTime: PROJECT_REPOSITORY_READ_GC_TIME_MS,
+        placeholderData: keepPreviousData,
+        queryFn: ({ signal }) => {
+          if (!session || !repository || !revision || !path)
+            throw new Error("Project file is not ready");
+          return session.loadBlob(repository, revision, path, signal);
+        },
+      };
+    },
+    () => communityQueryClient,
+  );
+
+  $effect(() => {
     const surface = selectedRepositoryCoordinate
       ? activeRepositorySurface
       : selectedProjectSurface;
-    if (surface !== "files" || !session || !repository || !revision || !path) {
+    if (surface !== "files" || !selectedProjectPath) {
       projectBlob = undefined;
       return;
     }
-
-    const controller = new AbortController();
-    projectBlob = undefined;
-    void session
-      .loadBlob(repository, revision, path, controller.signal)
-      .then((blob) => {
-        if (!controller.signal.aborted) projectBlob = blob;
-      })
-      .catch((cause) => {
-        if (controller.signal.aborted) return;
-        projectSourceError =
-          cause instanceof Error
-            ? cause.message
-            : "The selected file could not be loaded";
-      });
-
-    return () => controller.abort();
+    if (projectBlobQuery.data) {
+      projectBlob = projectBlobQuery.data;
+    }
+    if (projectBlobQuery.isError) {
+      projectSourceError = projectQueryErrorMessage(
+        projectBlobQuery.error,
+        "The selected file could not be loaded",
+      );
+    }
   });
 
   $effect(() => {
@@ -4137,6 +4083,10 @@
   ): Promise<void> {
     await withProjectRequest(label, action);
     projectReloadRevision += 1;
+    void invalidateCommunityProjectQueries(
+      communityQueryClient,
+      communityQueryScope,
+    );
   }
 
   async function withProjectRequest<T>(
@@ -7074,385 +7024,1504 @@
   {/if}
 {/snippet}
 
-<CommunityAppShell
-  controller={shell}
-  {displayMode}
-  {mobileBreakpoint}
-  {...desktopMinMainWidth === undefined ? {} : { desktopMinMainWidth }}
-  {canNavigateBack}
-  {canNavigateForward}
-  onNavigateBack={() => navigateHistory(-1)}
-  onNavigateForward={() => navigateHistory(1)}
-  {...isRegistryDestination
-    ? { headerCenter: registryBreadcrumb }
-    : isProjectsDestination
-      ? {
-          headerCenter: projectBreadcrumb,
-          headerEnd: projectOverviewToggle,
-        }
-      : activeChannelProject && usesRoomToolbar
-        ? {
-            headerCenter: projectChannelBreadcrumb,
-            headerEnd: projectOverviewToggle,
-          }
-        : isPluginReleaseRoom
-          ? { headerEnd: releaseOverviewToggle }
-          : {}}
-  data-last-action={lastAction}
-  data-community-status={community.state.status}
-  data-community-cache-freshness={community.state.cache.freshness}
-  data-community-content-sync={community.state.contentSync?.phase ?? "legacy"}
-  {...restProps}
->
-  <AppShell.Sidebar
-    side="left"
-    label="Community navigation sidebar"
-    mobileLabel="Channels, forums, and messages"
-    resizeLabel="Resize community navigation sidebar"
-    closeable
-    revealOnEdgeHover
-    edgeRevealLabel="Preview community navigation sidebar"
-  >
-    {#if activeDestination === "settings"}
-      <CommunitySettingsNavigation
-        section={settingsSection}
-        onSelect={(value) => (settingsSection = value)}
-        onClose={closeSettings}
-      />
-    {:else}
-      <CommunityNavigation
-        model={navigationModel}
-        bind:sectionOpen={navigationSectionOpen}
-        {...activeItemId === undefined ? {} : { activeItemId }}
-        compact={navigationCompact}
-        countsUpdating={community.state.contentSync?.phase === "background" ||
-          community.state.contentSync?.phase === "partial-error"}
-        onSelect={select}
-        onSearch={(query) => {
-          searchOpen = true;
-          updateAppSearchInput(query);
-        }}
-        onSectionAction={handleSectionAction}
-        onItemAction={handleItemAction}
-        customSections={community.state.navigation.sections.map((section) => ({
-          id: section.id,
-          label: section.name,
-        }))}
-      >
-        {#snippet footer()}
-          {#if showRelayNotice && !navigationCompact}
-            <Alert.Root class="community-application__relay-alert">
-              <Button
-                type="button"
-                variant="ghost"
-                class="community-application__relay-connect"
-                aria-label="Reconnect to community relay"
-                onclick={reconnect}
-              >
-                <WifiOffIcon aria-hidden="true" />
-                <span class="community-application__relay-copy">
-                  <Alert.Title>
-                    {hasCachedCommunityData
-                      ? `Offline — showing data${community.state.cache.lastSynchronizedAt === undefined ? "" : ` from ${new Date(community.state.cache.lastSynchronizedAt * 1_000).toLocaleString()}`}`
-                      : "Connection lost"}
-                  </Alert.Title>
-                  <Alert.Description>
-                    {community.state.error ??
-                      "Unable to connect to the community relay."}
-                  </Alert.Description>
-                  <span class="community-application__relay-action-label">
-                    Connect to relay
-                  </span>
-                </span>
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                class="community-application__relay-dismiss"
-                aria-label="Dismiss relay notification"
-                title="Dismiss relay notification"
-                onclick={() => (relayNoticeDismissed = true)}
-              >
-                <XIcon aria-hidden="true" />
-              </Button>
-            </Alert.Root>
-          {/if}
-          <CommunityProfileMenu
-            member={displayMember}
-            presence={community.state.presence?.members[displayMember.id]
-              ?.status ?? "unknown"}
-            presencePreference={community.state.presence?.preference ?? "auto"}
-            presenceDisabled={!authenticated ||
-              !community.actions.setPresencePreference ||
-              !community.state.presence ||
-              community.state.presence.status === "unavailable" ||
-              community.state.presence.status === "loading" ||
-              community.state.presence.pending}
-            communityName={currentCommunity?.name ?? "Community"}
-            {...activeConnection?.relayUrl === undefined
-              ? {}
-              : { communityUrl: activeConnection.relayUrl }}
-            {authenticated}
-            accountRemembered={applicationAccount !== undefined}
-            {signingOut}
-            compact={navigationCompact}
-            connectionStatus={community.state.status}
-            canManageCommunity={activeRoom.permissions?.manageMembers.state ===
-              "enabled"}
-            canSendFeedback={extensions.feedback !== undefined}
-            onPresenceChange={async (presence) => {
-              await community.actions.setPresencePreference?.(
-                presence === "online" ? "auto" : presence,
-              );
-              lastAction = `presence:${presence}`;
-            }}
-            onAction={(action) => {
-              if (action === "sign-in") void runAuthenticated(() => {});
-              if (action === "sign-out")
-                void signOutCurrentIdentity().catch((cause) =>
-                  toast.error(
-                    cause instanceof Error
-                      ? cause.message
-                      : "Could not finish signing out",
-                  ),
-                );
-              if (action === "settings") openSettings();
-              if (action === "copy-community-url" && activeConnection)
-                void copyText(
-                  activeConnection.relayUrl,
-                  "Community URL copied",
-                );
-              if (action === "community-settings") relaySettingsOpen = true;
-              if (action === "update-status")
-                void runAuthenticated(() => {
-                  statusOpen = true;
-                });
-              if (action === "manage-members") {
-                void runAuthenticated(() =>
-                  openRepositoryPeople(activeRoom.id),
-                );
+{#key communityQueryProviderKey}
+  <QueryClientProvider client={communityQueryClient}>
+    <CommunityAppShell
+      controller={shell}
+      {displayMode}
+      {mobileBreakpoint}
+      {...desktopMinMainWidth === undefined ? {} : { desktopMinMainWidth }}
+      {canNavigateBack}
+      {canNavigateForward}
+      onNavigateBack={() => navigateHistory(-1)}
+      onNavigateForward={() => navigateHistory(1)}
+      {...isRegistryDestination
+        ? { headerCenter: registryBreadcrumb }
+        : isProjectsDestination
+          ? {
+              headerCenter: projectBreadcrumb,
+              headerEnd: projectOverviewToggle,
+            }
+          : activeChannelProject && usesRoomToolbar
+            ? {
+                headerCenter: projectChannelBreadcrumb,
+                headerEnd: projectOverviewToggle,
               }
-              if (action === "send-feedback") void extensions.feedback?.();
-            }}
-          />
-        {/snippet}
-      </CommunityNavigation>
-    {/if}
-  </AppShell.Sidebar>
-
-  <AppShell.Main class="community-application__main">
-    {#if shell.mobile.resolvedMode === "mobile" && !usesRoomToolbar}
-      <AppShell.Toolbar role="group" label="Application navigation">
-        {@render mobileNavigationControls()}
-        {#if isProjectsDestination || isPluginReleaseRoom}
-          <div class="community-application__mobile-toolbar-end">
-            {@render mobileRightSidebarToggle()}
-          </div>
-        {/if}
-      </AppShell.Toolbar>
-    {/if}
-
-    {#if activeDestination === "agents"}
-      <AppShell.Toolbar
-        label="Agents page header"
-        class="community-application__agents-toolbar"
+            : isPluginReleaseRoom
+              ? { headerEnd: releaseOverviewToggle }
+              : {}}
+      data-last-action={lastAction}
+      data-community-status={community.state.status}
+      data-community-cache-freshness={community.state.cache.freshness}
+      data-community-content-sync={community.state.contentSync?.phase ??
+        "legacy"}
+      {...restProps}
+    >
+      <AppShell.Sidebar
+        side="left"
+        label="Community navigation sidebar"
+        mobileLabel="Channels, forums, and messages"
+        resizeLabel="Resize community navigation sidebar"
+        closeable
+        revealOnEdgeHover
+        edgeRevealLabel="Preview community navigation sidebar"
       >
-        <div class="community-application__toolbar-start">
-          {#if shell.mobile.resolvedMode === "mobile"}
+        {#if activeDestination === "settings"}
+          <CommunitySettingsNavigation
+            section={settingsSection}
+            onSelect={(value) => (settingsSection = value)}
+            onClose={closeSettings}
+          />
+        {:else}
+          <CommunityNavigation
+            model={navigationModel}
+            bind:sectionOpen={navigationSectionOpen}
+            {...activeItemId === undefined ? {} : { activeItemId }}
+            compact={navigationCompact}
+            countsUpdating={community.state.contentSync?.phase ===
+              "background" ||
+              community.state.contentSync?.phase === "partial-error"}
+            onSelect={select}
+            onSearch={(query) => {
+              searchOpen = true;
+              updateAppSearchInput(query);
+            }}
+            onSectionAction={handleSectionAction}
+            onItemAction={handleItemAction}
+            customSections={community.state.navigation.sections.map(
+              (section) => ({
+                id: section.id,
+                label: section.name,
+              }),
+            )}
+          >
+            {#snippet footer()}
+              {#if showRelayNotice && !navigationCompact}
+                <Alert.Root class="community-application__relay-alert">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    class="community-application__relay-connect"
+                    aria-label="Reconnect to community relay"
+                    onclick={reconnect}
+                  >
+                    <WifiOffIcon aria-hidden="true" />
+                    <span class="community-application__relay-copy">
+                      <Alert.Title>
+                        {hasCachedCommunityData
+                          ? `Offline — showing data${community.state.cache.lastSynchronizedAt === undefined ? "" : ` from ${new Date(community.state.cache.lastSynchronizedAt * 1_000).toLocaleString()}`}`
+                          : "Connection lost"}
+                      </Alert.Title>
+                      <Alert.Description>
+                        {community.state.error ??
+                          "Unable to connect to the community relay."}
+                      </Alert.Description>
+                      <span class="community-application__relay-action-label">
+                        Connect to relay
+                      </span>
+                    </span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    class="community-application__relay-dismiss"
+                    aria-label="Dismiss relay notification"
+                    title="Dismiss relay notification"
+                    onclick={() => (relayNoticeDismissed = true)}
+                  >
+                    <XIcon aria-hidden="true" />
+                  </Button>
+                </Alert.Root>
+              {/if}
+              <CommunityProfileMenu
+                member={displayMember}
+                presence={community.state.presence?.members[displayMember.id]
+                  ?.status ?? "unknown"}
+                presencePreference={community.state.presence?.preference ??
+                  "auto"}
+                presenceDisabled={!authenticated ||
+                  !community.actions.setPresencePreference ||
+                  !community.state.presence ||
+                  community.state.presence.status === "unavailable" ||
+                  community.state.presence.status === "loading" ||
+                  community.state.presence.pending}
+                communityName={currentCommunity?.name ?? "Community"}
+                {...activeConnection?.relayUrl === undefined
+                  ? {}
+                  : { communityUrl: activeConnection.relayUrl }}
+                {authenticated}
+                accountRemembered={applicationAccount !== undefined}
+                {signingOut}
+                compact={navigationCompact}
+                connectionStatus={community.state.status}
+                canManageCommunity={activeRoom.permissions?.manageMembers
+                  .state === "enabled"}
+                canSendFeedback={extensions.feedback !== undefined}
+                onPresenceChange={async (presence) => {
+                  await community.actions.setPresencePreference?.(
+                    presence === "online" ? "auto" : presence,
+                  );
+                  lastAction = `presence:${presence}`;
+                }}
+                onAction={(action) => {
+                  if (action === "sign-in") void runAuthenticated(() => {});
+                  if (action === "sign-out")
+                    void signOutCurrentIdentity().catch((cause) =>
+                      toast.error(
+                        cause instanceof Error
+                          ? cause.message
+                          : "Could not finish signing out",
+                      ),
+                    );
+                  if (action === "settings") openSettings();
+                  if (action === "copy-community-url" && activeConnection)
+                    void copyText(
+                      activeConnection.relayUrl,
+                      "Community URL copied",
+                    );
+                  if (action === "community-settings") relaySettingsOpen = true;
+                  if (action === "update-status")
+                    void runAuthenticated(() => {
+                      statusOpen = true;
+                    });
+                  if (action === "manage-members") {
+                    void runAuthenticated(() =>
+                      openRepositoryPeople(activeRoom.id),
+                    );
+                  }
+                  if (action === "send-feedback") void extensions.feedback?.();
+                }}
+              />
+            {/snippet}
+          </CommunityNavigation>
+        {/if}
+      </AppShell.Sidebar>
+
+      <AppShell.Main class="community-application__main">
+        {#if shell.mobile.resolvedMode === "mobile" && !usesRoomToolbar}
+          <AppShell.Toolbar role="group" label="Application navigation">
             {@render mobileNavigationControls()}
-          {:else if navigationCompact}
-            <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
-          {/if}
-          <h1 class="community-application__toolbar-title">Agents</h1>
-        </div>
-        <div class="community-application__toolbar-actions">
-          {#if community.state.agents && community.actions.agents}
+            {#if isProjectsDestination || isPluginReleaseRoom}
+              <div class="community-application__mobile-toolbar-end">
+                {@render mobileRightSidebarToggle()}
+              </div>
+            {/if}
+          </AppShell.Toolbar>
+        {/if}
+
+        {#if activeDestination === "agents"}
+          <AppShell.Toolbar
+            label="Agents page header"
+            class="community-application__agents-toolbar"
+          >
+            <div class="community-application__toolbar-start">
+              {#if shell.mobile.resolvedMode === "mobile"}
+                {@render mobileNavigationControls()}
+              {:else if navigationCompact}
+                <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
+              {/if}
+              <h1 class="community-application__toolbar-title">Agents</h1>
+            </div>
+            <div class="community-application__toolbar-actions">
+              {#if community.state.agents && community.actions.agents}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Refresh agents"
+                  title="Refresh agents"
+                  disabled={community.state.agents.status === "loading"}
+                  onclick={() => void community.actions.agents!.refresh()}
+                >
+                  <RefreshIcon aria-hidden="true" />
+                </Button>
+              {/if}
+            </div>
+          </AppShell.Toolbar>
+        {/if}
+
+        {#if isProjectsDestination && selectedPullRequest}
+          <AppShell.Toolbar
+            label="Review navigation"
+            class="community-application__project-review-toolbar"
+          >
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label="Refresh agents"
-              title="Refresh agents"
-              disabled={community.state.agents.status === "loading"}
-              onclick={() => void community.actions.agents!.refresh()}
+              class="community-application__project-review-back"
+              aria-label="Back to reviews"
+              title="Back to reviews"
+              onclick={closeProjectPullRequest}
             >
-              <RefreshIcon aria-hidden="true" />
+              <ArrowLeftIcon aria-hidden="true" />
             </Button>
-          {/if}
-        </div>
-      </AppShell.Toolbar>
-    {/if}
+            <div class="community-application__project-review-heading">
+              <h1>
+                {selectedPullRequest.title}
+                <span>#{selectedPullRequest.root.id.slice(0, 8)}</span>
+              </h1>
+              <p>
+                Review opened <CommunityRelativeTime
+                  timestamp={selectedPullRequest.createdAt}
+                />
+              </p>
+            </div>
+          </AppShell.Toolbar>
+        {/if}
 
-    {#if isProjectsDestination && selectedPullRequest}
-      <AppShell.Toolbar
-        label="Review navigation"
-        class="community-application__project-review-toolbar"
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          class="community-application__project-review-back"
-          aria-label="Back to reviews"
-          title="Back to reviews"
-          onclick={closeProjectPullRequest}
-        >
-          <ArrowLeftIcon aria-hidden="true" />
-        </Button>
-        <div class="community-application__project-review-heading">
-          <h1>
-            {selectedPullRequest.title}
-            <span>#{selectedPullRequest.root.id.slice(0, 8)}</span>
-          </h1>
-          <p>
-            Review opened <CommunityRelativeTime
-              timestamp={selectedPullRequest.createdAt}
-            />
-          </p>
-        </div>
-      </AppShell.Toolbar>
-    {/if}
-
-    {#if isProjectsDestination && !selectedTask && !selectedPullRequest}
-      <AppShell.Toolbar
-        label="Project sections"
-        class="community-application__project-toolbar"
-      >
-        <CommunityApplicationProjectToolbarNav
-          scope={selectedRepository
-            ? "repository"
-            : selectedProject
-              ? "project"
-              : "overview"}
-          {canNavigateBack}
-          onHistoryBack={() => navigateHistory(-1)}
-          onCloseRepository={closeRepository}
-          onBackToProjects={() => setDestination("projects", true)}
-          onSearch={() => (searchOpen = true)}
-        />
-        <Tabs.Root
-          value={selectedRepository
-            ? activeRepositorySurface
-            : selectedProject
-              ? activeProjectSurface
-              : projectsOverviewSurface}
-        >
-          <Tabs.List
-            class="community-application__project-tab-list"
-            aria-label={selectedRepository
-              ? `${selectedRepository.name} sections`
-              : selectedProject
-                ? `${selectedProject.name} sections`
-                : "Project sections"}
+        {#if isProjectsDestination && !selectedTask && !selectedPullRequest}
+          <AppShell.Toolbar
+            label="Project sections"
+            class="community-application__project-toolbar"
           >
-            {#each selectedRepository ? selectedRepositoryTabs : selectedProject ? selectedProjectTabs : projectOverviewTabs as tab (tab.value)}
-              <Tabs.Trigger
-                class="community-application__project-tab-trigger"
-                value={tab.value}
+            <CommunityApplicationProjectToolbarNav
+              scope={selectedRepository
+                ? "repository"
+                : selectedProject
+                  ? "project"
+                  : "overview"}
+              {canNavigateBack}
+              onHistoryBack={() => navigateHistory(-1)}
+              onCloseRepository={closeRepository}
+              onBackToProjects={() => setDestination("projects", true)}
+              onSearch={() => (searchOpen = true)}
+            />
+            <Tabs.Root
+              value={selectedRepository
+                ? activeRepositorySurface
+                : selectedProject
+                  ? activeProjectSurface
+                  : projectsOverviewSurface}
+            >
+              <Tabs.List
+                class="community-application__project-tab-list"
+                aria-label={selectedRepository
+                  ? `${selectedRepository.name} sections`
+                  : selectedProject
+                    ? `${selectedProject.name} sections`
+                    : "Project sections"}
+              >
+                {#each selectedRepository ? selectedRepositoryTabs : selectedProject ? selectedProjectTabs : projectOverviewTabs as tab (tab.value)}
+                  <Tabs.Trigger
+                    class="community-application__project-tab-trigger"
+                    value={tab.value}
+                    onclick={() => {
+                      if (selectedRepository)
+                        openRepositorySurface(tab.value as ProjectForgeSurface);
+                      else if (selectedProject)
+                        openProjectSurface(tab.value as ProjectForgeSurface);
+                      else
+                        openProjectsOverviewSurface(
+                          tab.value as ProjectForgeOverviewSurface,
+                        );
+                    }}
+                  >
+                    {tab.label}
+                  </Tabs.Trigger>
+                {/each}
+              </Tabs.List>
+            </Tabs.Root>
+          </AppShell.Toolbar>
+        {/if}
+
+        {#if isProjectsDestination && unavailableProjectRoute}
+          <section class="community-application__project-route-unavailable">
+            <Empty.Root role="status">
+              <Empty.Header>
+                <Empty.Media variant="icon">
+                  <FolderKanbanIcon aria-hidden="true" />
+                </Empty.Media>
+                <Empty.Title>
+                  {unavailableProjectRoute.kind === "project"
+                    ? "Project is unavailable"
+                    : "Repository is unavailable"}
+                </Empty.Title>
+                <Empty.Description>
+                  The requested {unavailableProjectRoute.kind} was not found after
+                  the project catalog finished loading. Its address remains in the
+                  URL so the link can be retried.
+                </Empty.Description>
+              </Empty.Header>
+              <Empty.Content>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onclick={() => setDestination("projects", true)}
+                >
+                  Browse projects
+                </Button>
+              </Empty.Content>
+            </Empty.Root>
+          </section>
+        {:else if isProjectsDestination}
+          <CommunityProjects
+            view={selectedRepository
+              ? projectViewForSurface(activeRepositorySurface)
+              : selectedProject
+                ? activeProjectSurface
+                : projectsOverviewSurface}
+            projects={selectedRepositoryProject
+              ? [selectedRepositoryProject]
+              : selectedProject
+                ? projectCatalog.projects
+                : listedProjects}
+            {...selectedProject === undefined ? {} : { selectedProject }}
+            {...communityProjectsSelectedRepository === undefined
+              ? {}
+              : { selectedRepository: communityProjectsSelectedRepository }}
+            repositories={selectedRepository
+              ? [selectedRepository]
+              : selectedProject
+                ? selectedProjectRepositories
+                : projectCatalog.repositories}
+            repositoryOptions={projectCatalog.repositories}
+            repositoryCapabilities={projectRepositoryCapabilities}
+            activity={projectActivity}
+            workItemEvents={projectWorkItems.events}
+            tasks={selectedRepository
+              ? selectedRepositoryTasks
+              : projectWorkItems.tasks}
+            {taskListFilter}
+            {...selectedTask === undefined ? {} : { selectedTask }}
+            pullRequests={selectedRepository
+              ? selectedRepositoryPullRequests
+              : projectWorkItems.pullRequests}
+            {reviewListFilter}
+            {...selectedPullRequest === undefined
+              ? {}
+              : { selectedPullRequest }}
+            commits={projectCommits}
+            commitActivity={projectCommitActivity}
+            commitBranch={projectCommitBranch}
+            repositoryBranches={projectRepositoryBranches}
+            selectedRepositoryBranch={projectVisibleRepositoryBranch}
+            {...selectedProjectCommit === undefined
+              ? {}
+              : { selectedCommit: selectedProjectCommit }}
+            {...projectCommitDetail === undefined
+              ? {}
+              : { selectedCommitDetail: projectCommitDetail }}
+            sourceError={projectSourceError}
+            {...projectTree === undefined ? {} : { tree: projectTree }}
+            {...projectOwners === undefined ? {} : { owners: projectOwners }}
+            selectedPath={selectedProjectPath}
+            {...projectBlob === undefined ? {} : { blob: projectBlob }}
+            {...projectPullRequestDiff === undefined
+              ? {}
+              : { pullRequestDiff: projectPullRequestDiff }}
+            pullRequestDiffError={projectPullRequestDiffError}
+            members={communityIdentityMembersFromState(
+              workspace.members,
+              community.state.agents,
+            )}
+            rooms={presentationRooms}
+            communityEmojis={community.state.settings.customEmojis}
+            {...workspace.currentMemberId === undefined
+              ? {}
+              : { currentMemberId: workspace.currentMemberId }}
+            reviewPreferenceStore={defaultProjectReviewPreferenceStore}
+            {...projectReviewPreferenceScope === undefined
+              ? {}
+              : { reviewPreferenceScope: projectReviewPreferenceScope }}
+            loading={projectLoading || communityStartupPending}
+            {...cachedProjectCatalogAt === undefined
+              ? {}
+              : { cachedCatalogAt: cachedProjectCatalogAt }}
+            error={projectError}
+            operation={projectOperation}
+            canCollaborate={authenticated}
+            {canManageForge}
+            {...projectDialogRequest === undefined
+              ? {}
+              : { dialogRequest: projectDialogRequest }}
+            showNavigation={false}
+            showReviewHeader={false}
+            onSelectView={(surface) => {
+              if (selectedRepository)
+                openRepositorySurface(surface as ProjectForgeSurface);
+              else if (selectedProject)
+                openProjectSurface(surface as ProjectForgeSurface);
+              else
+                openProjectsOverviewSurface(
+                  surface as ProjectForgeOverviewSurface,
+                );
+            }}
+            onBack={() => {
+              if (canNavigateBack) navigateHistory(-1);
+              else if (selectedRepository) closeRepository();
+              else setDestination("projects", true);
+            }}
+            onSelectProject={selectProject}
+            onSelectRepository={selectRepository}
+            onSelectFilesRepository={selectProjectFilesRepository}
+            onSelectChannel={selectProjectChannelDestination}
+            onOpenProfile={openProfile}
+            onMessageMember={messageMember}
+            onWaveMember={waveMember}
+            onCreateProject={createProject}
+            onUpdateProject={updateProject}
+            onCreateRepository={createRepository}
+            onAttachRepository={attachRepository}
+            onLoadGitHubConnections={loadGitHubConnections}
+            onCreateGitHubConnection={createGitHubConnection}
+            onUpdateGitHubConnection={updateGitHubConnection}
+            onRevalidateGitHubConnection={revalidateGitHubConnection}
+            onLoadGitHubRepositories={loadGitHubRepositories}
+            onAttachGitHubRepository={attachGitHubRepository}
+            onCreateTask={createTask}
+            onSelectTask={selectProjectTask}
+            onCloseTask={() => (selectedTaskId = "")}
+            onUpdateTaskAssignment={updateTaskAssignment}
+            onManageTaskAssignments={openTaskAssignmentCommand}
+            onAddTaskComment={publishTaskComment}
+            onUpdateTaskLifecycle={updateTaskLifecycle}
+            onCreatePullRequest={createPullRequest}
+            onLoadRepositoryRefs={loadReviewRepositoryRefs}
+            onSelectRepositoryBranch={selectRepositoryBranch}
+            onLoadRepositoryPathCommit={loadRepositoryPathCommit}
+            onLoadRepositoryCommit={loadRepositoryCommit}
+            onSelectPullRequest={(pullRequest) => {
+              selectedPullRequestId = pullRequest.root.id;
+              projectPullRequestDiff = undefined;
+            }}
+            onClosePullRequest={closeProjectPullRequest}
+            onSubmitPullRequestReview={publishPullRequestReview}
+            onRequestPullRequestReview={requestPullRequestReview}
+            onMergePullRequest={mergePullRequest}
+            onOpenPeople={openRepositoryPeople}
+            onSaveProtection={saveRepositoryProtection}
+            onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
+            onAddPullRequestComment={publishPullRequestComment}
+            onAddInlineComment={publishInlineComment}
+            onTogglePullRequestCommentReaction={togglePullRequestCommentReaction}
+            onSelectCommit={selectProjectCommit}
+            onCloseCommit={closeProjectCommit}
+            onSelectPath={selectRepositoryPath}
+            onRetry={repairProjectMembership}
+          />
+        {:else if isRegistryDestination}
+          {#if registry}
+            <AppShell.Body layout="regions" label="Plugin registry">
+              <AppShell.Body.Content label="Registry content">
+                {@render registry()}
+              </AppShell.Body.Content>
+            </AppShell.Body>
+          {:else if registryOptions}
+            <RegistryBrowser
+              {...registryOptions}
+              bind:route={registryRoute}
+              showBreadcrumb={false}
+              onRouteChange={navigateRegistry}
+              onActiveEntryChange={(entry) => (registryBreadcrumbEntry = entry)}
+              onOpenMemberProfile={openProfile}
+              onMessageMember={messageMember}
+              onWaveMember={waveMember}
+            />
+          {:else}
+            <AppShell.Body layout="regions" label="Plugin registry">
+              <AppShell.Body.Content label="Registry content">
+                <section class="community-application__registry-empty">
+                  <PackageSearchIcon aria-hidden="true" />
+                  <h1>Plugin registry is not configured</h1>
+                  <p>
+                    Provide <code>registryOptions</code> with a catalog source,
+                    or use the legacy <code>registry</code> snippet override.
+                  </p>
+                </section>
+              </AppShell.Body.Content>
+            </AppShell.Body>
+          {/if}
+        {:else if activeDestination === "agents"}
+          <CommunityApplicationAgentsHost
+            agentsAvailable={Boolean(
+              community.state.agents && community.actions.agents,
+            )}
+            members={workspace.members}
+            memberResults={community.state.memberDirectory.results}
+            onSearchMembers={(query) =>
+              void community.actions.searchMembers(query)}
+            bind:adding={agentCreatorOpen}
+            model={community.state.agents}
+            onProfile={(pubkey) =>
+              openAgentProfile(pubkey, { kind: "overview" })}
+            onActivity={(pubkey) =>
+              openAgentActivity(pubkey, { kind: "overview" })}
+            {...ownedAgentDirectoryActions(community.actions.agents!)}
+            rooms={presentationRooms.map((room) => ({
+              id: room.id,
+              ...(room.groupId ? { groupId: room.groupId } : {}),
+              name: room.name,
+              isProjectChannel: room.isProjectChannel === true,
+              canManage: room.permissions?.manageMembers.state === "enabled",
+            }))}
+            onAddAgentToRoom={async (roomId, pubkey) => {
+              await community.actions.addMember(roomId, pubkey);
+              await community.actions.agents!.refresh();
+            }}
+            ownerPubkey={community.state.authentication.pubkey ?? ""}
+            onRefresh={() => community.actions.agents!.refresh()}
+            onClearHistory={() => community.actions.agents!.clearHistory()}
+            showPageHeader={false}
+            showBodyDescription
+          />
+        {:else if !hasCommunitySurface && !communityStartupPending}
+          <AppShell.Body layout="regions" label="Connect to community relay">
+            <AppShell.Body.Content label="Relay connection settings">
+              <section class="community-application__disconnected">
+                <Empty.Root>
+                  <Empty.Header>
+                    <Empty.Media variant="icon">
+                      <WifiOffIcon aria-hidden="true" />
+                    </Empty.Media>
+                    <Empty.Title>Connect to a community relay</Empty.Title>
+                    <Empty.Description>
+                      Enter the WebSocket URL for the relay that hosts this
+                      community.
+                    </Empty.Description>
+                  </Empty.Header>
+                  <Empty.Content>
+                    <form
+                      class="community-application__relay-form"
+                      onsubmit={connectToRelay}
+                    >
+                      <Field.Field
+                        data-invalid={inlineRelayMessage ? "" : undefined}
+                      >
+                        <Field.Label for="community-connect-relay-url">
+                          Relay URL
+                        </Field.Label>
+                        <Input
+                          id="community-connect-relay-url"
+                          type="url"
+                          bind:value={inlineRelayUrl}
+                          placeholder="wss://relay.example.com"
+                          aria-invalid={inlineRelayMessage ? true : undefined}
+                          required
+                        />
+                        {#if inlineRelayMessage}
+                          <Field.Error>{inlineRelayMessage}</Field.Error>
+                        {/if}
+                      </Field.Field>
+                      <Button
+                        type="submit"
+                        disabled={inlineRelayOperationPending ||
+                          inlineRelayUrl.trim() === ""}
+                      >
+                        {inlineRelayOperationPending
+                          ? "Connecting…"
+                          : "Connect to relay"}
+                      </Button>
+                    </form>
+                  </Empty.Content>
+                </Empty.Root>
+              </section>
+            </AppShell.Body.Content>
+          </AppShell.Body>
+        {:else if activeDestination === "settings"}
+          <CommunityApplicationSettings
+            model={community.state.settings}
+            section={settingsSection}
+            account={applicationAuthentication?.account?.()}
+            accountConfig={applicationAuthentication?.config?.()}
+            accountActions={applicationAuthentication?.accountActions?.()}
+            accountResumeAction={applicationAuthentication?.resumeAccountAction?.()}
+            accountAuthenticationState={applicationAuthentication?.status?.()}
+            accountActiveExternalSigner={applicationAuthentication?.activeExternalSigner?.()}
+            accountBusy={applicationAuthentication?.status?.() ===
+              "restoring" ||
+              applicationAuthentication?.status?.() === "redirecting"}
+            accountMessage={applicationAuthentication?.status?.() ===
+            "reconnect-required"
+              ? "Reconnect the Nostr signer before an action needs a signature."
+              : ""}
+            onCopyPublicKey={(pubkey) => copyText(pubkey, "Public key copied")}
+            onConnectGitHub={applicationAuthentication?.connectGitHub ===
+            undefined
+              ? undefined
+              : () => applicationAuthentication.connectGitHub?.()}
+            onSignOut={signOutCurrentIdentity}
+            {...community.state.operations["settings:profile"] === undefined
+              ? {}
+              : {
+                  profileOperation:
+                    community.state.operations["settings:profile"],
+                }}
+            {...emojiOperation === undefined ? {} : { emojiOperation }}
+            onUpdateProfile={(profile) =>
+              runAuthenticated(() => community.actions.updateProfile(profile))}
+            onAddCustomEmoji={(shortcode, url) =>
+              runAuthenticated(() =>
+                community.actions.setCustomEmoji(shortcode, url),
+              )}
+            onRemoveCustomEmoji={(shortcode) =>
+              runAuthenticated(() =>
+                community.actions.removeCustomEmoji(shortcode),
+              )}
+          />
+        {:else if activeDestination === "pulse" && community.state.pulse && community.actions.pulse}
+          <CommunityApplicationPulseHost
+            model={community.state.pulse}
+            currentMember={displayMember}
+            rooms={presentationRooms}
+            communityEmojis={community.state.settings.customEmojis}
+            {...pulsePublishOperation === undefined
+              ? {}
+              : { publishOperation: pulsePublishOperation }}
+            {...pulseComposerStatus === undefined
+              ? {}
+              : { composerStatus: pulseComposerStatus }}
+            onSelectTab={(tab) => {
+              const selectTab = () => community.actions.pulse!.selectTab(tab);
+              return tab === "following" || tab === "liked" || tab === "mine"
+                ? runAuthenticated(selectTab)
+                : selectTab();
+            }}
+            onPublish={(submission, replyToEventId) =>
+              runAuthenticated(() =>
+                community.actions.pulse!.publish(submission, replyToEventId),
+              )}
+            onToggleLike={(eventId) =>
+              runAuthenticated(() =>
+                community.actions.pulse!.toggleLike(eventId),
+              )}
+            onShare={copyPulseLink}
+            onOpenProfile={openProfile}
+            onMessageMember={(member) => messageMember(member)}
+            onRetry={() => {
+              if (pulsePublishOperationEntry)
+                return community.retry(pulsePublishOperationEntry[0]);
+              return community.actions.pulse!.refresh();
+            }}
+            {...pulsePublishOperationEntry === undefined
+              ? {}
+              : {
+                  onDismissError: () =>
+                    community.dismissOperation(pulsePublishOperationEntry[0]),
+                }}
+          />
+        {:else if activeDestination === "inbox"}
+          <CommunityApplicationInboxHost
+            model={inbox}
+            conversationLoading={!inboxReady}
+            {...inboxSurfaceOptions}
+            readBoundary={{
+              key: JSON.stringify([
+                workspace.currentMemberId,
+                inbox.activeItemId,
+                inbox.messages.at(-1)?.id,
+              ]),
+              onRead: () => {
+                const eventId = inbox.messages.findLast(
+                  (message) =>
+                    message.authorId !== workspace.currentMemberId &&
+                    !message.activity,
+                )?.id;
+                const selected =
+                  inbox.selectedItem ??
+                  inbox.items.find((item) => item.id === inbox.activeItemId);
+                if (eventId)
+                  void community.actions.markRead(inbox.room.id, {
+                    eventId,
+                    ...(selected?.rootEventId
+                      ? { threadId: selected.rootEventId }
+                      : {}),
+                  });
+              },
+            }}
+            loading={community.state.contentSync?.phase === "initial"}
+            rooms={presentationRooms}
+            disabled={participationReadOnly}
+            disabledReason={participationReadOnlyReason}
+            canDeleteAny={inbox.room.permissions?.delete.state === "enabled"}
+            historyUpdating={community.state.contentSync?.phase ===
+              "background" ||
+              community.state.contentSync?.phase === "partial-error"}
+            onSelect={(id) => void community.actions.selectInboxItem?.(id)}
+            onFilterChange={(filter, unreadOnly) =>
+              community.actions.setInboxFilter?.(filter, unreadOnly)}
+            onSend={(content) =>
+              community.actions.sendInboxMessage
+                ? community.actions.sendInboxMessage(content)
+                : sendThreadReply(inbox.activeItemId, content)}
+            onMarkAllRead={() => void community.actions.markAllRead()}
+            onOpenChannelSettings={() => {
+              openPanel({ kind: "details", roomId: inbox.room.id });
+              lastAction = "opened-details";
+            }}
+            onOpenChannel={() => setDestination(inbox.room.id, true)}
+            onViewParticipants={() => {
+              memberCommandMode = "view";
+              memberCommandOpen = true;
+            }}
+            onReply={(messageId) => community.actions.setReplyTarget(messageId)}
+            onToggleReaction={react}
+            onOpenProfile={openProfile}
+            onOpenRoom={(roomId) => setDestination(roomId, true)}
+            onMessageMember={messageMember}
+            onCopyMessage={copyMessage}
+            onCopyEvent={copyEvent}
+            onDeleteMessage={deleteMessage}
+            communityEmojis={community.state.settings.customEmojis}
+            onCancelReply={() => community.actions.clearReplyTarget()}
+          />
+        {:else if activeDestination === "new-direct-message"}
+          <CommunityApplicationDirectMessageHost
+            recipients={selectedRecipients}
+            buzzSupported={community.state.capabilities.buzzDirectMessages ??
+              false}
+            communityEmojis={community.state.settings.customEmojis}
+            onChooseRecipients={() => {
+              memberCommandTask = undefined;
+              memberCommandMode = "select";
+              memberCommandOpen = true;
+            }}
+            onRemoveRecipient={(member) =>
+              (selectedRecipientIds = selectedRecipientIds.filter(
+                (id) => id !== member.id,
+              ))}
+            onSend={sendNewDirectMessage}
+          />
+        {:else}
+          <AppShell.Toolbar
+            label={`${activeRoom.name} toolbar`}
+            class="community-application__room-toolbar"
+          >
+            <div class="community-application__toolbar-start">
+              {#if shell.mobile.resolvedMode === "mobile"}
+                {@render mobileNavigationControls()}
+              {:else if navigationCompact}
+                <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
+              {/if}
+              <div class="community-application__room-title">
+                {#if activeRoom.kind === "direct" && activeDirectMember}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="community-application__room-title-button"
+                    aria-label={`View ${activeDirectMember.name}'s profile`}
+                    onclick={() => openProfile(activeDirectMember)}
+                  >
+                    <CommunityMemberAvatar
+                      member={activeDirectMember}
+                      showPresence
+                      decorative
+                    />
+                    <strong data-ui-part="room-title">{activeRoom.name}</strong>
+                  </Button>
+                {:else}
+                  <strong data-ui-part="room-title">
+                    {#if activeRoom.private}
+                      <LockIcon data-icon="inline-start" aria-hidden="true" />
+                    {:else if activeRoom.kind === "channel"}
+                      {#if projectChannelRoomIds.has(activeRoom.id)}
+                        <CommunityProjectChannelIcon data-icon="inline-start" />
+                      {:else}
+                        <HashIcon data-icon="inline-start" aria-hidden="true" />
+                      {/if}
+                    {:else if activeRoom.kind === "forum"}
+                      <MessagesSquareIcon
+                        data-icon="inline-start"
+                        data-ui-part="room-kind-icon"
+                        aria-hidden="true"
+                      />
+                    {:else}
+                      <span aria-hidden="true">●</span>
+                    {/if}
+                    {activeRoom.name}
+                  </strong>
+                {/if}
+              </div>
+            </div>
+            <div class="community-application__toolbar-actions">
+              {#if extensions.terminal}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Open terminal"
+                  title="Open terminal"
+                  onclick={() => extensions.terminal?.()}
+                >
+                  <SquareTerminalIcon aria-hidden="true" />
+                </Button>
+              {/if}
+              {#if activeRoomJoinVisible}
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={activeParticipationOperation?.status ===
+                    "pending" ||
+                    activeParticipationOperation?.status === "accepted"}
+                  onclick={() => requestRoomJoin(activeRoom)}
+                >
+                  <LogInIcon data-icon="inline-start" aria-hidden="true" />
+                  {activeParticipationOperation?.status === "accepted"
+                    ? "Join requested"
+                    : activeParticipationOperation?.status === "pending"
+                      ? "Joining…"
+                      : "Join"}
+                </Button>
+              {/if}
+              {#if activeRoom.memberCount}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label={`View ${activeRoom.kind === "forum" ? "forum" : activeRoom.kind === "direct" ? "conversation" : "channel"} members (${activeRoom.memberCount})`}
+                  onclick={() => {
+                    memberCommandMode =
+                      activeRoom.kind !== "direct" &&
+                      activeRoom.permissions?.manageMembers.state === "enabled"
+                        ? "manage"
+                        : "view";
+                    memberCommandOpen = true;
+                  }}
+                >
+                  <UsersIcon data-icon="inline-start" aria-hidden="true" />
+                  {activeRoom.memberCount}
+                </Button>
+              {/if}
+              {#if extensions.huddle}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Start huddle"
+                  title="Start huddle"
+                  onclick={() => extensions.huddle?.(activeRoom.id)}
+                >
+                  <HeadphonesIcon aria-hidden="true" />
+                </Button>
+              {/if}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Manage ${activeRoom.kind === "forum" ? "forum" : activeRoom.kind === "direct" ? "conversation" : "channel"}`}
+                title={`Manage ${activeRoom.kind === "forum" ? "forum" : activeRoom.kind === "direct" ? "conversation" : "channel"}`}
                 onclick={() => {
-                  if (selectedRepository)
-                    openRepositorySurface(tab.value as ProjectForgeSurface);
-                  else if (selectedProject)
-                    openProjectSurface(tab.value as ProjectForgeSurface);
-                  else
-                    openProjectsOverviewSurface(
-                      tab.value as ProjectForgeOverviewSurface,
-                    );
+                  openPanel({ kind: "details", roomId: activeRoom.id });
+                  lastAction = "opened-details";
                 }}
               >
-                {tab.label}
-              </Tabs.Trigger>
-            {/each}
-          </Tabs.List>
-        </Tabs.Root>
-      </AppShell.Toolbar>
-    {/if}
+                <EllipsisIcon aria-hidden="true" />
+              </Button>
+              {#if shell.mobile.resolvedMode === "mobile"}
+                {@render mobileRightSidebarToggle()}
+              {/if}
+            </div>
+          </AppShell.Toolbar>
 
-    {#if isProjectsDestination && unavailableProjectRoute}
-      <section class="community-application__project-route-unavailable">
-        <Empty.Root role="status">
-          <Empty.Header>
-            <Empty.Media variant="icon">
-              <FolderKanbanIcon aria-hidden="true" />
-            </Empty.Media>
-            <Empty.Title>
-              {unavailableProjectRoute.kind === "project"
-                ? "Project is unavailable"
-                : "Repository is unavailable"}
-            </Empty.Title>
-            <Empty.Description>
-              The requested {unavailableProjectRoute.kind} was not found after the
-              project catalog finished loading. Its address remains in the URL so
-              the link can be retried.
-            </Empty.Description>
-          </Empty.Header>
-          <Empty.Content>
-            <Button
-              type="button"
-              variant="outline"
-              onclick={() => setDestination("projects", true)}
+          <AppShell.Body layout="regions" label="Community workspace">
+            <AppShell.Body.Content
+              class="community-application__workspace-content"
+              label={`${activeRoom.name} content`}
             >
-              Browse projects
-            </Button>
-          </Empty.Content>
-        </Empty.Root>
-      </section>
-    {:else if isProjectsDestination}
+              <div class="community-application__workspace-stack">
+                <div class="community-application__workspace-layer">
+                  <CommunityWorkspaceSurface
+                    {...workspaceSurfaceOptions}
+                    model={workspaceSurfaceModel}
+                    historyLoading={activeRoomHistoryLoading}
+                    historyUpdating={community.state.contentSync?.phase ===
+                      "background" ||
+                      community.state.contentSync?.phase === "partial-error"}
+                    messageSupplement={releaseMessageSupplement}
+                    readOnly={participationReadOnly}
+                    readOnlyReason={participationReadOnlyReason}
+                    showJoinAction={activeRoomJoinVisible}
+                    communityEmojis={community.state.settings.customEmojis}
+                    handlers={{
+                      ...community.handlers,
+                      onReadRoom: (roomId, through) => {
+                        void community.actions
+                          .markRead(roomId, through)
+                          .catch((error) =>
+                            toast.error(
+                              error instanceof Error
+                                ? error.message
+                                : "Could not save read status",
+                            ),
+                          );
+                      },
+                      onSelectRoom: (roomId) => {
+                        if (
+                          roomId === activeRoom.id &&
+                          workspace.view === "forum-thread"
+                        ) {
+                          community.actions.selectRoom(roomId);
+                          lastAction = `selected:${roomId}`;
+                        } else setDestination(roomId, true);
+                      },
+                      onSendMessage: sendWorkspaceMessage,
+                      onOpenTopic: (topicId) => {
+                        community.actions.openTopic(topicId);
+                        if (activePanel.kind !== "none") closeSidePanel();
+                        lastAction = `opened-topic:${topicId}`;
+                      },
+                      onReply: (messageId) => {
+                        if (
+                          activeRoom.kind === "direct" ||
+                          activeRoom.kind === "forum"
+                        )
+                          community.actions.setReplyTarget(messageId);
+                        else
+                          openPanel({
+                            kind: "thread",
+                            roomId: activeRoom.id,
+                            rootMessageId: rootCommunityMessageId(
+                              workspace.messages,
+                              messageId,
+                            ),
+                            replyTargetId: messageId,
+                          });
+                        lastAction = `replying-to:${messageId}`;
+                      },
+                      onOpenThread: (messageId) => {
+                        openPanel({
+                          kind: "thread",
+                          roomId: activeRoom.id,
+                          rootMessageId: messageId,
+                        });
+                        lastAction = `opened-thread:${messageId}`;
+                      },
+                      onToggleReaction: react,
+                      onAddReaction: react,
+                      onOpenProfile: openProfile,
+                      onMessageMember: messageMember,
+                      onWaveMember: waveMember,
+                      ...(extensions.activityLog === undefined
+                        ? {}
+                        : { onViewMemberActivity: viewMemberActivity }),
+                      ...(activeRoom.kind === "direct"
+                        ? {}
+                        : { onCopyMessageLink: copyMessageLink }),
+                      onCopyMessage: copyMessage,
+                      onCopyEvent: copyEvent,
+                      ...(extensions.editMessage === undefined
+                        ? community.actions.editEvent === undefined
+                          ? {}
+                          : { onSaveMessageEdit: editMessage }
+                        : { onEditMessage: extensions.editMessage }),
+                      onDeleteMessage: deleteMessage,
+                      ...(community.actions.reportEvent === undefined
+                        ? {}
+                        : { onReportMessage: reportMessage }),
+                      onBrowseRooms: openRoomBrowser,
+                      ...(activeRoomJoinVisible
+                        ? {
+                            onJoinRoom: (roomId: string) =>
+                              requestRoomJoin({ ...activeRoom, id: roomId }),
+                          }
+                        : {}),
+                      ...(authenticated &&
+                      community.state.capabilities.manageGroup
+                        ? {
+                            onCreateRoom: (kind: "channel" | "forum") =>
+                              openRoomEditor(kind, "create"),
+                          }
+                        : {}),
+                      ...(!authenticated || extensions.agents === undefined
+                        ? {}
+                        : { onCreateAgent: extensions.agents }),
+                      onCreateTopic: (_roomId, draft) =>
+                        runParticipationAction(activeRoom.id, "post", () =>
+                          community.actions.createTopic(activeRoom.id, draft),
+                        ),
+                      onTopicAction: handleTopicAction,
+                      onClearReplyTarget: () =>
+                        community.actions.clearReplyTarget(),
+                    }}
+                  />
+                </div>
+              </div>
+            </AppShell.Body.Content>
+          </AppShell.Body>
+        {/if}
+      </AppShell.Main>
+
+      <AppShell.Sidebar
+        side="right"
+        class="community-application__standard-right-sidebar"
+        constraintPriority={0}
+        constrainedPresentation="replace-main"
+        label={`${sidePanelTitle} sidebar`}
+        mobileLabel={sidePanelTitle}
+        resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
+        closeable
+        hidden={activePanel.kind === "none"}
+      >
+        {#key communityApplicationPanelKey(activePanel)}
+          {#if activePanel.kind !== "none"}
+            {#if activePanel.kind === "profile"}
+              <AppShell.Sidebar.Header>
+                <strong>Profile</strong>
+                <AppShell.Sidebar.Close onclick={closeSidePanel} />
+              </AppShell.Sidebar.Header>
+              <AppShell.Sidebar.Body>
+                {#if selectedAgent && community.actions.agents}
+                  <CommunityAgentProfile
+                    members={workspace.members}
+                    memberResults={community.state.memberDirectory.results}
+                    onSearchMembers={(query) =>
+                      void community.actions.searchMembers(query)}
+                    agent={selectedAgent}
+                    personas={community.state.agents?.personas ?? []}
+                    ownerName={memberById(
+                      workspace.members,
+                      selectedAgent.ownerPubkey,
+                    ).name}
+                    onOpenOwner={(pubkey) =>
+                      openProfile(memberById(workspace.members, pubkey))}
+                    rooms={presentationRooms}
+                    {...community.state.agents?.presence[selectedAgent.pubkey]
+                      ? {
+                          presence:
+                            community.state.agents.presence[
+                              selectedAgent.pubkey
+                            ],
+                        }
+                      : {}}
+                    working={community.state.agents?.working[
+                      selectedAgent.pubkey
+                    ] === true}
+                    canMessage={community.state.capabilities.directMessages}
+                    connected={community.state.status === "connected"}
+                    onMessage={() =>
+                      messageMember(communityAgentMember(selectedAgent))}
+                    onFollow={(following) =>
+                      community.actions.agents!.setFollow(
+                        selectedAgent.pubkey,
+                        following,
+                      )}
+                    onActivity={() => openAgentActivity(selectedAgent.pubkey)}
+                    onCopy={() =>
+                      copyText(selectedAgent.pubkey, "Public key copied")}
+                    onOpenChannel={(id) => setDestination(id, true)}
+                    onAddChannel={async (id) => {
+                      await community.actions.addMember(
+                        id,
+                        selectedAgent.pubkey,
+                      );
+                      await community.actions.agents!.refresh();
+                    }}
+                    onRemoveChannel={async (id) => {
+                      await community.actions.removeMember(
+                        id,
+                        selectedAgent.pubkey,
+                      );
+                      await community.actions.agents!.refresh();
+                    }}
+                    onSaveAgent={(input) =>
+                      community.actions.agents!.saveAgent(input)}
+                    onUnlinkPersona={(fallbackName) =>
+                      community.actions.agents!.unlinkAgent(
+                        selectedAgent.pubkey,
+                        fallbackName,
+                      )}
+                    onDeletePersona={(slug) =>
+                      community.actions.agents!.deletePersona(slug)}
+                    runtime={community.state.agents?.runtime?.[
+                      selectedAgent.pubkey
+                    ]}
+                    memories={community.state.agents?.memories?.[
+                      selectedAgent.pubkey
+                    ]}
+                    processing={community.state.agents?.processing?.[
+                      selectedAgent.pubkey
+                    ]}
+                    onLoadProcessing={community.actions.agents?.loadProcessing
+                      ? () =>
+                          community.actions.agents!.loadProcessing!(
+                            selectedAgent.pubkey,
+                          )
+                      : undefined}
+                    onSetProcessing={community.actions.agents?.setProcessing
+                      ? (enabled, revision) =>
+                          community.actions.agents!.setProcessing!(
+                            selectedAgent.pubkey,
+                            enabled,
+                            revision,
+                          )
+                      : undefined}
+                    onLoadRuntime={() =>
+                      community.actions.agents!.loadRuntime(
+                        selectedAgent.pubkey,
+                      )}
+                    onSaveRuntime={(defaults) =>
+                      community.actions.agents!.saveRuntime(
+                        selectedAgent.pubkey,
+                        defaults,
+                      )}
+                    onLoadMemories={(filter) =>
+                      community.actions.agents!.loadMemories(
+                        selectedAgent.pubkey,
+                        filter.channelId,
+                        filter,
+                      )}
+                    onActOnMemory={(input) =>
+                      community.actions.agents!.actOnMemory(
+                        selectedAgent.pubkey,
+                        input,
+                      )}
+                  />
+                {:else if selectedProfile}
+                  <CommunityMemberProfile
+                    member={selectedProfile}
+                    onCopyPublicKey={() =>
+                      copyText(selectedProfile.id, "Public key copied")}
+                    onMessage={() => messageMember(selectedProfile)}
+                    onWave={() => waveMember(selectedProfile)}
+                    {...extensions.follow === undefined
+                      ? {}
+                      : {
+                          onFollow: () =>
+                            runMemberExtension("follow", selectedProfile),
+                        }}
+                  />
+                {:else}
+                  <div
+                    class="community-application__panel-status"
+                    role="status"
+                  >
+                    Profile unavailable
+                  </div>
+                {/if}
+              </AppShell.Sidebar.Body>
+            {:else if activePanel.kind === "agent-activity"}
+              <AppShell.Sidebar.Header>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onclick={() => {
+                    if (canNavigateBack) navigateHistory(-1);
+                    else if (activePanel.kind === "agent-activity")
+                      openAgentProfile(activePanel.agentPubkey);
+                  }}><ArrowLeftIcon aria-hidden="true" />Back to profile</Button
+                >
+                <AppShell.Sidebar.Close onclick={closeSidePanel} />
+              </AppShell.Sidebar.Header>
+              <AppShell.Sidebar.Body scrollable={false}>
+                {#if community.state.agents && community.actions.agents}
+                  <CommunityAgentActivity
+                    model={community.state.agents}
+                    rooms={presentationRooms}
+                    members={workspace.members}
+                    onOpenRequest={agentContextNavigation.openActivityRequest}
+                    onLatest={() => {
+                      if (activePanel.kind === "agent-activity")
+                        return community.actions.agents!.openActivity(
+                          activePanel.agentPubkey,
+                          activePanel.activityContext ?? activePanel.channelId,
+                        );
+                    }}
+                    onLoadOlder={() =>
+                      community.actions.agents!.loadOlderActivity()}
+                    onClearHistory={async () => {
+                      if (activePanel.kind === "agent-activity")
+                        await community.actions.agents!.clearHistory(
+                          activePanel.agentPubkey,
+                        );
+                    }}
+                    {...agentRuntimeActions(community.actions.agents!)}
+                  />
+                {/if}
+              </AppShell.Sidebar.Body>
+            {:else if activePanel.kind === "thread"}
+              <AppShell.Sidebar.Header>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  data-ui-part="sidebar-toggle"
+                  data-side="right"
+                  data-state="expanded"
+                  aria-label="Close thread sidebar"
+                  title="Close thread sidebar"
+                  onclick={closeSidePanel}
+                >
+                  <svg
+                    data-ui-part="sidebar-toggle-icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="1" y="2" width="22" height="20" rx="4"></rect>
+                    <g transform="translate(24 0) scale(-1 1)">
+                      <rect
+                        x="4"
+                        y="5"
+                        width="6"
+                        height="14"
+                        rx="2"
+                        fill="currentColor"
+                        data-ui-part="sidebar-toggle-indicator"
+                      ></rect>
+                    </g>
+                  </svg>
+                </Button>
+                <strong>{sidePanelTitle}</strong>
+                <AppShell.Sidebar.Close onclick={closeSidePanel} />
+              </AppShell.Sidebar.Header>
+              <AppShell.Sidebar.Body scrollable={false}>
+                {#if visibleThread}
+                  <CommunityThreadPanel
+                    virtualize
+                    thread={visibleThread}
+                    {...community.state.threadHistory
+                      ? { history: community.state.threadHistory }
+                      : {}}
+                    {...community.state.threadPresentation
+                      ? { presentation: community.state.threadPresentation }
+                      : {}}
+                    {...community.actions.updateTimelinePresentation
+                      ? {
+                          onPresentationChange:
+                            community.actions.updateTimelinePresentation,
+                        }
+                      : {}}
+                    {...community.actions.loadOlderHistory
+                      ? {
+                          onLoadOlder: () =>
+                            community.actions.loadOlderHistory!({
+                              roomId: activeRoom.id,
+                              rootEventId: visibleThread!.rootMessageId,
+                            }),
+                        }
+                      : {}}
+                    {...community.actions.loadNewerHistory
+                      ? {
+                          onLoadLatest: () =>
+                            community.actions.loadNewerHistory!({
+                              roomId: activeRoom.id,
+                              rootEventId: visibleThread!.rootMessageId,
+                            }),
+                        }
+                      : {}}
+                    readBoundary={{
+                      key: JSON.stringify([
+                        workspace.currentMemberId,
+                        activeRoom.id,
+                        visibleThread.rootMessageId,
+                        visibleThread.messages.at(-1)?.id,
+                      ]),
+                      onRead: () => {
+                        const eventId = visibleThread?.messages.findLast(
+                          (message) =>
+                            message.authorId !== workspace.currentMemberId,
+                        )?.sourceEvent?.id;
+                        if (eventId && visibleThread)
+                          void community.actions.markRead(activeRoom.id, {
+                            eventId,
+                            threadId: visibleThread.rootMessageId,
+                          });
+                      },
+                    }}
+                    activityContext={activityOrigin()}
+                    members={presentationWorkspace.members}
+                    agents={composerAgents}
+                    rooms={presentationRooms}
+                    disabled={participationReadOnly}
+                    disabledReason={participationReadOnlyReason}
+                    {...participationComposerStatus === undefined
+                      ? {}
+                      : { composerStatus: participationComposerStatus }}
+                    {...activeParticipationOperation?.status === "failed" &&
+                    activeParticipationOperation.failure?.retryable &&
+                    activeParticipationOperationEntry !== undefined
+                      ? {
+                          onRetryComposerStatus: () =>
+                            community.retry(
+                              activeParticipationOperationEntry[0],
+                            ),
+                        }
+                      : {}}
+                    {...activeParticipationOperationEntry === undefined
+                      ? {}
+                      : {
+                          onDismissComposerStatus: () =>
+                            community.dismissOperation(
+                              activeParticipationOperationEntry[0],
+                            ),
+                        }}
+                    {...workspace.currentMemberId === undefined
+                      ? {}
+                      : { currentMemberId: workspace.currentMemberId }}
+                    canDeleteAny={activeRoom.permissions?.delete.state ===
+                      "enabled"}
+                    onSendReply={sendThreadReply}
+                    onReply={(messageId) =>
+                      openPanel({ ...activePanel, replyTargetId: messageId })}
+                    onOpenProfile={openProfile}
+                    onOpenRoom={(roomId) => setDestination(roomId, true)}
+                    onMessageMember={messageMember}
+                    onWaveMember={waveMember}
+                    {...extensions.activityLog === undefined
+                      ? {}
+                      : { onViewMemberActivity: viewMemberActivity }}
+                    {...threadReplyTarget === undefined
+                      ? {}
+                      : { replyTarget: threadReplyTarget }}
+                    communityEmojis={community.state.settings.customEmojis}
+                    onCancelReply={() =>
+                      openPanel({
+                        kind: "thread",
+                        roomId: activePanel.roomId,
+                        rootMessageId: activePanel.rootMessageId,
+                      })}
+                    {...participationReadOnly
+                      ? {}
+                      : { onToggleReaction: react, onAddReaction: react }}
+                    onCopyMessageLink={copyMessageLink}
+                    onCopyMessage={copyMessage}
+                    onCopyEvent={copyEvent}
+                    {...extensions.editMessage === undefined
+                      ? community.actions.editEvent === undefined
+                        ? {}
+                        : { onSaveMessageEdit: editMessage }
+                      : { onEditMessage: extensions.editMessage }}
+                    onDeleteMessage={deleteMessage}
+                    {...community.actions.reportEvent === undefined
+                      ? {}
+                      : { onReportMessage: reportMessage }}
+                  />
+                {:else}
+                  <CommunitySkeleton
+                    layout="messages"
+                    label="Loading thread"
+                    padded
+                  />
+                {/if}
+              </AppShell.Sidebar.Body>
+            {:else if detailsRoom?.kind === "channel" || detailsRoom?.kind === "forum"}
+              {#key `${workspace.activeCommunityId}:${workspace.currentMemberId}:${detailsRoom.id}`}
+                <CommunityChannelSettings
+                  room={detailsRoom}
+                  members={workspace.members}
+                  {...detailsCanvas && detailsRoom
+                    ? {
+                        canvas: detailsCanvas,
+                        initialCanvasContent: detailsCanvasInitialContent ?? "",
+                        onLoadCanvas: () =>
+                          community.actions.loadCanvas!(detailsRoom.id),
+                        onSaveCanvas: async (
+                          content: string,
+                          expectedEventId: string | null,
+                        ) => {
+                          await community.actions.saveCanvas!(
+                            detailsRoom.id,
+                            content,
+                            expectedEventId,
+                          );
+                          void communityQueryClient.invalidateQueries({
+                            queryKey: communityProjectQueryKeys.channelCanvas(
+                              communityQueryScope,
+                              detailsRoom.id,
+                            ),
+                          });
+                        },
+                      }
+                    : {}}
+                  description={activeDestination === "inbox"
+                    ? (inbox.room.description ?? "Community channel")
+                    : (workspace.details?.description ??
+                      detailsRoom.description ??
+                      "Community channel")}
+                  canArchive={extensions.archive !== undefined}
+                  writerPolicySupported={community.state.capabilities
+                    .writeRestrictedRooms === true}
+                  groupInvitesSupported={community.state.capabilities
+                    .groupInvites === true &&
+                    community.actions.createGroupInvite !== undefined}
+                  onClose={closeSidePanel}
+                  onAction={(action) => {
+                    lastAction = `channel-settings:${action}`;
+                    if (
+                      action === "edit-type" ||
+                      action === "edit-visibility" ||
+                      action === "edit-posting"
+                    )
+                      openRoomEditor(
+                        detailsRoom.kind === "forum" ? "forum" : "channel",
+                        "edit",
+                      );
+                    if (action === "members") {
+                      memberCommandMode =
+                        detailsRoom.permissions?.manageMembers.state ===
+                        "enabled"
+                          ? "manage"
+                          : "view";
+                      memberCommandOpen = true;
+                    }
+                    if (action === "copy-channel-id")
+                      void copyText(
+                        detailsRoom.id,
+                        `${detailsRoom.kind === "forum" ? "Forum" : "Channel"} ID copied`,
+                      );
+                    if (action === "create-invite") {
+                      groupInviteMode = "create";
+                      groupInviteOpen = true;
+                    }
+                    if (action === "leave-channel") confirmation = "leave";
+                    if (action === "delete-channel") confirmation = "delete";
+                    if (action === "archive-channel")
+                      void extensions.archive?.(detailsRoom.id);
+                  }}
+                />
+              {/key}
+            {:else}
+              <AppShell.Sidebar.Header>
+                <strong>{sidePanelTitle}</strong>
+                <AppShell.Sidebar.Close onclick={closeSidePanel} />
+              </AppShell.Sidebar.Header>
+              <AppShell.Sidebar.Body>
+                {#if detailsRoom && workspace.details}
+                  <CommunityDetails
+                    onOpenProfile={openProfile}
+                    onMessageMember={messageMember}
+                    onWaveMember={waveMember}
+                    room={detailsRoom}
+                    details={workspace.details}
+                    members={workspace.members}
+                  />
+                {:else}
+                  <CommunitySkeleton layout="details" label="Loading details" />
+                {/if}
+              </AppShell.Sidebar.Body>
+            {/if}
+          {/if}
+        {/key}
+      </AppShell.Sidebar>
+      {#if isPluginReleaseRoom}
+        {#if !activeChannelProject}
+          {@render releaseOverviewRail()}
+        {/if}
+        {@render releaseSheet()}
+      {/if}
+      {#if isProjectsDestination || (activeChannelProject && usesRoomToolbar)}
+        {@render projectOverviewRail()}
+        {@render projectSheet()}
+      {/if}
+    </CommunityAppShell>
+
+    {#if !isProjectsDestination && activeChannelProject && usesRoomToolbar}
       <CommunityProjects
-        view={selectedRepository
-          ? projectViewForSurface(activeRepositorySurface)
-          : selectedProject
-            ? activeProjectSurface
-            : projectsOverviewSurface}
-        projects={selectedRepositoryProject
-          ? [selectedRepositoryProject]
-          : selectedProject
-            ? projectCatalog.projects
-            : listedProjects}
-        {...selectedProject === undefined ? {} : { selectedProject }}
-        {...communityProjectsSelectedRepository === undefined
-          ? {}
-          : { selectedRepository: communityProjectsSelectedRepository }}
-        repositories={selectedRepository
-          ? [selectedRepository]
-          : selectedProject
-            ? selectedProjectRepositories
-            : projectCatalog.repositories}
+        view="overview"
+        projects={[activeChannelProject]}
+        selectedProject={activeChannelProject}
+        repositories={activeChannelProjectRepositories}
         repositoryOptions={projectCatalog.repositories}
         repositoryCapabilities={projectRepositoryCapabilities}
-        activity={projectActivity}
-        workItemEvents={projectWorkItems.events}
-        tasks={selectedRepository
-          ? selectedRepositoryTasks
-          : projectWorkItems.tasks}
-        {taskListFilter}
-        {...selectedTask === undefined ? {} : { selectedTask }}
-        pullRequests={selectedRepository
-          ? selectedRepositoryPullRequests
-          : projectWorkItems.pullRequests}
-        {reviewListFilter}
-        {...selectedPullRequest === undefined ? {} : { selectedPullRequest }}
-        commits={projectCommits}
-        commitActivity={projectCommitActivity}
-        commitBranch={projectCommitBranch}
-        repositoryBranches={projectRepositoryBranches}
-        selectedRepositoryBranch={projectVisibleRepositoryBranch}
-        {...selectedProjectCommit === undefined
-          ? {}
-          : { selectedCommit: selectedProjectCommit }}
-        {...projectCommitDetail === undefined
-          ? {}
-          : { selectedCommitDetail: projectCommitDetail }}
-        sourceError={projectSourceError}
-        {...projectTree === undefined ? {} : { tree: projectTree }}
-        {...projectOwners === undefined ? {} : { owners: projectOwners }}
-        selectedPath={selectedProjectPath}
-        {...projectBlob === undefined ? {} : { blob: projectBlob }}
-        {...projectPullRequestDiff === undefined
-          ? {}
-          : { pullRequestDiff: projectPullRequestDiff }}
-        pullRequestDiffError={projectPullRequestDiffError}
         members={communityIdentityMembersFromState(
           workspace.members,
           community.state.agents,
@@ -7462,1376 +8531,306 @@
         {...workspace.currentMemberId === undefined
           ? {}
           : { currentMemberId: workspace.currentMemberId }}
-        reviewPreferenceStore={defaultProjectReviewPreferenceStore}
-        {...projectReviewPreferenceScope === undefined
-          ? {}
-          : { reviewPreferenceScope: projectReviewPreferenceScope }}
-        loading={projectLoading || communityStartupPending}
-        {...cachedProjectCatalogAt === undefined
-          ? {}
-          : { cachedCatalogAt: cachedProjectCatalogAt }}
-        error={projectError}
         operation={projectOperation}
         canCollaborate={authenticated}
-        {canManageForge}
         {...projectDialogRequest === undefined
           ? {}
           : { dialogRequest: projectDialogRequest }}
         showNavigation={false}
-        showReviewHeader={false}
-        onSelectView={(surface) => {
-          if (selectedRepository)
-            openRepositorySurface(surface as ProjectForgeSurface);
-          else if (selectedProject)
-            openProjectSurface(surface as ProjectForgeSurface);
-          else
-            openProjectsOverviewSurface(surface as ProjectForgeOverviewSurface);
-        }}
-        onBack={() => {
-          if (canNavigateBack) navigateHistory(-1);
-          else if (selectedRepository) closeRepository();
-          else setDestination("projects", true);
-        }}
-        onSelectProject={selectProject}
-        onSelectRepository={selectRepository}
-        onSelectFilesRepository={selectProjectFilesRepository}
-        onSelectChannel={selectProjectChannelDestination}
-        onOpenProfile={openProfile}
-        onMessageMember={messageMember}
-        onWaveMember={waveMember}
-        onCreateProject={createProject}
-        onUpdateProject={updateProject}
+        showContent={false}
         onCreateRepository={createRepository}
+        onUpdateProject={updateProject}
         onAttachRepository={attachRepository}
-        onLoadGitHubConnections={loadGitHubConnections}
-        onCreateGitHubConnection={createGitHubConnection}
-        onUpdateGitHubConnection={updateGitHubConnection}
-        onRevalidateGitHubConnection={revalidateGitHubConnection}
-        onLoadGitHubRepositories={loadGitHubRepositories}
-        onAttachGitHubRepository={attachGitHubRepository}
-        onCreateTask={createTask}
-        onSelectTask={selectProjectTask}
-        onCloseTask={() => (selectedTaskId = "")}
-        onUpdateTaskAssignment={updateTaskAssignment}
-        onManageTaskAssignments={openTaskAssignmentCommand}
-        onAddTaskComment={publishTaskComment}
-        onUpdateTaskLifecycle={updateTaskLifecycle}
-        onCreatePullRequest={createPullRequest}
-        onLoadRepositoryRefs={loadReviewRepositoryRefs}
-        onSelectRepositoryBranch={selectRepositoryBranch}
-        onLoadRepositoryPathCommit={loadRepositoryPathCommit}
-        onLoadRepositoryCommit={loadRepositoryCommit}
-        onSelectPullRequest={(pullRequest) => {
-          selectedPullRequestId = pullRequest.root.id;
-          projectPullRequestDiff = undefined;
-        }}
-        onClosePullRequest={closeProjectPullRequest}
-        onSubmitPullRequestReview={publishPullRequestReview}
-        onRequestPullRequestReview={requestPullRequestReview}
-        onMergePullRequest={mergePullRequest}
-        onOpenPeople={openRepositoryPeople}
-        onSaveProtection={saveRepositoryProtection}
-        onUpdatePullRequestLifecycle={updatePullRequestLifecycle}
-        onAddPullRequestComment={publishPullRequestComment}
-        onAddInlineComment={publishInlineComment}
-        onTogglePullRequestCommentReaction={togglePullRequestCommentReaction}
-        onSelectCommit={selectProjectCommit}
-        onCloseCommit={closeProjectCommit}
-        onSelectPath={selectRepositoryPath}
-        onRetry={repairProjectMembership}
       />
-    {:else if isRegistryDestination}
-      {#if registry}
-        <AppShell.Body layout="regions" label="Plugin registry">
-          <AppShell.Body.Content label="Registry content">
-            {@render registry()}
-          </AppShell.Body.Content>
-        </AppShell.Body>
-      {:else if registryOptions}
-        <RegistryBrowser
-          {...registryOptions}
-          bind:route={registryRoute}
-          showBreadcrumb={false}
-          onRouteChange={navigateRegistry}
-          onActiveEntryChange={(entry) => (registryBreadcrumbEntry = entry)}
-          onOpenMemberProfile={openProfile}
-          onMessageMember={messageMember}
-          onWaveMember={waveMember}
-        />
-      {:else}
-        <AppShell.Body layout="regions" label="Plugin registry">
-          <AppShell.Body.Content label="Registry content">
-            <section class="community-application__registry-empty">
-              <PackageSearchIcon aria-hidden="true" />
-              <h1>Plugin registry is not configured</h1>
-              <p>
-                Provide <code>registryOptions</code> with a catalog source, or
-                use the legacy <code>registry</code> snippet override.
-              </p>
-            </section>
-          </AppShell.Body.Content>
-        </AppShell.Body>
-      {/if}
-    {:else if activeDestination === "agents"}
-      <CommunityApplicationAgentsHost
-        agentsAvailable={Boolean(
-          community.state.agents && community.actions.agents,
-        )}
-        members={workspace.members}
-        memberResults={community.state.memberDirectory.results}
-        onSearchMembers={(query) => void community.actions.searchMembers(query)}
-        bind:adding={agentCreatorOpen}
-        model={community.state.agents}
-        onProfile={(pubkey) => openAgentProfile(pubkey, { kind: "overview" })}
-        onActivity={(pubkey) => openAgentActivity(pubkey, { kind: "overview" })}
-        {...ownedAgentDirectoryActions(community.actions.agents!)}
-        rooms={presentationRooms.map((room) => ({
-          id: room.id,
-          ...(room.groupId ? { groupId: room.groupId } : {}),
-          name: room.name,
-          isProjectChannel: room.isProjectChannel === true,
-          canManage: room.permissions?.manageMembers.state === "enabled",
-        }))}
-        onAddAgentToRoom={async (roomId, pubkey) => {
-          await community.actions.addMember(roomId, pubkey);
-          await community.actions.agents!.refresh();
-        }}
-        ownerPubkey={community.state.authentication.pubkey ?? ""}
-        onRefresh={() => community.actions.agents!.refresh()}
-        onClearHistory={() => community.actions.agents!.clearHistory()}
-        showPageHeader={false}
-        showBodyDescription
-      />
-    {:else if !hasCommunitySurface && !communityStartupPending}
-      <AppShell.Body layout="regions" label="Connect to community relay">
-        <AppShell.Body.Content label="Relay connection settings">
-          <section class="community-application__disconnected">
-            <Empty.Root>
-              <Empty.Header>
-                <Empty.Media variant="icon">
-                  <WifiOffIcon aria-hidden="true" />
-                </Empty.Media>
-                <Empty.Title>Connect to a community relay</Empty.Title>
-                <Empty.Description>
-                  Enter the WebSocket URL for the relay that hosts this
-                  community.
-                </Empty.Description>
-              </Empty.Header>
-              <Empty.Content>
-                <form
-                  class="community-application__relay-form"
-                  onsubmit={connectToRelay}
-                >
-                  <Field.Field
-                    data-invalid={inlineRelayMessage ? "" : undefined}
-                  >
-                    <Field.Label for="community-connect-relay-url">
-                      Relay URL
-                    </Field.Label>
-                    <Input
-                      id="community-connect-relay-url"
-                      type="url"
-                      bind:value={inlineRelayUrl}
-                      placeholder="wss://relay.example.com"
-                      aria-invalid={inlineRelayMessage ? true : undefined}
-                      required
-                    />
-                    {#if inlineRelayMessage}
-                      <Field.Error>{inlineRelayMessage}</Field.Error>
-                    {/if}
-                  </Field.Field>
-                  <Button
-                    type="submit"
-                    disabled={inlineRelayOperationPending ||
-                      inlineRelayUrl.trim() === ""}
-                  >
-                    {inlineRelayOperationPending
-                      ? "Connecting…"
-                      : "Connect to relay"}
-                  </Button>
-                </form>
-              </Empty.Content>
-            </Empty.Root>
-          </section>
-        </AppShell.Body.Content>
-      </AppShell.Body>
-    {:else if activeDestination === "settings"}
-      <CommunityApplicationSettings
-        model={community.state.settings}
-        section={settingsSection}
-        account={applicationAuthentication?.account?.()}
-        accountConfig={applicationAuthentication?.config?.()}
-        accountActions={applicationAuthentication?.accountActions?.()}
-        accountResumeAction={applicationAuthentication?.resumeAccountAction?.()}
-        accountAuthenticationState={applicationAuthentication?.status?.()}
-        accountActiveExternalSigner={applicationAuthentication?.activeExternalSigner?.()}
-        accountBusy={applicationAuthentication?.status?.() === "restoring" ||
-          applicationAuthentication?.status?.() === "redirecting"}
-        accountMessage={applicationAuthentication?.status?.() ===
-        "reconnect-required"
-          ? "Reconnect the Nostr signer before an action needs a signature."
-          : ""}
-        onCopyPublicKey={(pubkey) => copyText(pubkey, "Public key copied")}
-        onConnectGitHub={applicationAuthentication?.connectGitHub === undefined
-          ? undefined
-          : () => applicationAuthentication.connectGitHub?.()}
-        onSignOut={signOutCurrentIdentity}
-        {...community.state.operations["settings:profile"] === undefined
-          ? {}
-          : {
-              profileOperation: community.state.operations["settings:profile"],
-            }}
-        {...emojiOperation === undefined ? {} : { emojiOperation }}
-        onUpdateProfile={(profile) =>
-          runAuthenticated(() => community.actions.updateProfile(profile))}
-        onAddCustomEmoji={(shortcode, url) =>
-          runAuthenticated(() =>
-            community.actions.setCustomEmoji(shortcode, url),
-          )}
-        onRemoveCustomEmoji={(shortcode) =>
-          runAuthenticated(() =>
-            community.actions.removeCustomEmoji(shortcode),
-          )}
-      />
-    {:else if activeDestination === "pulse" && community.state.pulse && community.actions.pulse}
-      <CommunityApplicationPulseHost
-        model={community.state.pulse}
-        currentMember={displayMember}
-        rooms={presentationRooms}
-        communityEmojis={community.state.settings.customEmojis}
-        {...pulsePublishOperation === undefined
-          ? {}
-          : { publishOperation: pulsePublishOperation }}
-        {...pulseComposerStatus === undefined
-          ? {}
-          : { composerStatus: pulseComposerStatus }}
-        onSelectTab={(tab) => {
-          const selectTab = () => community.actions.pulse!.selectTab(tab);
-          return tab === "following" || tab === "liked" || tab === "mine"
-            ? runAuthenticated(selectTab)
-            : selectTab();
-        }}
-        onPublish={(submission, replyToEventId) =>
-          runAuthenticated(() =>
-            community.actions.pulse!.publish(submission, replyToEventId),
-          )}
-        onToggleLike={(eventId) =>
-          runAuthenticated(() => community.actions.pulse!.toggleLike(eventId))}
-        onShare={copyPulseLink}
-        onOpenProfile={openProfile}
-        onMessageMember={(member) => messageMember(member)}
-        onRetry={() => {
-          if (pulsePublishOperationEntry)
-            return community.retry(pulsePublishOperationEntry[0]);
-          return community.actions.pulse!.refresh();
-        }}
-        {...pulsePublishOperationEntry === undefined
-          ? {}
-          : {
-              onDismissError: () =>
-                community.dismissOperation(pulsePublishOperationEntry[0]),
-            }}
-      />
-    {:else if activeDestination === "inbox"}
-      <CommunityApplicationInboxHost
-        model={inbox}
-        conversationLoading={!inboxReady}
-        {...inboxSurfaceOptions}
-        readBoundary={{
-          key: JSON.stringify([
-            workspace.currentMemberId,
-            inbox.activeItemId,
-            inbox.messages.at(-1)?.id,
-          ]),
-          onRead: () => {
-            const eventId = inbox.messages.findLast(
-              (message) =>
-                message.authorId !== workspace.currentMemberId &&
-                !message.activity,
-            )?.id;
-            const selected =
-              inbox.selectedItem ??
-              inbox.items.find((item) => item.id === inbox.activeItemId);
-            if (eventId)
-              void community.actions.markRead(inbox.room.id, {
-                eventId,
-                ...(selected?.rootEventId
-                  ? { threadId: selected.rootEventId }
-                  : {}),
-              });
-          },
-        }}
-        loading={community.state.contentSync?.phase === "initial"}
-        rooms={presentationRooms}
-        disabled={participationReadOnly}
-        disabledReason={participationReadOnlyReason}
-        canDeleteAny={inbox.room.permissions?.delete.state === "enabled"}
-        historyUpdating={community.state.contentSync?.phase === "background" ||
-          community.state.contentSync?.phase === "partial-error"}
-        onSelect={(id) => void community.actions.selectInboxItem?.(id)}
-        onFilterChange={(filter, unreadOnly) =>
-          community.actions.setInboxFilter?.(filter, unreadOnly)}
-        onSend={(content) =>
-          community.actions.sendInboxMessage
-            ? community.actions.sendInboxMessage(content)
-            : sendThreadReply(inbox.activeItemId, content)}
-        onMarkAllRead={() => void community.actions.markAllRead()}
-        onOpenChannelSettings={() => {
-          openPanel({ kind: "details", roomId: inbox.room.id });
-          lastAction = "opened-details";
-        }}
-        onOpenChannel={() => setDestination(inbox.room.id, true)}
-        onViewParticipants={() => {
-          memberCommandMode = "view";
-          memberCommandOpen = true;
-        }}
-        onReply={(messageId) => community.actions.setReplyTarget(messageId)}
-        onToggleReaction={react}
-        onOpenProfile={openProfile}
-        onOpenRoom={(roomId) => setDestination(roomId, true)}
-        onMessageMember={messageMember}
-        onCopyMessage={copyMessage}
-        onCopyEvent={copyEvent}
-        onDeleteMessage={deleteMessage}
-        communityEmojis={community.state.settings.customEmojis}
-        onCancelReply={() => community.actions.clearReplyTarget()}
-      />
-    {:else if activeDestination === "new-direct-message"}
-      <CommunityApplicationDirectMessageHost
-        recipients={selectedRecipients}
-        buzzSupported={community.state.capabilities.buzzDirectMessages ?? false}
-        communityEmojis={community.state.settings.customEmojis}
-        onChooseRecipients={() => {
-          memberCommandTask = undefined;
-          memberCommandMode = "select";
-          memberCommandOpen = true;
-        }}
-        onRemoveRecipient={(member) =>
-          (selectedRecipientIds = selectedRecipientIds.filter(
-            (id) => id !== member.id,
-          ))}
-        onSend={sendNewDirectMessage}
-      />
-    {:else}
-      <AppShell.Toolbar
-        label={`${activeRoom.name} toolbar`}
-        class="community-application__room-toolbar"
-      >
-        <div class="community-application__toolbar-start">
-          {#if shell.mobile.resolvedMode === "mobile"}
-            {@render mobileNavigationControls()}
-          {:else if navigationCompact}
-            <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
-          {/if}
-          <div class="community-application__room-title">
-            {#if activeRoom.kind === "direct" && activeDirectMember}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                class="community-application__room-title-button"
-                aria-label={`View ${activeDirectMember.name}'s profile`}
-                onclick={() => openProfile(activeDirectMember)}
-              >
-                <CommunityMemberAvatar
-                  member={activeDirectMember}
-                  showPresence
-                  decorative
-                />
-                <strong data-ui-part="room-title">{activeRoom.name}</strong>
-              </Button>
-            {:else}
-              <strong data-ui-part="room-title">
-                {#if activeRoom.private}
-                  <LockIcon data-icon="inline-start" aria-hidden="true" />
-                {:else if activeRoom.kind === "channel"}
-                  {#if projectChannelRoomIds.has(activeRoom.id)}
-                    <CommunityProjectChannelIcon data-icon="inline-start" />
-                  {:else}
-                    <HashIcon data-icon="inline-start" aria-hidden="true" />
-                  {/if}
-                {:else if activeRoom.kind === "forum"}
-                  <MessagesSquareIcon
-                    data-icon="inline-start"
-                    data-ui-part="room-kind-icon"
-                    aria-hidden="true"
-                  />
-                {:else}
-                  <span aria-hidden="true">●</span>
-                {/if}
-                {activeRoom.name}
-              </strong>
-            {/if}
-          </div>
-        </div>
-        <div class="community-application__toolbar-actions">
-          {#if extensions.terminal}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Open terminal"
-              title="Open terminal"
-              onclick={() => extensions.terminal?.()}
-            >
-              <SquareTerminalIcon aria-hidden="true" />
-            </Button>
-          {/if}
-          {#if activeRoomJoinVisible}
-            <Button
-              type="button"
-              size="sm"
-              disabled={activeParticipationOperation?.status === "pending" ||
-                activeParticipationOperation?.status === "accepted"}
-              onclick={() => requestRoomJoin(activeRoom)}
-            >
-              <LogInIcon data-icon="inline-start" aria-hidden="true" />
-              {activeParticipationOperation?.status === "accepted"
-                ? "Join requested"
-                : activeParticipationOperation?.status === "pending"
-                  ? "Joining…"
-                  : "Join"}
-            </Button>
-          {/if}
-          {#if activeRoom.memberCount}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label={`View ${activeRoom.kind === "forum" ? "forum" : activeRoom.kind === "direct" ? "conversation" : "channel"} members (${activeRoom.memberCount})`}
-              onclick={() => {
-                memberCommandMode =
-                  activeRoom.kind !== "direct" &&
-                  activeRoom.permissions?.manageMembers.state === "enabled"
-                    ? "manage"
-                    : "view";
-                memberCommandOpen = true;
-              }}
-            >
-              <UsersIcon data-icon="inline-start" aria-hidden="true" />
-              {activeRoom.memberCount}
-            </Button>
-          {/if}
-          {#if extensions.huddle}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Start huddle"
-              title="Start huddle"
-              onclick={() => extensions.huddle?.(activeRoom.id)}
-            >
-              <HeadphonesIcon aria-hidden="true" />
-            </Button>
-          {/if}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Manage ${activeRoom.kind === "forum" ? "forum" : activeRoom.kind === "direct" ? "conversation" : "channel"}`}
-            title={`Manage ${activeRoom.kind === "forum" ? "forum" : activeRoom.kind === "direct" ? "conversation" : "channel"}`}
-            onclick={() => {
-              openPanel({ kind: "details", roomId: activeRoom.id });
-              lastAction = "opened-details";
-            }}
-          >
-            <EllipsisIcon aria-hidden="true" />
-          </Button>
-          {#if shell.mobile.resolvedMode === "mobile"}
-            {@render mobileRightSidebarToggle()}
-          {/if}
-        </div>
-      </AppShell.Toolbar>
-
-      <AppShell.Body layout="regions" label="Community workspace">
-        <AppShell.Body.Content
-          class="community-application__workspace-content"
-          label={`${activeRoom.name} content`}
-        >
-          <div class="community-application__workspace-stack">
-            <div class="community-application__workspace-layer">
-              <CommunityWorkspaceSurface
-                {...workspaceSurfaceOptions}
-                model={workspaceSurfaceModel}
-                historyLoading={activeRoomHistoryLoading}
-                historyUpdating={community.state.contentSync?.phase ===
-                  "background" ||
-                  community.state.contentSync?.phase === "partial-error"}
-                messageSupplement={releaseMessageSupplement}
-                readOnly={participationReadOnly}
-                readOnlyReason={participationReadOnlyReason}
-                showJoinAction={activeRoomJoinVisible}
-                communityEmojis={community.state.settings.customEmojis}
-                handlers={{
-                  ...community.handlers,
-                  onReadRoom: (roomId, through) => {
-                    void community.actions
-                      .markRead(roomId, through)
-                      .catch((error) =>
-                        toast.error(
-                          error instanceof Error
-                            ? error.message
-                            : "Could not save read status",
-                        ),
-                      );
-                  },
-                  onSelectRoom: (roomId) => {
-                    if (
-                      roomId === activeRoom.id &&
-                      workspace.view === "forum-thread"
-                    ) {
-                      community.actions.selectRoom(roomId);
-                      lastAction = `selected:${roomId}`;
-                    } else setDestination(roomId, true);
-                  },
-                  onSendMessage: sendWorkspaceMessage,
-                  onOpenTopic: (topicId) => {
-                    community.actions.openTopic(topicId);
-                    if (activePanel.kind !== "none") closeSidePanel();
-                    lastAction = `opened-topic:${topicId}`;
-                  },
-                  onReply: (messageId) => {
-                    if (
-                      activeRoom.kind === "direct" ||
-                      activeRoom.kind === "forum"
-                    )
-                      community.actions.setReplyTarget(messageId);
-                    else
-                      openPanel({
-                        kind: "thread",
-                        roomId: activeRoom.id,
-                        rootMessageId: rootCommunityMessageId(
-                          workspace.messages,
-                          messageId,
-                        ),
-                        replyTargetId: messageId,
-                      });
-                    lastAction = `replying-to:${messageId}`;
-                  },
-                  onOpenThread: (messageId) => {
-                    openPanel({
-                      kind: "thread",
-                      roomId: activeRoom.id,
-                      rootMessageId: messageId,
-                    });
-                    lastAction = `opened-thread:${messageId}`;
-                  },
-                  onToggleReaction: react,
-                  onAddReaction: react,
-                  onOpenProfile: openProfile,
-                  onMessageMember: messageMember,
-                  onWaveMember: waveMember,
-                  ...(extensions.activityLog === undefined
-                    ? {}
-                    : { onViewMemberActivity: viewMemberActivity }),
-                  ...(activeRoom.kind === "direct"
-                    ? {}
-                    : { onCopyMessageLink: copyMessageLink }),
-                  onCopyMessage: copyMessage,
-                  onCopyEvent: copyEvent,
-                  ...(extensions.editMessage === undefined
-                    ? community.actions.editEvent === undefined
-                      ? {}
-                      : { onSaveMessageEdit: editMessage }
-                    : { onEditMessage: extensions.editMessage }),
-                  onDeleteMessage: deleteMessage,
-                  ...(community.actions.reportEvent === undefined
-                    ? {}
-                    : { onReportMessage: reportMessage }),
-                  onBrowseRooms: openRoomBrowser,
-                  ...(activeRoomJoinVisible
-                    ? {
-                        onJoinRoom: (roomId: string) =>
-                          requestRoomJoin({ ...activeRoom, id: roomId }),
-                      }
-                    : {}),
-                  ...(authenticated && community.state.capabilities.manageGroup
-                    ? {
-                        onCreateRoom: (kind: "channel" | "forum") =>
-                          openRoomEditor(kind, "create"),
-                      }
-                    : {}),
-                  ...(!authenticated || extensions.agents === undefined
-                    ? {}
-                    : { onCreateAgent: extensions.agents }),
-                  onCreateTopic: (_roomId, draft) =>
-                    runParticipationAction(activeRoom.id, "post", () =>
-                      community.actions.createTopic(activeRoom.id, draft),
-                    ),
-                  onTopicAction: handleTopicAction,
-                  onClearReplyTarget: () =>
-                    community.actions.clearReplyTarget(),
-                }}
-              />
-            </div>
-          </div>
-        </AppShell.Body.Content>
-      </AppShell.Body>
     {/if}
-  </AppShell.Main>
 
-  <AppShell.Sidebar
-    side="right"
-    class="community-application__standard-right-sidebar"
-    constraintPriority={0}
-    constrainedPresentation="replace-main"
-    label={`${sidePanelTitle} sidebar`}
-    mobileLabel={sidePanelTitle}
-    resizeLabel={`Resize ${sidePanelTitle.toLowerCase()} sidebar`}
-    closeable
-    hidden={activePanel.kind === "none"}
-  >
-    {#key communityApplicationPanelKey(activePanel)}
-      {#if activePanel.kind !== "none"}
-        {#if activePanel.kind === "profile"}
-          <AppShell.Sidebar.Header>
-            <strong>Profile</strong>
-            <AppShell.Sidebar.Close onclick={closeSidePanel} />
-          </AppShell.Sidebar.Header>
-          <AppShell.Sidebar.Body>
-            {#if selectedAgent && community.actions.agents}
-              <CommunityAgentProfile
-                members={workspace.members}
-                memberResults={community.state.memberDirectory.results}
-                onSearchMembers={(query) =>
-                  void community.actions.searchMembers(query)}
-                agent={selectedAgent}
-                personas={community.state.agents?.personas ?? []}
-                ownerName={memberById(
-                  workspace.members,
-                  selectedAgent.ownerPubkey,
-                ).name}
-                onOpenOwner={(pubkey) =>
-                  openProfile(memberById(workspace.members, pubkey))}
-                rooms={presentationRooms}
-                {...community.state.agents?.presence[selectedAgent.pubkey]
-                  ? {
-                      presence:
-                        community.state.agents.presence[selectedAgent.pubkey],
-                    }
-                  : {}}
-                working={community.state.agents?.working[
-                  selectedAgent.pubkey
-                ] === true}
-                canMessage={community.state.capabilities.directMessages}
-                connected={community.state.status === "connected"}
-                onMessage={() =>
-                  messageMember(communityAgentMember(selectedAgent))}
-                onFollow={(following) =>
-                  community.actions.agents!.setFollow(
-                    selectedAgent.pubkey,
-                    following,
-                  )}
-                onActivity={() => openAgentActivity(selectedAgent.pubkey)}
-                onCopy={() =>
-                  copyText(selectedAgent.pubkey, "Public key copied")}
-                onOpenChannel={(id) => setDestination(id, true)}
-                onAddChannel={async (id) => {
-                  await community.actions.addMember(id, selectedAgent.pubkey);
-                  await community.actions.agents!.refresh();
-                }}
-                onRemoveChannel={async (id) => {
-                  await community.actions.removeMember(
-                    id,
-                    selectedAgent.pubkey,
-                  );
-                  await community.actions.agents!.refresh();
-                }}
-                onSaveAgent={(input) =>
-                  community.actions.agents!.saveAgent(input)}
-                onUnlinkPersona={(fallbackName) =>
-                  community.actions.agents!.unlinkAgent(
-                    selectedAgent.pubkey,
-                    fallbackName,
-                  )}
-                onDeletePersona={(slug) =>
-                  community.actions.agents!.deletePersona(slug)}
-                runtime={community.state.agents?.runtime?.[
-                  selectedAgent.pubkey
-                ]}
-                memories={community.state.agents?.memories?.[
-                  selectedAgent.pubkey
-                ]}
-                processing={community.state.agents?.processing?.[
-                  selectedAgent.pubkey
-                ]}
-                onLoadProcessing={community.actions.agents?.loadProcessing
-                  ? () =>
-                      community.actions.agents!.loadProcessing!(
-                        selectedAgent.pubkey,
-                      )
-                  : undefined}
-                onSetProcessing={community.actions.agents?.setProcessing
-                  ? (enabled, revision) =>
-                      community.actions.agents!.setProcessing!(
-                        selectedAgent.pubkey,
-                        enabled,
-                        revision,
-                      )
-                  : undefined}
-                onLoadRuntime={() =>
-                  community.actions.agents!.loadRuntime(selectedAgent.pubkey)}
-                onSaveRuntime={(defaults) =>
-                  community.actions.agents!.saveRuntime(
-                    selectedAgent.pubkey,
-                    defaults,
-                  )}
-                onLoadMemories={(filter) =>
-                  community.actions.agents!.loadMemories(
-                    selectedAgent.pubkey,
-                    filter.channelId,
-                    filter,
-                  )}
-                onActOnMemory={(input) =>
-                  community.actions.agents!.actOnMemory(
-                    selectedAgent.pubkey,
-                    input,
-                  )}
-              />
-            {:else if selectedProfile}
-              <CommunityMemberProfile
-                member={selectedProfile}
-                onCopyPublicKey={() =>
-                  copyText(selectedProfile.id, "Public key copied")}
-                onMessage={() => messageMember(selectedProfile)}
-                onWave={() => waveMember(selectedProfile)}
-                {...extensions.follow === undefined
-                  ? {}
-                  : {
-                      onFollow: () =>
-                        runMemberExtension("follow", selectedProfile),
-                    }}
-              />
-            {:else}
-              <div class="community-application__panel-status" role="status">
-                Profile unavailable
-              </div>
-            {/if}
-          </AppShell.Sidebar.Body>
-        {:else if activePanel.kind === "agent-activity"}
-          <AppShell.Sidebar.Header>
-            <Button
-              variant="ghost"
-              size="sm"
-              onclick={() => {
-                if (canNavigateBack) navigateHistory(-1);
-                else if (activePanel.kind === "agent-activity")
-                  openAgentProfile(activePanel.agentPubkey);
-              }}><ArrowLeftIcon aria-hidden="true" />Back to profile</Button
-            >
-            <AppShell.Sidebar.Close onclick={closeSidePanel} />
-          </AppShell.Sidebar.Header>
-          <AppShell.Sidebar.Body scrollable={false}>
-            {#if community.state.agents && community.actions.agents}
-              <CommunityAgentActivity
-                model={community.state.agents}
-                rooms={presentationRooms}
-                members={workspace.members}
-                onOpenRequest={agentContextNavigation.openActivityRequest}
-                onLatest={() => {
-                  if (activePanel.kind === "agent-activity")
-                    return community.actions.agents!.openActivity(
-                      activePanel.agentPubkey,
-                      activePanel.activityContext ?? activePanel.channelId,
-                    );
-                }}
-                onLoadOlder={() =>
-                  community.actions.agents!.loadOlderActivity()}
-                onClearHistory={async () => {
-                  if (activePanel.kind === "agent-activity")
-                    await community.actions.agents!.clearHistory(
-                      activePanel.agentPubkey,
-                    );
-                }}
-                {...agentRuntimeActions(community.actions.agents!)}
-              />
-            {/if}
-          </AppShell.Sidebar.Body>
-        {:else if activePanel.kind === "thread"}
-          <AppShell.Sidebar.Header>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              data-ui-part="sidebar-toggle"
-              data-side="right"
-              data-state="expanded"
-              aria-label="Close thread sidebar"
-              title="Close thread sidebar"
-              onclick={closeSidePanel}
-            >
-              <svg
-                data-ui-part="sidebar-toggle-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <rect x="1" y="2" width="22" height="20" rx="4"></rect>
-                <g transform="translate(24 0) scale(-1 1)">
-                  <rect
-                    x="4"
-                    y="5"
-                    width="6"
-                    height="14"
-                    rx="2"
-                    fill="currentColor"
-                    data-ui-part="sidebar-toggle-indicator"
-                  ></rect>
-                </g>
-              </svg>
-            </Button>
-            <strong>{sidePanelTitle}</strong>
-            <AppShell.Sidebar.Close onclick={closeSidePanel} />
-          </AppShell.Sidebar.Header>
-          <AppShell.Sidebar.Body scrollable={false}>
-            {#if visibleThread}
-              <CommunityThreadPanel
-                virtualize
-                thread={visibleThread}
-                {...community.state.threadHistory
-                  ? { history: community.state.threadHistory }
-                  : {}}
-                {...community.state.threadPresentation
-                  ? { presentation: community.state.threadPresentation }
-                  : {}}
-                {...community.actions.updateTimelinePresentation
-                  ? {
-                      onPresentationChange:
-                        community.actions.updateTimelinePresentation,
-                    }
-                  : {}}
-                {...community.actions.loadOlderHistory
-                  ? {
-                      onLoadOlder: () =>
-                        community.actions.loadOlderHistory!({
-                          roomId: activeRoom.id,
-                          rootEventId: visibleThread!.rootMessageId,
-                        }),
-                    }
-                  : {}}
-                {...community.actions.loadNewerHistory
-                  ? {
-                      onLoadLatest: () =>
-                        community.actions.loadNewerHistory!({
-                          roomId: activeRoom.id,
-                          rootEventId: visibleThread!.rootMessageId,
-                        }),
-                    }
-                  : {}}
-                readBoundary={{
-                  key: JSON.stringify([
-                    workspace.currentMemberId,
-                    activeRoom.id,
-                    visibleThread.rootMessageId,
-                    visibleThread.messages.at(-1)?.id,
-                  ]),
-                  onRead: () => {
-                    const eventId = visibleThread?.messages.findLast(
-                      (message) =>
-                        message.authorId !== workspace.currentMemberId,
-                    )?.sourceEvent?.id;
-                    if (eventId && visibleThread)
-                      void community.actions.markRead(activeRoom.id, {
-                        eventId,
-                        threadId: visibleThread.rootMessageId,
-                      });
-                  },
-                }}
-                activityContext={activityOrigin()}
-                members={presentationWorkspace.members}
-                agents={composerAgents}
-                rooms={presentationRooms}
-                disabled={participationReadOnly}
-                disabledReason={participationReadOnlyReason}
-                {...participationComposerStatus === undefined
-                  ? {}
-                  : { composerStatus: participationComposerStatus }}
-                {...activeParticipationOperation?.status === "failed" &&
-                activeParticipationOperation.failure?.retryable &&
-                activeParticipationOperationEntry !== undefined
-                  ? {
-                      onRetryComposerStatus: () =>
-                        community.retry(activeParticipationOperationEntry[0]),
-                    }
-                  : {}}
-                {...activeParticipationOperationEntry === undefined
-                  ? {}
-                  : {
-                      onDismissComposerStatus: () =>
-                        community.dismissOperation(
-                          activeParticipationOperationEntry[0],
-                        ),
-                    }}
-                {...workspace.currentMemberId === undefined
-                  ? {}
-                  : { currentMemberId: workspace.currentMemberId }}
-                canDeleteAny={activeRoom.permissions?.delete.state ===
-                  "enabled"}
-                onSendReply={sendThreadReply}
-                onReply={(messageId) =>
-                  openPanel({ ...activePanel, replyTargetId: messageId })}
-                onOpenProfile={openProfile}
-                onOpenRoom={(roomId) => setDestination(roomId, true)}
-                onMessageMember={messageMember}
-                onWaveMember={waveMember}
-                {...extensions.activityLog === undefined
-                  ? {}
-                  : { onViewMemberActivity: viewMemberActivity }}
-                {...threadReplyTarget === undefined
-                  ? {}
-                  : { replyTarget: threadReplyTarget }}
-                communityEmojis={community.state.settings.customEmojis}
-                onCancelReply={() =>
-                  openPanel({
-                    kind: "thread",
-                    roomId: activePanel.roomId,
-                    rootMessageId: activePanel.rootMessageId,
-                  })}
-                {...participationReadOnly
-                  ? {}
-                  : { onToggleReaction: react, onAddReaction: react }}
-                onCopyMessageLink={copyMessageLink}
-                onCopyMessage={copyMessage}
-                onCopyEvent={copyEvent}
-                {...extensions.editMessage === undefined
-                  ? community.actions.editEvent === undefined
-                    ? {}
-                    : { onSaveMessageEdit: editMessage }
-                  : { onEditMessage: extensions.editMessage }}
-                onDeleteMessage={deleteMessage}
-                {...community.actions.reportEvent === undefined
-                  ? {}
-                  : { onReportMessage: reportMessage }}
-              />
-            {:else}
-              <CommunitySkeleton
-                layout="messages"
-                label="Loading thread"
-                padded
-              />
-            {/if}
-          </AppShell.Sidebar.Body>
-        {:else if detailsRoom?.kind === "channel" || detailsRoom?.kind === "forum"}
-          {#key `${workspace.activeCommunityId}:${workspace.currentMemberId}:${detailsRoom.id}`}
-            <CommunityChannelSettings
-              room={detailsRoom}
-              members={workspace.members}
-              {...detailsCanvas && detailsRoom
-                ? {
-                    canvas: detailsCanvas,
-                    initialCanvasContent: detailsCanvasInitialContent ?? "",
-                    onLoadCanvas: () =>
-                      community.actions.loadCanvas!(detailsRoom.id),
-                    onSaveCanvas: (
-                      content: string,
-                      expectedEventId: string | null,
-                    ) =>
-                      community.actions.saveCanvas!(
-                        detailsRoom.id,
-                        content,
-                        expectedEventId,
-                      ),
-                  }
-                : {}}
-              description={activeDestination === "inbox"
-                ? (inbox.room.description ?? "Community channel")
-                : (workspace.details?.description ??
-                  detailsRoom.description ??
-                  "Community channel")}
-              canArchive={extensions.archive !== undefined}
-              writerPolicySupported={community.state.capabilities
-                .writeRestrictedRooms === true}
-              groupInvitesSupported={community.state.capabilities
-                .groupInvites === true &&
-                community.actions.createGroupInvite !== undefined}
-              onClose={closeSidePanel}
-              onAction={(action) => {
-                lastAction = `channel-settings:${action}`;
-                if (
-                  action === "edit-type" ||
-                  action === "edit-visibility" ||
-                  action === "edit-posting"
-                )
-                  openRoomEditor(
-                    detailsRoom.kind === "forum" ? "forum" : "channel",
-                    "edit",
-                  );
-                if (action === "members") {
-                  memberCommandMode =
-                    detailsRoom.permissions?.manageMembers.state === "enabled"
-                      ? "manage"
-                      : "view";
-                  memberCommandOpen = true;
-                }
-                if (action === "copy-channel-id")
-                  void copyText(
-                    detailsRoom.id,
-                    `${detailsRoom.kind === "forum" ? "Forum" : "Channel"} ID copied`,
-                  );
-                if (action === "create-invite") {
-                  groupInviteMode = "create";
-                  groupInviteOpen = true;
-                }
-                if (action === "leave-channel") confirmation = "leave";
-                if (action === "delete-channel") confirmation = "delete";
-                if (action === "archive-channel")
-                  void extensions.archive?.(detailsRoom.id);
-              }}
-            />
-          {/key}
-        {:else}
-          <AppShell.Sidebar.Header>
-            <strong>{sidePanelTitle}</strong>
-            <AppShell.Sidebar.Close onclick={closeSidePanel} />
-          </AppShell.Sidebar.Header>
-          <AppShell.Sidebar.Body>
-            {#if detailsRoom && workspace.details}
-              <CommunityDetails
-                onOpenProfile={openProfile}
-                onMessageMember={messageMember}
-                onWaveMember={waveMember}
-                room={detailsRoom}
-                details={workspace.details}
-                members={workspace.members}
-              />
-            {:else}
-              <CommunitySkeleton layout="details" label="Loading details" />
-            {/if}
-          </AppShell.Sidebar.Body>
-        {/if}
-      {/if}
-    {/key}
-  </AppShell.Sidebar>
-  {#if isPluginReleaseRoom}
-    {#if !activeChannelProject}
-      {@render releaseOverviewRail()}
+    {#if activeConnection}
+      <CommunityRelaySettings
+        bind:open={relaySettingsOpen}
+        connection={activeConnection}
+        cache={community.state.cache}
+        {...relayOperation === undefined ? {} : { operation: relayOperation }}
+        onSave={(relayUrl) =>
+          community.actions.updateRelayUrl(
+            activeConnection.communityId,
+            relayUrl,
+          )}
+        onReset={() =>
+          community.actions.resetRelayUrl(activeConnection.communityId)}
+        onClearCache={() => clearCommunityCaches(activeConnection.communityId)}
+      />
     {/if}
-    {@render releaseSheet()}
-  {/if}
-  {#if isProjectsDestination || (activeChannelProject && usesRoomToolbar)}
-    {@render projectOverviewRail()}
-    {@render projectSheet()}
-  {/if}
-</CommunityAppShell>
 
-{#if !isProjectsDestination && activeChannelProject && usesRoomToolbar}
-  <CommunityProjects
-    view="overview"
-    projects={[activeChannelProject]}
-    selectedProject={activeChannelProject}
-    repositories={activeChannelProjectRepositories}
-    repositoryOptions={projectCatalog.repositories}
-    repositoryCapabilities={projectRepositoryCapabilities}
-    members={communityIdentityMembersFromState(
-      workspace.members,
-      community.state.agents,
-    )}
-    rooms={presentationRooms}
-    communityEmojis={community.state.settings.customEmojis}
-    {...workspace.currentMemberId === undefined
-      ? {}
-      : { currentMemberId: workspace.currentMemberId }}
-    operation={projectOperation}
-    canCollaborate={authenticated}
-    {...projectDialogRequest === undefined
-      ? {}
-      : { dialogRequest: projectDialogRequest }}
-    showNavigation={false}
-    showContent={false}
-    onCreateRepository={createRepository}
-    onUpdateProject={updateProject}
-    onAttachRepository={attachRepository}
-  />
-{/if}
+    <CommunityRoomEditor
+      bind:open={roomEditorOpen}
+      mode={roomEditorMode}
+      roomKind={roomEditorKind}
+      retentionSupported={community.state.capabilities.configurableRetention ??
+        false}
+      writerPolicySupported={community.state.capabilities
+        .writeRestrictedRooms === true}
+      initial={roomEditorMode === "edit"
+        ? {
+            name: activeRoom.name,
+            description: activeRoom.description ?? "",
+            visibility: activeRoom.private
+              ? ("private" as const)
+              : ("public" as const),
+            lifecycle: activeRoom.lifecycle ?? ("ongoing" as const),
+            postingPolicy: activeRoom.postingPolicy ?? ("standard" as const),
+          }
+        : { name: roomEditorInitialName }}
+      onSave={saveRoom}
+    />
 
-{#if activeConnection}
-  <CommunityRelaySettings
-    bind:open={relaySettingsOpen}
-    connection={activeConnection}
-    cache={community.state.cache}
-    {...relayOperation === undefined ? {} : { operation: relayOperation }}
-    onSave={(relayUrl) =>
-      community.actions.updateRelayUrl(activeConnection.communityId, relayUrl)}
-    onReset={() =>
-      community.actions.resetRelayUrl(activeConnection.communityId)}
-    onClearCache={() => clearCommunityCaches(activeConnection.communityId)}
-  />
-{/if}
-
-<CommunityRoomEditor
-  bind:open={roomEditorOpen}
-  mode={roomEditorMode}
-  roomKind={roomEditorKind}
-  retentionSupported={community.state.capabilities.configurableRetention ??
-    false}
-  writerPolicySupported={community.state.capabilities.writeRestrictedRooms ===
-    true}
-  initial={roomEditorMode === "edit"
-    ? {
-        name: activeRoom.name,
-        description: activeRoom.description ?? "",
-        visibility: activeRoom.private
-          ? ("private" as const)
-          : ("public" as const),
-        lifecycle: activeRoom.lifecycle ?? ("ongoing" as const),
-        postingPolicy: activeRoom.postingPolicy ?? ("standard" as const),
-      }
-    : { name: roomEditorInitialName }}
-  onSave={saveRoom}
-/>
-
-<CommunityRoomBrowser
-  bind:open={roomBrowserOpen}
-  rooms={presentationRooms}
-  initialKind={roomBrowserKind}
-  canCreate={authenticated &&
-    hasCommunityConnection &&
-    (roomBrowserKind === "forum"
-      ? community.state.capabilities.forums
-      : community.state.capabilities.channels)}
-  onSelect={(room) => {
-    roomBrowserOpen = false;
-    setDestination(room.id, true);
-  }}
-  onJoin={(room) =>
-    void joinRoom(room).catch((cause) =>
-      toast.error(
-        cause instanceof Error ? cause.message : "Could not join room",
-      ),
-    )}
-  onLeave={(room) =>
-    void leaveRoom(room).catch((cause) =>
-      toast.error(
-        cause instanceof Error ? cause.message : "Could not leave room",
-      ),
-    )}
-  onCreate={(kind, name) => {
-    void runAuthenticated(() => {
-      roomBrowserOpen = false;
-      openRoomEditor(kind, "create", name);
-    });
-  }}
-/>
-
-<CommunityApplicationMemberCommand
-  bind:open={memberCommandOpen}
-  mode={memberCommandMode}
-  room={memberCommandRoom}
-  members={workspace.members}
-  results={community.state.memberDirectory.results}
-  groupMemberIds={memberCommandMemberIds}
-  currentMemberId={workspace.currentMemberId}
-  selectedIds={selectedRecipientIds}
-  task={memberCommandTask}
-  canSetRoles={community.state.capabilities.memberRoles === true &&
-    community.actions.setMemberRoles !== undefined}
-  onSearch={(query) => void community.actions.searchMembers(query)}
-  onSelect={selectMember}
-  onRemove={(member) => {
-    if (memberCommandMode === "select")
-      selectedRecipientIds = selectedRecipientIds.filter(
-        (id) => id !== member.id,
-      );
-    else
-      void runAuthenticated(() =>
-        community.actions.removeMember(memberCommandRoom.id, member.id),
-      ).then(
-        () => toast.success(`${member.name} removed`),
-        (cause) =>
+    <CommunityRoomBrowser
+      bind:open={roomBrowserOpen}
+      rooms={presentationRooms}
+      initialKind={roomBrowserKind}
+      canCreate={authenticated &&
+        hasCommunityConnection &&
+        (roomBrowserKind === "forum"
+          ? community.state.capabilities.forums
+          : community.state.capabilities.channels)}
+      onSelect={(room) => {
+        roomBrowserOpen = false;
+        setDestination(room.id, true);
+      }}
+      onJoin={(room) =>
+        void joinRoom(room).catch((cause) =>
           toast.error(
-            cause instanceof Error
-              ? cause.message
-              : "The relay rejected this member change",
+            cause instanceof Error ? cause.message : "Could not join room",
           ),
-      );
-  }}
-  onSetRoles={setMemberRoles}
-  onConfirm={memberCommandMode === "select"
-    ? () => void updateSelectedTaskAssignments()
-    : () => (memberCommandOpen = false)}
-/>
+        )}
+      onLeave={(room) =>
+        void leaveRoom(room).catch((cause) =>
+          toast.error(
+            cause instanceof Error ? cause.message : "Could not leave room",
+          ),
+        )}
+      onCreate={(kind, name) => {
+        void runAuthenticated(() => {
+          roomBrowserOpen = false;
+          openRoomEditor(kind, "create", name);
+        });
+      }}
+    />
 
-<CommunityGroupInviteDialog
-  bind:open={groupInviteOpen}
-  mode={groupInviteMode}
-  {...groupInviteMode === "create" ? { roomName: activeRoom.name } : {}}
-  onCreate={createGroupInvite}
-  onJoin={joinWithInvite}
-  onCopy={copyInvite}
-/>
+    <CommunityApplicationMemberCommand
+      bind:open={memberCommandOpen}
+      mode={memberCommandMode}
+      room={memberCommandRoom}
+      members={workspace.members}
+      results={community.state.memberDirectory.results}
+      groupMemberIds={memberCommandMemberIds}
+      currentMemberId={workspace.currentMemberId}
+      selectedIds={selectedRecipientIds}
+      task={memberCommandTask}
+      canSetRoles={community.state.capabilities.memberRoles === true &&
+        community.actions.setMemberRoles !== undefined}
+      onSearch={(query) => void community.actions.searchMembers(query)}
+      onSelect={selectMember}
+      onRemove={(member) => {
+        if (memberCommandMode === "select")
+          selectedRecipientIds = selectedRecipientIds.filter(
+            (id) => id !== member.id,
+          );
+        else
+          void runAuthenticated(() =>
+            community.actions.removeMember(memberCommandRoom.id, member.id),
+          ).then(
+            () => toast.success(`${member.name} removed`),
+            (cause) =>
+              toast.error(
+                cause instanceof Error
+                  ? cause.message
+                  : "The relay rejected this member change",
+              ),
+          );
+      }}
+      onSetRoles={setMemberRoles}
+      onConfirm={memberCommandMode === "select"
+        ? () => void updateSelectedTaskAssignments()
+        : () => (memberCommandOpen = false)}
+    />
 
-<CommunitySearchCommand
-  bind:open={searchOpen}
-  query={appSearchInput}
-  rooms={searchRooms}
-  messages={searchMessages}
-  members={searchMembers}
-  authors={knownSearchMembers}
-  {...searchScope === undefined ? {} : { scope: searchScope }}
-  onQueryChange={updateAppSearchInput}
-  onSelectRoom={(room) => {
-    searchOpen = false;
-    setDestination(room.id, true);
-  }}
-  onSelectMessage={(message) => {
-    const roomId = message.roomId ?? activeRoom.id;
-    const room = allRooms.find((candidate) => candidate.id === roomId);
-    searchOpen = false;
-    if (room?.kind === "direct") {
-      setDestination(roomId, true);
-      return;
-    }
-    if (room?.kind === "forum") {
-      setDestination(roomId, true);
-      community.actions.openTopic(message.topicId ?? message.id);
-      return;
-    }
-    openPanelForDestination(roomId, {
-      kind: "thread",
-      roomId,
-      rootMessageId: rootCommunityMessageId(searchMessages, message.id),
-    });
-  }}
-  onSelectMember={(member) => {
-    searchOpen = false;
-    messageMember(member);
-  }}
-  onBrowseChannels={() => {
-    searchOpen = false;
-    openRoomBrowser("channel");
-  }}
-  canCreateChannel={hasCommunityConnection &&
-    (!authenticated || community.state.capabilities.manageGroup)}
-  onCreateChannel={() => {
-    searchOpen = false;
-    void runAuthenticated(() => openRoomEditor("channel", "create"));
-  }}
-  onCreateAgent={() => {
-    searchOpen = false;
-    void runAuthenticated(async () => {
-      agentCreatorOpen = true;
-      setDestination("agents", true);
-    });
-  }}
-/>
+    <CommunityGroupInviteDialog
+      bind:open={groupInviteOpen}
+      mode={groupInviteMode}
+      {...groupInviteMode === "create" ? { roomName: activeRoom.name } : {}}
+      onCreate={createGroupInvite}
+      onJoin={joinWithInvite}
+      onCopy={copyInvite}
+    />
 
-<ConfirmDialog
-  open={pendingParticipation !== undefined}
-  onOpenChange={(open) => {
-    if (!open && membershipJoinState !== "pending")
-      cancelPendingParticipation();
-  }}
-  pending={membershipJoinState === "pending"}
-  confirmDisabled={membershipJoinState !== "idle"}
-  onConfirm={async () => {
-    await joinForPendingParticipation();
-    return false;
-  }}
->
-  {#snippet title()}
-    Join {pendingParticipation?.roomName ?? "this room"} to continue?
-  {/snippet}
-  {#snippet description()}
-    Join this {pendingParticipation?.roomKind ?? "room"} before your
-    {pendingParticipation?.actionKind ?? "action"} is sent. The original action will
-    continue automatically after membership is confirmed.
-  {/snippet}
-  {#snippet confirmLabel()}
-    {membershipJoinState === "pending"
-      ? "Joining…"
-      : membershipJoinState === "accepted"
-        ? "Join requested"
-        : `Join ${pendingParticipation?.roomKind === "forum" ? "Forum" : "Channel"}`}
-  {/snippet}
+    <CommunitySearchCommand
+      bind:open={searchOpen}
+      query={appSearchInput}
+      rooms={searchRooms}
+      messages={searchMessages}
+      members={searchMembers}
+      authors={knownSearchMembers}
+      {...searchScope === undefined ? {} : { scope: searchScope }}
+      onQueryChange={updateAppSearchInput}
+      onSelectRoom={(room) => {
+        searchOpen = false;
+        setDestination(room.id, true);
+      }}
+      onSelectMessage={(message) => {
+        const roomId = message.roomId ?? activeRoom.id;
+        const room = allRooms.find((candidate) => candidate.id === roomId);
+        searchOpen = false;
+        if (room?.kind === "direct") {
+          setDestination(roomId, true);
+          return;
+        }
+        if (room?.kind === "forum") {
+          setDestination(roomId, true);
+          community.actions.openTopic(message.topicId ?? message.id);
+          return;
+        }
+        openPanelForDestination(roomId, {
+          kind: "thread",
+          roomId,
+          rootMessageId: rootCommunityMessageId(searchMessages, message.id),
+        });
+      }}
+      onSelectMember={(member) => {
+        searchOpen = false;
+        messageMember(member);
+      }}
+      onBrowseChannels={() => {
+        searchOpen = false;
+        openRoomBrowser("channel");
+      }}
+      canCreateChannel={hasCommunityConnection &&
+        (!authenticated || community.state.capabilities.manageGroup)}
+      onCreateChannel={() => {
+        searchOpen = false;
+        void runAuthenticated(() => openRoomEditor("channel", "create"));
+      }}
+      onCreateAgent={() => {
+        searchOpen = false;
+        void runAuthenticated(async () => {
+          agentCreatorOpen = true;
+          setDestination("agents", true);
+        });
+      }}
+    />
 
-  {#if membershipJoinError}
-    <p class="community-application__membership-error" role="alert">
-      {membershipJoinError}
-    </p>
-  {:else if membershipJoinState === "accepted"}
-    <p class="community-application__membership-status" role="status">
-      Join requested. Waiting for membership confirmation before sending the
-      original action.
-    </p>
-  {/if}
-</ConfirmDialog>
-
-<ConfirmDialog
-  open={confirmation !== null}
-  onOpenChange={(open) => {
-    if (!open) confirmation = null;
-  }}
-  destructive
-  onConfirm={confirmRoomAction}
->
-  {#snippet title()}{confirmation === "delete"
-      ? `Delete ${activeRoom.name}?`
-      : `Leave ${activeRoom.name}?`}{/snippet}
-  {#snippet description()}
-    {confirmation === "delete"
-      ? "The relay will remove this room if your identity has permission. This cannot be undone."
-      : "You can rejoin later if the room remains public."}
-  {/snippet}
-  {#snippet confirmLabel()}
-    {confirmation === "delete" ? "Delete" : "Leave"}
-  {/snippet}
-</ConfirmDialog>
-
-<CommunityStatusDialog
-  bind:open={statusOpen}
-  value={displayMember.status ?? ""}
-  pending={statusOperation?.status === "pending"}
-  {...statusOperation?.status === "accepted" && statusOperation.message
-    ? { operationMessage: statusOperation.message }
-    : {}}
-  {...statusOperation?.status === "failed" &&
-  (statusOperation.failure?.relayReason ?? statusOperation.message)
-    ? {
-        error: statusOperation.failure?.relayReason ?? statusOperation.message!,
-      }
-    : {}}
-  retryable={statusOperation?.failure?.retryable ?? false}
-  onSave={saveStatus}
-  onRetry={retryStatus}
-  onDismissError={() => community.dismissOperation("settings:status")}
-/>
-
-<Dialog.Root bind:open={sectionEditorOpen}>
-  <DialogFrame size="form">
-    {#snippet title()}{sectionEditorMode === "create"
-        ? "New section"
-        : "Rename section"}{/snippet}
-    {#snippet description()}Organize rooms in a personal section. This
-      preference is stored locally and through NIP-78 when signed in.{/snippet}
-
-    <Field.Field
-      ><Field.Label for="community-section-name">Name</Field.Label><Input
-        id="community-section-name"
-        bind:value={sectionName}
-        required
-      /></Field.Field
+    <ConfirmDialog
+      open={pendingParticipation !== undefined}
+      onOpenChange={(open) => {
+        if (!open && membershipJoinState !== "pending")
+          cancelPendingParticipation();
+      }}
+      pending={membershipJoinState === "pending"}
+      confirmDisabled={membershipJoinState !== "idle"}
+      onConfirm={async () => {
+        await joinForPendingParticipation();
+        return false;
+      }}
     >
+      {#snippet title()}
+        Join {pendingParticipation?.roomName ?? "this room"} to continue?
+      {/snippet}
+      {#snippet description()}
+        Join this {pendingParticipation?.roomKind ?? "room"} before your
+        {pendingParticipation?.actionKind ?? "action"} is sent. The original action
+        will continue automatically after membership is confirmed.
+      {/snippet}
+      {#snippet confirmLabel()}
+        {membershipJoinState === "pending"
+          ? "Joining…"
+          : membershipJoinState === "accepted"
+            ? "Join requested"
+            : `Join ${pendingParticipation?.roomKind === "forum" ? "Forum" : "Channel"}`}
+      {/snippet}
 
-    {#snippet footer()}<Button
-        type="button"
-        variant="outline"
-        onclick={() => (sectionEditorOpen = false)}>Cancel</Button
-      ><Button
-        type="button"
-        disabled={!sectionName.trim()}
-        onclick={saveSection}>Save section</Button
-      >{/snippet}
-  </DialogFrame>
-</Dialog.Root>
+      {#if membershipJoinError}
+        <p class="community-application__membership-error" role="alert">
+          {membershipJoinError}
+        </p>
+      {:else if membershipJoinState === "accepted"}
+        <p class="community-application__membership-status" role="status">
+          Join requested. Waiting for membership confirmation before sending the
+          original action.
+        </p>
+      {/if}
+    </ConfirmDialog>
 
-<Toaster position="bottom-right" />
+    <ConfirmDialog
+      open={confirmation !== null}
+      onOpenChange={(open) => {
+        if (!open) confirmation = null;
+      }}
+      destructive
+      onConfirm={confirmRoomAction}
+    >
+      {#snippet title()}{confirmation === "delete"
+          ? `Delete ${activeRoom.name}?`
+          : `Leave ${activeRoom.name}?`}{/snippet}
+      {#snippet description()}
+        {confirmation === "delete"
+          ? "The relay will remove this room if your identity has permission. This cannot be undone."
+          : "You can rejoin later if the room remains public."}
+      {/snippet}
+      {#snippet confirmLabel()}
+        {confirmation === "delete" ? "Delete" : "Leave"}
+      {/snippet}
+    </ConfirmDialog>
+
+    <CommunityStatusDialog
+      bind:open={statusOpen}
+      value={displayMember.status ?? ""}
+      pending={statusOperation?.status === "pending"}
+      {...statusOperation?.status === "accepted" && statusOperation.message
+        ? { operationMessage: statusOperation.message }
+        : {}}
+      {...statusOperation?.status === "failed" &&
+      (statusOperation.failure?.relayReason ?? statusOperation.message)
+        ? {
+            error:
+              statusOperation.failure?.relayReason ?? statusOperation.message!,
+          }
+        : {}}
+      retryable={statusOperation?.failure?.retryable ?? false}
+      onSave={saveStatus}
+      onRetry={retryStatus}
+      onDismissError={() => community.dismissOperation("settings:status")}
+    />
+
+    <Dialog.Root bind:open={sectionEditorOpen}>
+      <DialogFrame size="form">
+        {#snippet title()}{sectionEditorMode === "create"
+            ? "New section"
+            : "Rename section"}{/snippet}
+        {#snippet description()}Organize rooms in a personal section. This
+          preference is stored locally and through NIP-78 when signed in.{/snippet}
+
+        <Field.Field
+          ><Field.Label for="community-section-name">Name</Field.Label><Input
+            id="community-section-name"
+            bind:value={sectionName}
+            required
+          /></Field.Field
+        >
+
+        {#snippet footer()}<Button
+            type="button"
+            variant="outline"
+            onclick={() => (sectionEditorOpen = false)}>Cancel</Button
+          ><Button
+            type="button"
+            disabled={!sectionName.trim()}
+            onclick={saveSection}>Save section</Button
+          >{/snippet}
+      </DialogFrame>
+    </Dialog.Root>
+
+    <Toaster position="bottom-right" />
+  </QueryClientProvider>
+{/key}
 
 <style>
   .community-application__toolbar-start,

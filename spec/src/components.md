@@ -141,6 +141,15 @@ live-refresh failure from an initial catalog failure in a persistent toast with
 a Retry action instead of replacing restored content. These notifications MUST
 apply consistently across every aggregate, project, and repository tab.
 
+For LC-UI-040, project and repository request-style views MAY use the scoped
+Community query cache for presentation data, but they MUST preserve existing
+project loading and error props. Returning to repository Files, Log, commit
+details, pull-request diff, and channel canvas views MUST keep cached content
+visible while the matching scoped query refreshes. A refresh failure MUST retain
+the previous rendered resource when one exists, expose the existing retry/error
+treatment, and MUST NOT replace signed-event projections, history windows, or
+controller-owned mutations with query-cache state.
+
 For LC-UI-036, a connected external repository's contextual GitHub action MUST
 open an administrator-facing connection dialog that shows active and error
 states, sanitized failure detail, last-check time, and revalidation. The dialog

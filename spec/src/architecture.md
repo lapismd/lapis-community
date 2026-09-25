@@ -186,6 +186,17 @@ context as registry state or as an authority for repository history.
 Authenticated repository GET results MUST use a short-lived, identity-scoped
 in-memory cache that survives presentation-session replacement, remains
 bounded, bypasses progress streams, and is cleared after forge mutations.
+Community application request caches MAY use a scoped TanStack Query client
+inside the UI boundary for project catalogs, repository refs, file blobs, logs,
+commit details, pull-request diffs, and channel canvas reads. That client MUST
+be recreated when community, identity, or relay scope changes; query keys MUST
+include repository coordinate plus branch, path, commit, or pull-request target;
+placeholder data MAY keep the previous rendered resource visible while a refresh
+runs or fails. Signed Nostr events, materialized projections, live history
+windows, and controller-owned mutations remain canonical outside that cache.
+After local project writes, live project events, repository sync, or channel
+canvas saves, Community MUST invalidate the affected scoped queries instead of
+publishing cached request data as event truth.
 When the active Community relay supplies project transport, project loading
 MUST wait for relay and identity restoration to settle, close while the relay
 is unavailable, and resume once after reconnection. Catalog restoration and
