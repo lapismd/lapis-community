@@ -98,7 +98,12 @@ For LC-ARCH-028, workspace, inbox, and composer submission types are owned under
 files re-export those types so the public `./components` entry stays compatible.
 
 `CommunityApplication` destination hosts compose Personal settings, Agents,
-Pulse, and Inbox by populating Design Core AppShell body regions; they do not
+Pulse, and Inbox by populating Design Core AppShell body regions; constrained
+mobile Projects, Agents, Inbox, and Pulse destinations MUST each render one main
+AppShell toolbar that owns the mobile sidebar/history controls and the relevant
+destination controls instead of stacking a generic Application navigation toolbar
+above a page toolbar. Destination body controls such as Inbox filters and Pulse
+feed tabs remain inside their owning body regions. They do not
 replace AppShell or recreate header, viewport, sidebar, or structural-layer
 geometry. Projects named surfaces (activity, pull-request review, repository
 pane, and create dialogs) compose from the `CommunityProjects` root.

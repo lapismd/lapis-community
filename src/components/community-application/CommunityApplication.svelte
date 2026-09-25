@@ -61,8 +61,6 @@
     createLocalStorageAppShellLayoutPersistence,
     type AppShellDisplayMode,
   } from "@lapismd/design-core/shell";
-  import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
-  import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CodeXmlIcon from "@lucide/svelte/icons/code-xml";
@@ -83,7 +81,6 @@
   import PackageSearchIcon from "@lucide/svelte/icons/package-search";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import SearchIcon from "@lucide/svelte/icons/search";
-  import RefreshIcon from "@lucide/svelte/icons/refresh-cw";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
   import UsersIcon from "@lucide/svelte/icons/users";
   import UserRoundPlusIcon from "@lucide/svelte/icons/user-round-plus";
@@ -224,6 +221,8 @@
   } from "../community-navigation/model.js";
   import CommunityProfileMenu from "../community-profile-menu/CommunityProfileMenu.svelte";
   import CommunityProjects from "../community-projects/CommunityProjects.svelte";
+  import CommunityApplicationAgentsToolbar from "./CommunityApplicationAgentsToolbar.svelte";
+  import CommunityApplicationMobileNavigation from "./CommunityApplicationMobileNavigation.svelte";
   import CommunityApplicationProjectToolbarNav from "./CommunityApplicationProjectToolbarNav.svelte";
   import {
     PROJECT_REVIEW_LIST_FILTER_DEFAULT,
@@ -5721,41 +5720,12 @@
       ? {}
       : { replyTarget: community.state.replyTarget }),
   });
+  const mobileNavigationModel = $derived({
+    canNavigateBack,
+    canNavigateForward,
+    navigate: navigateHistory,
+  });
 </script>
-
-{#snippet mobileNavigationControls()}
-  <div class="community-application__mobile-navigation">
-    <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
-    <div
-      class="community-application__mobile-history"
-      role="group"
-      aria-label="Navigation history"
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Back"
-        title="Back"
-        disabled={!canNavigateBack}
-        onclick={() => navigateHistory(-1)}
-      >
-        <ChevronLeftIcon aria-hidden="true" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Forward"
-        title="Forward"
-        disabled={!canNavigateForward}
-        onclick={() => navigateHistory(1)}
-      >
-        <ChevronRightIcon aria-hidden="true" />
-      </Button>
-    </div>
-  </div>
-{/snippet}
 
 {#snippet mobileRightSidebarToggle()}
   {#if isProjectsDestination || (activeChannelProject && usesRoomToolbar)}
@@ -7243,46 +7213,43 @@
       </AppShell.Sidebar>
 
       <AppShell.Main class="community-application__main">
-        {#if shell.mobile.resolvedMode === "mobile" && !usesRoomToolbar}
-          <AppShell.Toolbar role="group" label="Application navigation">
-            {@render mobileNavigationControls()}
-            {#if isProjectsDestination || isPluginReleaseRoom}
-              <div class="community-application__mobile-toolbar-end">
+        {#if shell.mobile.resolvedMode === "mobile" && !usesRoomToolbar && activeDestination !== "agents" && !isProjectsDestination}
+          <AppShell.Toolbar
+            role="group"
+            label={activeDestination === "inbox"
+              ? "Inbox page header"
+              : activeDestination === "pulse"
+                ? "Pulse page header"
+                : "Application navigation"}
+            class={activeDestination === "inbox" ||
+            activeDestination === "pulse"
+              ? "community-application__destination-toolbar"
+              : undefined}
+          >
+            <CommunityApplicationMobileNavigation
+              model={mobileNavigationModel}
+            />
+            {#if activeDestination === "inbox" || activeDestination === "pulse"}<h1
+                class="community-application__toolbar-title"
+              >
+                {activeDestination === "inbox" ? "Inbox" : "Pulse"}
+              </h1>{/if}
+            {#if isPluginReleaseRoom}<div
+                class="community-application__mobile-toolbar-end"
+              >
                 {@render mobileRightSidebarToggle()}
-              </div>
-            {/if}
+              </div>{/if}
           </AppShell.Toolbar>
         {/if}
 
         {#if activeDestination === "agents"}
-          <AppShell.Toolbar
-            label="Agents page header"
-            class="community-application__agents-toolbar"
-          >
-            <div class="community-application__toolbar-start">
-              {#if shell.mobile.resolvedMode === "mobile"}
-                {@render mobileNavigationControls()}
-              {:else if navigationCompact}
-                <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
-              {/if}
-              <h1 class="community-application__toolbar-title">Agents</h1>
-            </div>
-            <div class="community-application__toolbar-actions">
-              {#if community.state.agents && community.actions.agents}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Refresh agents"
-                  title="Refresh agents"
-                  disabled={community.state.agents.status === "loading"}
-                  onclick={() => void community.actions.agents!.refresh()}
-                >
-                  <RefreshIcon aria-hidden="true" />
-                </Button>
-              {/if}
-            </div>
-          </AppShell.Toolbar>
+          <CommunityApplicationAgentsToolbar
+            mobile={shell.mobile.resolvedMode === "mobile"}
+            {navigationCompact}
+            {mobileNavigationModel}
+            agentsState={community.state.agents}
+            agentsActions={community.actions.agents}
+          />
         {/if}
 
         {#if isProjectsDestination && selectedPullRequest}
@@ -7290,6 +7257,9 @@
             label="Review navigation"
             class="community-application__project-review-toolbar"
           >
+            {#if shell.mobile.resolvedMode === "mobile"}<CommunityApplicationMobileNavigation
+                model={mobileNavigationModel}
+              />{/if}
             <Button
               type="button"
               variant="ghost"
@@ -7312,7 +7282,12 @@
                 />
               </p>
             </div>
-          </AppShell.Toolbar>
+            {#if shell.mobile.resolvedMode === "mobile"}<div
+                class="community-application__mobile-toolbar-end"
+              >
+                {@render mobileRightSidebarToggle()}
+              </div>{/if}</AppShell.Toolbar
+          >
         {/if}
 
         {#if isProjectsDestination && !selectedTask && !selectedPullRequest}
@@ -7320,7 +7295,9 @@
             label="Project sections"
             class="community-application__project-toolbar"
           >
-            <CommunityApplicationProjectToolbarNav
+            {#if shell.mobile.resolvedMode === "mobile"}<CommunityApplicationMobileNavigation
+                model={mobileNavigationModel}
+              />{/if}<CommunityApplicationProjectToolbarNav
               scope={selectedRepository
                 ? "repository"
                 : selectedProject
@@ -7367,6 +7344,11 @@
                 {/each}
               </Tabs.List>
             </Tabs.Root>
+            {#if shell.mobile.resolvedMode === "mobile"}<div
+                class="community-application__mobile-toolbar-end"
+              >
+                {@render mobileRightSidebarToggle()}
+              </div>{/if}
           </AppShell.Toolbar>
         {/if}
 
@@ -7749,6 +7731,16 @@
                     community.dismissOperation(pulsePublishOperationEntry[0]),
                 }}
           />
+        {:else if activeDestination === "pulse"}<AppShell.Body
+            layout="regions"
+            label="Pulse"
+            ><AppShell.Body.Content label="Pulse feed"
+              ><CommunitySkeleton
+                layout="messages"
+                label="Loading Pulse"
+              /></AppShell.Body.Content
+            ></AppShell.Body
+          >
         {:else if activeDestination === "inbox"}
           <CommunityApplicationInboxHost
             model={inbox}
@@ -7838,7 +7830,9 @@
           >
             <div class="community-application__toolbar-start">
               {#if shell.mobile.resolvedMode === "mobile"}
-                {@render mobileNavigationControls()}
+                <CommunityApplicationMobileNavigation
+                  model={mobileNavigationModel}
+                />
               {:else if navigationCompact}
                 <AppShell.Sidebar.Toggle side="left" sidebarName="navigation" />
               {/if}
@@ -8882,18 +8876,11 @@
 
 <style>
   .community-application__toolbar-start,
-  .community-application__toolbar-actions,
-  .community-application__mobile-navigation,
-  .community-application__mobile-history {
+  .community-application__toolbar-actions {
     display: flex;
     min-width: 0;
     align-items: center;
     gap: 0.5rem;
-  }
-
-  .community-application__mobile-navigation,
-  .community-application__mobile-history {
-    gap: 0.125rem;
   }
 
   .community-application__mobile-toolbar-end {
@@ -8902,7 +8889,8 @@
     margin-inline-start: auto;
   }
 
-  :global(.community-application__agents-toolbar[data-ui-part="toolbar"]) {
+  :global(.community-application__agents-toolbar[data-ui-part="toolbar"]),
+  :global(.community-application__destination-toolbar[data-ui-part="toolbar"]) {
     gap: 0.5rem;
     min-height: 3.25rem;
     padding: 0.55rem 1rem;
