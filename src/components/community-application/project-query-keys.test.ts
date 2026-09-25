@@ -59,6 +59,33 @@ it("separates repository reads by branch, path, commit, and pull request", () =>
     revision: "feature",
   });
   expect(mainTree).not.toEqual(featureTree);
+  expect(mainTree).not.toEqual(
+    communityProjectQueryKeys.repositoryTree(baseScope, {
+      repository: "30617:owner:repo",
+      revision: "main",
+      path: "src",
+    }),
+  );
+  expect(
+    communityProjectQueryKeys.repositoryCommits(baseScope, {
+      repository: "30617:owner:repo",
+      revision: "main",
+      path: "README.md",
+      limit: 1,
+    }),
+  ).not.toEqual(
+    communityProjectQueryKeys.repositoryCommits(baseScope, {
+      repository: "30617:owner:repo",
+      revision: "main",
+      path: "src/index.ts",
+      limit: 1,
+    }),
+  );
+  expect(
+    communityProjectQueryKeys.githubRepositories(baseScope, "connection-a"),
+  ).not.toEqual(
+    communityProjectQueryKeys.githubRepositories(baseScope, "connection-b"),
+  );
   expect(
     communityProjectQueryKeys.repositoryBlob(baseScope, {
       repository: "30617:owner:repo",

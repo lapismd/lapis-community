@@ -148,6 +148,10 @@ details, pull-request diff, and channel canvas views MUST keep cached content
 visible while the matching scoped query refreshes. Repository Files per-path
 commit metadata MUST use the same scoped repository, revision and path cache so
 remounting a warmed file table does not repeat identical path-history reads. A
+repository's branch/ref discovery, commit-history reads, review ref loading,
+and GitHub connection/repository pickers MUST share that community,
+identity, relay, repository, branch, path, commit, pull-request, and connection
+scope so switching contexts cannot reuse another repository or identity's data. A
 refresh failure MUST retain the previous rendered resource when one exists,
 expose the existing retry/error treatment, and MUST NOT replace signed-event
 projections, history windows, or controller-owned mutations with query-cache

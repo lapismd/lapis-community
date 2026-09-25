@@ -675,6 +675,13 @@ and preserves errors for explicit revision reads. Missing optional observer
 turn identifiers and persona text remain absent or empty at their existing
 presentation boundary; no Nostr event or signing contract changes.
 
+For LC-UI-040, scoped query-cache owners MAY reuse repository refs, trees,
+blob, commit-history, commit-detail, pull-request diff, review-ref, and GitHub
+provider read results inside the active community, relay and identity scope.
+Those cached request results remain presentation data over the existing NIP-98
+repository APIs and MUST NOT become canonical signed event state, publication
+authority, or a replacement for project-forge projections.
+
 For LC-NOSTR-022, owner activity snapshots and live frames use the same typed
 execution-state projection. Completed, failed, cancelled, interrupted and uncertain
 outcomes are retained independently of response delivery. Settled permission identities

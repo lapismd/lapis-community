@@ -8,6 +8,7 @@ import { repositorySurfaceLoadsRefs } from "../../projects/repository-surface-re
 
 import { projectFilesSurfaceLoadsTree } from "./project-files-selection.js";
 import { repositoryViewRevision } from "./project-route-files.js";
+import type { ProjectRepositoryReadSession } from "./project-repository-read-query.js";
 import type {
   ProjectRepositoryViewInput,
   ProjectRepositoryViewResult,
@@ -18,10 +19,11 @@ export async function loadRepositorySource(
   result: ProjectRepositoryViewResult,
   repository: string,
   signal: AbortSignal,
+  session: ProjectRepositoryReadSession = input.session,
 ): Promise<void> {
   if (!repositorySurfaceLoadsRefs(input.surface)) return;
   try {
-    const refs = await input.session.loadRefs(repository, signal);
+    const refs = await session.loadRefs(repository, signal);
     const branches = projectForgeBranchRefs(refs);
     const view = repositoryViewRevision({
       surface: input.surface,
@@ -43,19 +45,20 @@ export async function loadRepositorySource(
         inlineProjectFilesSheetOpen: input.inlineProjectFilesSheetOpen,
       })
     ) {
-      result.tree = await loadTree(input, repository, view.revision, signal);
+      result.tree = await loadTree(
+        input,
+        repository,
+        view.revision,
+        signal,
+        session,
+      );
       if (input.surface === "files" && result.tree.commit) {
         result.commits = [result.tree.commit];
       }
       if (input.surface === undefined || input.surface === "overview") {
         result.owners = await loadOwnersFromBlob(
           () =>
-            input.session.loadBlob(
-              repository,
-              view.revision,
-              "OWNERS.md",
-              signal,
-            ),
+            session.loadBlob(repository, view.revision, "OWNERS.md", signal),
           signal,
         );
       }
@@ -79,25 +82,21 @@ async function loadTree(
   repository: string,
   revision: string,
   signal: AbortSignal,
+  session: ProjectRepositoryReadSession,
 ): Promise<ProjectForgeTreeResponse> {
   let tree =
     input.surface === "files"
       ? await loadProjectRepositoryFileTree(
-          input.session,
+          session,
           repository,
           revision,
           signal,
         )
-      : await input.session.loadTree(repository, revision, "", signal);
+      : await session.loadTree(repository, revision, "", signal);
   if (input.surface === "files") {
-    const commits = await input.session.loadCommits(
-      repository,
-      revision,
-      signal,
-      {
-        limit: 1,
-      },
-    );
+    const commits = await session.loadCommits(repository, revision, signal, {
+      limit: 1,
+    });
     if (commits.commits[0]) tree = { ...tree, commit: commits.commits[0] };
   }
   if (
@@ -111,7 +110,7 @@ async function loadTree(
     );
     if (readme) {
       try {
-        const blob = await input.session.loadBlob(
+        const blob = await session.loadBlob(
           repository,
           revision,
           readme.path ?? readme.name,

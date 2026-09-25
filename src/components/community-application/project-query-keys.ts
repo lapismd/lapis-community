@@ -13,6 +13,7 @@ export interface RepositoryQueryTarget {
   surface?: string | undefined;
   commitSha?: string | undefined;
   pullRequestId?: string | undefined;
+  limit?: number | undefined;
 }
 
 export function communityQueryRelayUrls(
@@ -63,12 +64,13 @@ export const communityProjectQueryKeys = {
     ] as const,
   repositoryTree: (
     scope: CommunityQueryScope,
-    target: Pick<RepositoryQueryTarget, "repository" | "revision">,
+    target: Pick<RepositoryQueryTarget, "repository" | "revision" | "path">,
   ) =>
     [
       ...communityProjectQueryKeys.repository(scope, target.repository),
       "tree",
       target.revision ?? "default",
+      target.path ?? "root",
     ] as const,
   repositoryBlob: (
     scope: CommunityQueryScope,
@@ -81,6 +83,20 @@ export const communityProjectQueryKeys = {
       "blob",
       target.revision,
       target.path,
+    ] as const,
+  repositoryCommits: (
+    scope: CommunityQueryScope,
+    target: Pick<
+      RepositoryQueryTarget,
+      "repository" | "revision" | "path" | "limit"
+    >,
+  ) =>
+    [
+      ...communityProjectQueryKeys.repository(scope, target.repository),
+      "commits",
+      target.revision ?? "default",
+      target.path ?? "all",
+      target.limit ?? "all",
     ] as const,
   repositoryCommit: (
     scope: CommunityQueryScope,
@@ -124,6 +140,10 @@ export const communityProjectQueryKeys = {
       target.commitSha ?? "none",
       target.pullRequestId ?? "none",
     ] as const,
+  githubConnections: (scope: CommunityQueryScope) =>
+    [...projectsRoot(scope), "github", "connections"] as const,
+  githubRepositories: (scope: CommunityQueryScope, connectionId: string) =>
+    [...projectsRoot(scope), "github", "repositories", connectionId] as const,
   channelCanvas: (scope: CommunityQueryScope, roomId: string) =>
     [...root(scope), "channel-canvas", roomId] as const,
 };

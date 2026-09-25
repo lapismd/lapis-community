@@ -10,7 +10,7 @@ function repositoryEntryPath(parent: string, name: string): string {
 }
 
 export async function loadProjectRepositoryFileTree(
-  session: ProjectForgeSession,
+  session: Pick<ProjectForgeSession, "loadTree">,
   repository: string,
   revision: string,
   signal: AbortSignal,

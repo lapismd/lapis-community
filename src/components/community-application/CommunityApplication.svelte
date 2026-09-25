@@ -157,9 +157,6 @@
     type ProjectForgeCommitActivity,
     type ProjectForgeDataSource,
     type ProjectForgeGitHubConnection,
-    type ProjectForgeGitHubConnectionInput,
-    type ProjectForgeGitHubConnectionsResponse,
-    type ProjectForgeGitHubRepositoriesResponse,
     type ProjectForgeGitHubRepository,
     type ProjectForgePullRequestDiff,
     type ProjectForgeProject,
@@ -240,7 +237,6 @@
   import CommunityProjectsProjectRepositoriesRail from "../community-projects/CommunityProjectsProjectRepositoriesRail.svelte";
   import CommunityProjectsRailStatusFilters from "../community-projects/CommunityProjectsRailStatusFilters.svelte";
   import CommunityProjectsRepositoryRail from "../community-projects/CommunityProjectsRepositoryRail.svelte";
-  import { createRepositoryCommitReader } from "../../projects/repository-source-reads.js";
   import { provideProjectLogNavigation } from "./project-log-navigation.svelte.js";
   import {
     memberCommandGroupIds,
@@ -352,6 +348,7 @@
     type ProjectRepositoryViewResult,
   } from "./project-repository-view-query.js";
   import { loadRepositoryPathCommitFromQuery } from "./project-repository-path-commit-query.js";
+  import { createProjectApplicationQueryActions } from "./project-application-query-actions.js";
 
   type CommunityAuthenticatedAction = () => void | Promise<void>;
   type CommunityParticipationAction = "message" | "post" | "reaction" | "reply";
@@ -2931,7 +2928,10 @@
         placeholderData: keepPreviousData,
         queryFn: ({ signal }) => {
           if (!input) throw new Error("Project view is not ready");
-          return loadProjectRepositoryView(input, signal);
+          return loadProjectRepositoryView(input, signal, {
+            queryClient: communityQueryClient,
+            scope: communityQueryScope,
+          });
         },
       };
     },
@@ -4125,47 +4125,24 @@
     return result as T;
   }
 
-  async function loadGitHubConnections(): Promise<ProjectForgeGitHubConnectionsResponse> {
-    return await withProjectRequest("Loading GitHub connections…", (session) =>
-      session.loadGitHubConnections(),
-    );
-  }
-
-  async function createGitHubConnection(
-    input: ProjectForgeGitHubConnectionInput,
-  ): Promise<ProjectForgeGitHubConnection> {
-    return await withProjectRequest(
-      "Adding GitHub App connection…",
-      (session) => session.createGitHubConnection(input),
-    );
-  }
-
-  async function updateGitHubConnection(
-    connectionId: string,
-    input: ProjectForgeGitHubConnectionInput,
-  ): Promise<ProjectForgeGitHubConnection> {
-    return await withProjectRequest(
-      "Replacing GitHub App connection…",
-      (session) => session.updateGitHubConnection(connectionId, input),
-    );
-  }
-
-  async function revalidateGitHubConnection(
-    connectionId: string,
-  ): Promise<ProjectForgeGitHubConnection> {
-    return await withProjectRequest(
-      "Revalidating GitHub App connection…",
-      (session) => session.revalidateGitHubConnection(connectionId),
-    );
-  }
-
-  async function loadGitHubRepositories(
-    connectionId: string,
-  ): Promise<ProjectForgeGitHubRepositoriesResponse> {
-    return await withProjectRequest("Loading GitHub repositories…", (session) =>
-      session.loadGitHubRepositories(connectionId),
-    );
-  }
+  const projectQueryActions = createProjectApplicationQueryActions({
+    queryClient: () => communityQueryClient,
+    scope: () => communityQueryScope,
+    projectSession: () => projectSession,
+    selectedRepository: () => selectedRepositoryCoordinate,
+    sourceRepository: () => projectSourceRepositoryCoordinate,
+    request: (label, action) =>
+      withProjectRequest(label, async (session) => action(session)),
+  });
+  const {
+    loadGitHubConnections,
+    createGitHubConnection,
+    updateGitHubConnection,
+    revalidateGitHubConnection,
+    loadGitHubRepositories,
+    loadReviewRepositoryRefs,
+    loadRepositoryCommit,
+  } = projectQueryActions;
 
   async function attachGitHubRepository(
     repository: ProjectForgeRepository,
@@ -4445,11 +4422,6 @@
     );
   }
 
-  async function loadReviewRepositoryRefs(repositoryCoordinate: string) {
-    if (!projectSession) throw new Error("Repository source is not ready");
-    return await projectSession.loadRefs(repositoryCoordinate);
-  }
-
   async function loadRepositoryPathCommit(path: string, signal?: AbortSignal) {
     return loadRepositoryPathCommitFromQuery({
       queryClient: communityQueryClient,
@@ -4461,11 +4433,6 @@
       signal,
     });
   }
-  const loadRepositoryCommit = createRepositoryCommitReader({
-    session: () => projectSession,
-    selectedRepository: () => selectedRepositoryCoordinate,
-    sourceRepository: () => projectSourceRepositoryCoordinate,
-  });
 
   async function publishPullRequestReview(
     pullRequest: PullRequestState,

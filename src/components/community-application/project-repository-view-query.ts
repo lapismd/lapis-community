@@ -18,6 +18,12 @@ import { loadProjectCommitActivity } from "../../projects/index.js";
 import { readRepositoryDefaultCommits } from "../../projects/repository-default-history.js";
 import { repositorySupportsBrowsing } from "./repository-browsing.js";
 import { loadRepositorySource } from "./project-repository-view-source.js";
+import {
+  loadRepositoryPullRequestDiffForView,
+  projectRepositoryReadSession,
+  type ProjectRepositoryReadQueryContext,
+  type ProjectRepositoryReadSession,
+} from "./project-repository-read-query.js";
 
 export interface ProjectRepositoryViewInput {
   catalog: ProjectForgeCatalog;
@@ -73,7 +79,9 @@ export function projectRepositoryViewQueryTarget(
 export async function loadProjectRepositoryView(
   input: ProjectRepositoryViewInput,
   signal: AbortSignal,
+  queryContext?: ProjectRepositoryReadQueryContext | undefined,
 ): Promise<ProjectRepositoryViewResult> {
+  const reads = projectRepositoryReadSession(input.session, queryContext);
   const project = input.catalog.projects.find(
     (candidate) => candidate.address.coordinate === input.projectCoordinate,
   );
@@ -95,7 +103,7 @@ export async function loadProjectRepositoryView(
         )
       : input.catalog.repositories;
   const { capabilities, capabilityError } = await loadCapabilities(
-    input.session,
+    reads,
     repositories,
     input.identityAvailable,
     signal,
@@ -108,6 +116,7 @@ export async function loadProjectRepositoryView(
   );
   const commitActivity = await maybeLoadCommitActivity(
     input,
+    reads,
     browsableRepositories,
     project ? [project] : input.catalog.projects,
     signal,
@@ -124,16 +133,18 @@ export async function loadProjectRepositoryView(
   }
   return loadSourceRepositoryView(
     input,
+    reads,
     sourceRepository,
     capabilities,
     capabilityError,
     commitActivity,
     signal,
+    queryContext,
   );
 }
 
 async function loadCapabilities(
-  session: ProjectForgeSession,
+  session: ProjectRepositoryReadSession,
   repositories: readonly ProjectForgeRepository[],
   identityAvailable: boolean,
   signal: AbortSignal,
@@ -176,6 +187,7 @@ async function loadCapabilities(
 
 async function maybeLoadCommitActivity(
   input: ProjectRepositoryViewInput,
+  session: ProjectRepositoryReadSession,
   repositories: readonly ProjectForgeRepository[],
   projects: ProjectForgeCatalog["projects"],
   signal: AbortSignal,
@@ -192,12 +204,7 @@ async function maybeLoadCommitActivity(
   ) {
     return [];
   }
-  return loadProjectCommitActivity(
-    input.session,
-    repositories,
-    projects,
-    signal,
-  );
+  return loadProjectCommitActivity(session, repositories, projects, signal);
 }
 
 function emptyRepositoryResult(
@@ -225,11 +232,13 @@ function emptyRepositoryResult(
 
 async function loadSourceRepositoryView(
   input: ProjectRepositoryViewInput,
+  session: ProjectRepositoryReadSession,
   sourceRepository: ProjectForgeRepository,
   capabilities: ProjectForgeRepositoryCapabilitiesByCoordinate,
   capabilityError: string,
   commitActivity: readonly ProjectForgeCommitActivity[],
   signal: AbortSignal,
+  queryContext?: ProjectRepositoryReadQueryContext | undefined,
 ): Promise<ProjectRepositoryViewResult> {
   const repository = sourceRepository.address.coordinate;
   const result = emptyRepositoryResult(
@@ -245,7 +254,7 @@ async function loadSourceRepositoryView(
     input.surface === "activity"
   ) {
     result.commits = await readRepositoryDefaultCommits(
-      input.session,
+      session,
       repository,
       signal,
     ).catch((cause: unknown) => {
@@ -259,7 +268,7 @@ async function loadSourceRepositoryView(
   }
   if (input.surface === "commits" && input.selectedCommitSha) {
     try {
-      result.selectedCommitDetail = await input.session.loadCommit(
+      result.selectedCommitDetail = await session.loadCommit(
         repository,
         input.selectedCommitSha,
         signal,
@@ -272,13 +281,16 @@ async function loadSourceRepositoryView(
       );
     }
   }
-  await loadRepositorySource(input, result, repository, signal);
+  await loadRepositorySource(input, result, repository, signal, session);
   if (input.pullRequestSurface === "reviews" && input.pullRequestId) {
     try {
-      result.pullRequestDiff = await input.session.loadPullRequestDiff(
-        input.pullRequestId,
-        { signal },
-      );
+      result.pullRequestDiff = await loadRepositoryPullRequestDiffForView({
+        context: queryContext,
+        session: input.session,
+        repository,
+        pullRequestId: input.pullRequestId,
+        signal,
+      });
     } catch (cause) {
       if (signal.aborted) throw cause;
       result.pullRequestDiffError = failureMessage(
