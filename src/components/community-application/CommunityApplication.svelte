@@ -25,6 +25,10 @@
   } from "./project-route-files.js";
   import * as communityCopy from "../../community/community-copy-links.js";
   import { repositoryViewRevision } from "./project-route-files.js";
+  import {
+    preferredProjectFilesRepository,
+    projectFilesSurfaceLoadsTree,
+  } from "./project-files-selection.js";
   import { projectViewForSurface } from "./project-log-route.js";
   import { parseNip29ReleaseEvent } from "../../protocol/index.js";
   import {
@@ -997,16 +1001,17 @@
       : []
     ).filter((repository) => repository.repositoryClass !== "task-anchor"),
   );
-  const selectedProjectFilesRepository = $derived.by(() => {
-    const coordinate =
-      selectedProjectFilesRoute?.repositoryCoordinate ||
-      projectFilesRepositoryCoordinate;
-    return (
-      projectFilesRepositories.find(
-        (repository) => repository.address.coordinate === coordinate,
-      ) ?? projectFilesRepositories[0]
-    );
-  });
+  const selectedProjectFilesRepository = $derived.by(() =>
+    preferredProjectFilesRepository(projectFilesRepositories, {
+      selectedCoordinate:
+        selectedProjectFilesRoute?.repositoryCoordinate ||
+        projectFilesRepositoryCoordinate,
+      channelRepositoryCoordinate:
+        projectSheetProject === activeChannelProject
+          ? activeChannelProjectContext?.binding.repositoryCoordinate
+          : undefined,
+    }),
+  );
   const communityProjectsSelectedRepository = $derived(
     selectedRepository ??
       (selectedProjectSurface === "files"
@@ -2546,7 +2551,9 @@
   $effect(() => {
     const route = selectedProjectFilesRoute;
     if (!route) {
-      projectFilesRepositoryCoordinate = "";
+      if (selectedProjectSurface !== "files") {
+        projectFilesRepositoryCoordinate = "";
+      }
       return;
     }
     const repository = selectedProjectFilesRepository;
@@ -2762,12 +2769,12 @@
       isProjectsDestination || channelProjectCoordinate !== undefined;
     const projectCoordinate =
       selectedProjectCoordinate ?? channelProjectCoordinate;
-    const projectFilesRepositoryCoordinate =
+    const activeProjectFilesRepositoryCoordinate =
       selectedProjectSurface === "files"
         ? (selectedProjectFilesRepository?.address.coordinate ?? "")
         : "";
     const repositoryCoordinate =
-      selectedRepositoryCoordinate || projectFilesRepositoryCoordinate;
+      selectedRepositoryCoordinate || activeProjectFilesRepositoryCoordinate;
     const surface = selectedRepositoryCoordinate
       ? activeRepositorySurface
       : selectedProjectSurface;
@@ -2782,6 +2789,7 @@
       () => projectSelectedRepositoryBranch,
     );
     const requestedRepositoryBranchOwner = projectSelectedRepositoryBranchOwner;
+    const inlineProjectFilesSheetOpen = projectSheetProject !== undefined;
     const filesRouteRevision = untrack(() =>
       applicationLocation.projectRoute?.surface === "files"
         ? applicationLocation.projectRoute.revision
@@ -3044,9 +3052,10 @@
             }
             if (
               revision &&
-              (surface === undefined ||
-                surface === "overview" ||
-                (surface === "files" && Boolean(filesRouteRevision)))
+              projectFilesSurfaceLoadsTree(surface, {
+                filesRouteRevision,
+                inlineProjectFilesSheetOpen,
+              })
             ) {
               let tree =
                 surface === "files"

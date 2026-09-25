@@ -899,3 +899,6 @@ repository route. Repository selection uses a bounded Command View owner, while
 the application root only adapts that selection into the existing repository
 file loader. The architecture baseline records the restored Files tab route
 surface, file-browser story, and selector owner in the same change.
+Inline channel Files sheets reuse that selector owner for repository preference
+and feed the resolved repository into the existing file loader without requiring
+a durable project Files route first.

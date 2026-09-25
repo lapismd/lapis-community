@@ -357,4 +357,6 @@ changed stories remain visual-pending and package publication is a later step.
 For LC-UI-036, restoring selected-project Files does not change registry
 materialization. The file browser continues to consume the verified project and
 repository announcements already present in the catalog; repository selection
-only chooses which member repository source loader to read.
+only chooses which member repository source loader to read. Channel inline
+Files sheets use the same verified catalog data and do not change registry
+materialization when they default to a channel-bound repository.

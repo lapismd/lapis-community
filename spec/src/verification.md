@@ -1,6 +1,6 @@
 # Verification
 
-For LC-UI-036, selected project workspaces restore the Files tab with a project-scoped repository selector and durable project Files URLs. Focused coverage exercises the route round trips, tab order, route normalization, and Project files repository selector story; visual review remains pending.
+For LC-UI-036, selected project workspaces restore the Files tab with a project-scoped repository selector and durable project Files URLs. Channel inline Files sheets default to a verified channel-bound repository and load files while preserving the channel URL. Focused coverage exercises the route round trips, tab order, route normalization, project Files repository selection, inline Files tree-loading readiness, and the Project files repository selector story; visual review remains pending.
 
 For LC-UI-036, constrained project-bound channel sheets were rechecked with the mobile Project channel overview story and a cold 1023px local Community browser probe: the Project overview toggle opened the AppShell right lane, selecting Tasks kept the right lane active, and the inline sheet mounted at the AppShell root above the body and sidebar lanes with small top, side, and bottom gutters.
 

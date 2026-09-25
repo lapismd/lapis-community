@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "f75cac708e8566ccb615819e46769baf8afba2dd",
+  "sourceCommit": "4855b4d75d92033fa220e5799a0be11fde626818",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -2315,8 +2315,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9273,
-      "physicalLines": 9644,
+      "countedLines": 9282,
+      "physicalLines": 9653,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -2497,6 +2497,16 @@
     "src/components/community-application/project-commit-route.ts": {
       "countedLines": 105,
       "physicalLines": 110,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-files-selection.test.ts": {
+      "countedLines": 76,
+      "physicalLines": 85,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/project-files-selection.ts": {
+      "countedLines": 47,
+      "physicalLines": 50,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/project-log-navigation.svelte.ts": {

@@ -84,7 +84,11 @@ left navigation and history controls. In constrained mobile presentation, that
 toggle MUST activate the AppShell right lane before a project-overview row is
 selected, and selecting Tasks, Reviews, Commits, Files, or People MUST keep
 the right lane active while revealing a root-hosted inline sheet that covers
-the body and sidebar lanes with small top, side, and bottom gutters.
+the body and sidebar lanes with small top, side, and bottom gutters. Opening
+the Files item from a project-bound channel MUST resolve the channel-bound
+repository before falling back to the first member repository, load that
+repository's file tree inside the inline sheet, and keep the channel route
+stable.
 
 For LC-ARCH-028, workspace, inbox, and composer submission types are owned under
 `src/community`, and login-method types under `src/auth`. Component `model.ts`
