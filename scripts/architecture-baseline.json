@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "5338248d5adeaa7498099f1b651d5fdfa131b80a",
+  "sourceCommit": "1c39b14f93242c5ae8ec1603297617f8534f98e9",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -2308,15 +2308,15 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplication.stories.svelte": {
-      "countedLines": 4945,
-      "physicalLines": 5101,
+      "countedLines": 5089,
+      "physicalLines": 5250,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9060,
-      "physicalLines": 9426,
+      "countedLines": 9095,
+      "physicalLines": 9463,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -4016,8 +4016,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-projects/CommunityProjects.svelte": {
-      "countedLines": 3579,
-      "physicalLines": 3713,
+      "countedLines": 3581,
+      "physicalLines": 3715,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Projects composition root; extract named surfaces before adding behaviour"
@@ -4470,8 +4470,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/model.ts": {
-      "countedLines": 256,
-      "physicalLines": 286,
+      "countedLines": 257,
+      "physicalLines": 288,
       "forbiddenImportCount": 0
     },
     "src/components/community-projects/project-contributor-groups.ts": {

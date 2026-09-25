@@ -164,6 +164,8 @@ export interface CommunityProjectsProps {
   canManageForge?: boolean;
   dialogRequest?: CommunityProjectsDialogRequest;
   showNavigation?: boolean;
+  /** Render the workspace body with non-main semantics when embedded in another page. */
+  bodyElement?: "main" | "section" | "div";
   /** Keep project dialogs mounted without rendering the project workspace. */
   showContent?: boolean;
   /** Render the pull-request title in this surface instead of an owning shell header. */

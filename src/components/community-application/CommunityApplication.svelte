@@ -978,10 +978,22 @@
   const projectOverviewShown = $derived(
     !projectOverviewSidebar.closed && !projectOverviewSidebar.collapsed,
   );
+  const projectOverviewMobileActive = $derived(
+    shell.mobile.resolvedMode === "mobile" &&
+      shell.mobile.stage === "right" &&
+      shell.mobile.activePanelId("right") ===
+        COMMUNITY_APPLICATION_PROJECT_OVERVIEW_PANEL_ID,
+  );
   const releaseOverviewShown = $derived(
     activeMainSurface === undefined &&
       !releaseOverviewSidebar.closed &&
       !releaseOverviewSidebar.collapsed,
+  );
+  const releaseOverviewMobileActive = $derived(
+    shell.mobile.resolvedMode === "mobile" &&
+      shell.mobile.stage === "right" &&
+      shell.mobile.activePanelId("right") ===
+        COMMUNITY_APPLICATION_RELEASE_OVERVIEW_PANEL_ID,
   );
   const projectChannelRoomIds = $derived.by(() => {
     const ids = new Set<string>();
@@ -3893,7 +3905,10 @@
     projectOverviewInitialized = true;
     pushLocation({
       destination: activeDestination,
-      panel: activePanel,
+      panel:
+        shell.mobile.resolvedMode === "mobile"
+          ? noCommunityApplicationPanel()
+          : activePanel,
       mainSurface: `project-${surface}`,
     });
     lastAction = `opened-channel-project-${surface}`;
@@ -5578,6 +5593,14 @@
   </div>
 {/snippet}
 
+{#snippet mobileRightSidebarToggle()}
+  {#if isProjectsDestination || (activeChannelProject && usesRoomToolbar)}
+    {@render projectOverviewToggle()}
+  {:else if isPluginReleaseRoom}
+    {@render releaseOverviewToggle()}
+  {/if}
+{/snippet}
+
 {#snippet releaseOverviewToggle()}
   {#if activeMainSurface !== undefined}
     <Button
@@ -5618,12 +5641,23 @@
       side="right"
       sidebarController={releaseOverviewSidebar}
       sidebarName="plugin release overview"
-      label={releaseOverviewShown
-        ? "Hide plugin release overview"
-        : "Show plugin release overview"}
+      label={shell.mobile.resolvedMode === "mobile"
+        ? releaseOverviewMobileActive
+          ? "Close plugin release overview sidebar"
+          : "Open plugin release overview sidebar"
+        : releaseOverviewShown
+          ? "Hide plugin release overview"
+          : "Show plugin release overview"}
       class="community-application__release-overview-toggle"
       onclick={() => {
         releaseOverviewInitialized = true;
+        if (shell.mobile.resolvedMode === "mobile") {
+          releaseOverviewSidebar.expand();
+          lastAction = releaseOverviewMobileActive
+            ? "closed-release-overview"
+            : "opened-release-overview";
+          return;
+        }
         if (releaseOverviewSidebar.collapsed) releaseOverviewSidebar.close();
         lastAction = releaseOverviewSidebar.closed
           ? "closed-release-overview"
@@ -6084,9 +6118,13 @@
     side="right"
     sidebarController={projectOverviewSidebar}
     sidebarName="project overview"
-    label={projectOverviewShown && !releaseSheetOpen
-      ? "Hide project overview"
-      : "Show project overview"}
+    label={shell.mobile.resolvedMode === "mobile"
+      ? projectOverviewMobileActive
+        ? "Close project overview sidebar"
+        : "Open project overview sidebar"
+      : projectOverviewShown && !releaseSheetOpen
+        ? "Hide project overview"
+        : "Show project overview"}
     onclick={() => {
       projectOverviewInitialized = true;
       if (releaseSheetOpen) {
@@ -6805,6 +6843,7 @@
           operation={projectOperation}
           canCollaborate={authenticated}
           showNavigation={false}
+          bodyElement="section"
           onOpenProfile={openProfile}
           onMessageMember={messageMember}
           onWaveMember={waveMember}
@@ -7027,6 +7066,11 @@
     {#if shell.mobile.resolvedMode === "mobile" && !usesRoomToolbar}
       <AppShell.Toolbar role="group" label="Application navigation">
         {@render mobileNavigationControls()}
+        {#if isProjectsDestination || isPluginReleaseRoom}
+          <div class="community-application__mobile-toolbar-end">
+            {@render mobileRightSidebarToggle()}
+          </div>
+        {/if}
       </AppShell.Toolbar>
     {/if}
 
@@ -7711,21 +7755,8 @@
           >
             <EllipsisIcon aria-hidden="true" />
           </Button>
-          {#if isPluginReleaseRoom && shell.mobile.resolvedMode === "mobile"}
-            <AppShell.Sidebar.Toggle
-              side="right"
-              sidebarController={activeChannelProject
-                ? projectOverviewSidebar
-                : releaseOverviewSidebar}
-              sidebarName={activeChannelProject
-                ? "project overview"
-                : "plugin release overview"}
-              onclick={() => {
-                lastAction = activeChannelProject
-                  ? "toggled-project-overview"
-                  : "toggled-release-overview";
-              }}
-            />
+          {#if shell.mobile.resolvedMode === "mobile"}
+            {@render mobileRightSidebarToggle()}
           {/if}
         </div>
       </AppShell.Toolbar>
@@ -8633,6 +8664,12 @@
   .community-application__mobile-navigation,
   .community-application__mobile-history {
     gap: 0.125rem;
+  }
+
+  .community-application__mobile-toolbar-end {
+    display: flex;
+    align-items: center;
+    margin-inline-start: auto;
   }
 
   :global(.community-application__agents-toolbar[data-ui-part="toolbar"]) {

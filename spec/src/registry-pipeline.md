@@ -2,9 +2,10 @@ For LC-UI-019, the room-browser create-row vertical spacing regression records t
 component and focused Storybook budgets in `scripts/architecture-baseline.json`;
 no registry materialization or publication behavior changes.
 
-For LC-ARCH-028, the project-channel inline sheet regression records the
-application navigation and focused story budgets in `scripts/architecture-baseline.json`;
-no registry materialization or publication behavior changes.
+For LC-ARCH-028 and LC-UI-036, the project-channel inline sheet regression records
+the mobile project-overview routing, embedded project-body semantics, application
+navigation and focused story budgets in `scripts/architecture-baseline.json`; no
+registry materialization or publication behavior changes.
 
 # Local Registry Pipeline
 

@@ -22,7 +22,10 @@
     projectDestinationFromCoordinate,
     projectRouteToHash,
   } from "./navigation.js";
-  import { projectStoryProjectCoordinate } from "../community-projects/story-fixtures.js";
+  import {
+    projectStoryProjectCoordinate,
+    projectStoryRepositoryCoordinate,
+  } from "../community-projects/story-fixtures.js";
 
   let navigationPresentationReads = 0;
   let inboxPresentationReads = 0;
@@ -956,7 +959,11 @@
       ),
     );
     await expect(
-      await canvas.findByRole("heading", { name: "Tasks", level: 1 }),
+      await canvas.findByRole(
+        "heading",
+        { name: "Tasks", level: 1 },
+        { timeout: 15_000 },
+      ),
     ).toBeVisible();
     await expect(
       canvas.queryByRole("tab", { name: "Tasks" }),
@@ -999,6 +1006,97 @@
     <CommunityApplicationStoryHarness
       namespace="project-channel-inline-sheet"
       projects
+      initialDestination="general"
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Project channel overview opens inline sheet on mobile"
+  globals={{ viewport: { value: "tablet", isRotated: false } }}
+  play={async ({ canvas, canvasElement }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    await waitFor(() =>
+      expect(application.querySelector("[data-shell-root]")).toHaveAttribute(
+        "data-display-mode",
+        "mobile",
+      ),
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-project-work-item-read-count",
+          "2",
+        ),
+      { timeout: 15_000 },
+    );
+    const shell = application.querySelector<HTMLElement>("[data-shell-root]");
+    if (!shell) throw new Error("Expected the responsive App Shell root");
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Manage channel" }),
+    );
+    await waitFor(() =>
+      expect(shell).toHaveAttribute("data-mobile-stage", "right"),
+    );
+    await userEvent.click(
+      canvasElement.querySelector<HTMLButtonElement>(
+        '[data-ui-part="mobile-stage-dismiss"][data-side="right"]',
+      )!,
+    );
+    await waitFor(() =>
+      expect(shell).toHaveAttribute("data-mobile-stage", "main"),
+    );
+
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Open project overview sidebar",
+      }),
+    );
+    await waitFor(() =>
+      expect(shell).toHaveAttribute("data-mobile-stage", "right"),
+    );
+    const projectOverview = within(
+      await canvas.findByRole("navigation", { name: "Project overview" }),
+    );
+    const tasksRow = projectOverview
+      .getByText("Tasks", { exact: true })
+      .closest<HTMLButtonElement>("button");
+    if (!tasksRow) throw new Error("Expected the mobile project Tasks row");
+    await userEvent.click(tasksRow);
+
+    await waitFor(() =>
+      expect(shell).toHaveAttribute("data-mobile-stage", "main"),
+    );
+    await expect(
+      await canvas.findByRole(
+        "heading",
+        { name: "Tasks", level: 1 },
+        { timeout: 15_000 },
+      ),
+    ).toBeVisible();
+    await expect(canvasElement.ownerDocument.defaultView?.location.hash).toBe(
+      "#/channels/general",
+    );
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="project-channel-inline-sheet-mobile"
+      projects
+      responsive
       initialDestination="general"
     />
   {/snippet}
@@ -1165,6 +1263,57 @@
       projects
       releaseMessages
       initialDestination="general"
+    />
+  {/snippet}
+</Story>
+
+<Story
+  name="Projects mobile toolbar opens project overview"
+  globals={{ viewport: { value: "tablet", isRotated: false } }}
+  play={async ({ canvas }) => {
+    const application = await canvas.findByTestId(
+      "full-community-application",
+      {},
+      { timeout: 15_000 },
+    );
+    await waitFor(
+      () =>
+        expect(application).toHaveAttribute(
+          "data-community-status",
+          "connected",
+        ),
+      { timeout: 15_000 },
+    );
+    const shell = application.querySelector<HTMLElement>("[data-shell-root]");
+    if (!shell) throw new Error("Expected the responsive App Shell root");
+    await waitFor(() => {
+      expect(shell).toHaveAttribute("data-display-mode", "mobile");
+      expect(shell).toHaveAttribute("data-mobile-stage", "main");
+    });
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Open project overview sidebar",
+      }),
+    );
+    await waitFor(() =>
+      expect(shell).toHaveAttribute("data-mobile-stage", "right"),
+    );
+    await expect(
+      await canvas.findByRole("navigation", { name: "Project overview" }),
+    ).toBeVisible();
+  }}
+>
+  {#snippet template()}
+    <CommunityApplicationStoryHarness
+      namespace="projects-mobile-toolbar-right-sidebar"
+      projects
+      responsive
+      initialDestination="projects"
+      initialHash={projectRouteToHash({
+        kind: "repository",
+        coordinate: projectStoryRepositoryCoordinate,
+        surface: "files",
+      })}
     />
   {/snippet}
 </Story>

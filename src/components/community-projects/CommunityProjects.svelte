@@ -184,6 +184,7 @@
     canManageForge = false,
     dialogRequest,
     showNavigation = true,
+    bodyElement = "main",
     showContent = true,
     showReviewHeader = true,
     onSelectView,
@@ -2565,6 +2566,7 @@
   <AppShell.Body
     layout={view === "log" ? "regions" : "scroll"}
     label={selectedProject ? `${selectedProject.name} projects` : "Projects"}
+    element={bodyElement}
   >
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <section
