@@ -5,7 +5,9 @@ lockfile together while retaining the existing package-ownership boundary.
 Local packed-package validation of a sibling Design Core source fix MAY refresh
 the committed lockfile integrity for the existing package range without changing
 the publishable manifest range. LC-UI-040 uses that validation path for the
-Design Core ScrollArea strategy consumed by virtualized conversations.
+Design Core ScrollArea strategy consumed by virtualized conversations. LC-UI-053
+uses the same path for StructuredForm source-consumer strictness needed by the
+registry release edit form.
 LC-UI-040 adds `@tanstack/svelte-virtual` as a direct Community dependency for
 the package-owned forum topic virtual row owner; Design Core remains the owner of
 message-list virtualization. The same requirement adds `@tanstack/svelte-query`

@@ -2,6 +2,12 @@ For LC-UI-035, the CommunityRelativeTime component, formatter, unit regression,
 and focused Storybook story budgets are recorded in
 `scripts/architecture-baseline.json`.
 
+For LC-UI-053, the pending plugin release edit form lives in the dedicated
+`registry-release-edit-form` component owner with colocated media-reference,
+gallery, config, model, and Storybook files. The first slice remains
+Storybook-only and does not grow production release disclosure, registry
+materialization, relay write, or package-public component barrels.
+
 For LC-UI-019, the room-browser create-row vertical spacing assertion records the updated
 CommunityRoomBrowser component and focused Storybook budgets in
 `scripts/architecture-baseline.json`.
