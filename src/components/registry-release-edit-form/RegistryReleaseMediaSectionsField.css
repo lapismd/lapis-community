@@ -11,6 +11,24 @@
   min-width: 0;
 }
 
+.registry-release-media-section > .cv-form-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.registry-release-media-section
+  > .cv-form-section-header
+  .cv-form-section-toggle {
+  position: static;
+  flex: none;
+  order: 2;
+  translate: none;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
 .registry-release-media-section__body {
   overflow: hidden;
   border: 1px solid var(--border);
@@ -23,8 +41,8 @@
   padding: 1rem;
 }
 
-.registry-release-media-section
-  :global(.registry-release-media-section__title-row) {
+.registry-release-media-section .registry-release-media-section__title-row {
+  flex: 1 1 auto;
   min-width: 0;
   border-bottom: 0;
   padding: 0;

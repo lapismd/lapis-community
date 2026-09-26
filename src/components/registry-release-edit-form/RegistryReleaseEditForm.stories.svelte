@@ -71,9 +71,100 @@
     await expect(saveDraft).not.toHaveBeenCalled();
 
     await userEvent.type(name, "Bases Lab");
+    const nameRow = name.closest<HTMLElement>('[data-ui-part="form-field"]');
+    if (nameRow === null) {
+      throw new Error("Expected plugin name form row");
+    }
+    const nameRowStyle = getComputedStyle(nameRow);
+    await expect(nameRow.getBoundingClientRect().height).toBeLessThanOrEqual(
+      54,
+    );
+    await expect(nameRowStyle.paddingTop).toBe("12px");
+    await expect(nameRowStyle.paddingBottom).toBe("12px");
+    const nameControl = nameRow.querySelector<HTMLElement>(
+      ".cv-form-field-control",
+    );
+    if (nameControl === null) {
+      throw new Error("Expected plugin name control wrapper");
+    }
+    await expect(
+      Math.abs(
+        nameControl.getBoundingClientRect().height -
+          name.getBoundingClientRect().height,
+      ),
+    ).toBeLessThanOrEqual(1);
+    const descriptionRow = canvas
+      .getByLabelText("Description")
+      .closest<HTMLElement>('[data-ui-part="form-field"]');
+    if (descriptionRow === null) {
+      throw new Error("Expected description form row");
+    }
+    const descriptionRowStyle = getComputedStyle(descriptionRow);
+    await expect(descriptionRowStyle.borderBlockStartStyle).toBe("solid");
+    await expect(
+      Number.parseFloat(descriptionRowStyle.borderBlockStartWidth),
+    ).toBeGreaterThanOrEqual(0.75);
     await expect(
       canvas.getByRole("button", { name: "Collapse Highlights" }),
     ).toBeVisible();
+    const highlightsField = canvasElement.querySelector<HTMLElement>(
+      '[data-field-path="plugin.highlights"]',
+    );
+    if (highlightsField === null) {
+      throw new Error("Expected highlights form field");
+    }
+    const highlightsLabel = highlightsField.querySelector<HTMLElement>(
+      '[data-ui-part="list-editor-label"]',
+    );
+    const highlightsHeader = highlightsField.querySelector<HTMLElement>(
+      '[data-ui-part="list-editor-header"]',
+    );
+    const highlightsItems = highlightsField.querySelector<HTMLElement>(
+      '[data-ui-part="list-editor-items"]',
+    );
+    const highlightsGroupBody = highlightsField.closest<HTMLElement>(
+      ".ui-configured-form-group__body",
+    );
+    const addHighlight = within(highlightsField).getByRole("button", {
+      name: "Add highlight",
+    });
+    if (
+      highlightsLabel === null ||
+      highlightsHeader === null ||
+      highlightsItems === null ||
+      highlightsGroupBody === null
+    ) {
+      throw new Error("Expected highlights list editor chrome");
+    }
+    const addHighlightStyle = getComputedStyle(addHighlight);
+    const highlightsHeaderStyle = getComputedStyle(highlightsHeader);
+    const highlightsItemsStyle = getComputedStyle(highlightsItems);
+    const highlightsGroupBodyStyle = getComputedStyle(highlightsGroupBody);
+    const addHighlightAction = addHighlight.closest<HTMLElement>(
+      ".cv-control-action-row",
+    );
+    if (addHighlightAction === null) {
+      throw new Error("Expected add highlight action row");
+    }
+    const addHighlightActionStyle = getComputedStyle(addHighlightAction);
+    const highlightsItemsBox = highlightsItems.getBoundingClientRect();
+    const highlightsHeaderBox = highlightsHeader.getBoundingClientRect();
+    const addHighlightBox = addHighlight.getBoundingClientRect();
+    await expect(getComputedStyle(highlightsLabel).display).toBe("none");
+    await expect(highlightsGroupBodyStyle.borderBlockStartWidth).toBe("0px");
+    await expect(highlightsItemsStyle.borderBlockStartStyle).toBe("solid");
+    await expect(highlightsHeaderStyle.display).toBe("flex");
+    await expect(highlightsHeaderStyle.order).toBe("2");
+    await expect(highlightsHeaderStyle.justifyContent).toBe("flex-end");
+    await expect(highlightsHeaderStyle.borderBlockEndWidth).toBe("0px");
+    await expect(addHighlightActionStyle.borderBottomWidth).toBe("0px");
+    await expect(highlightsHeaderBox.top).toBeGreaterThanOrEqual(
+      highlightsItemsBox.bottom,
+    );
+    await expect(
+      Math.abs(addHighlightBox.right - highlightsItemsBox.right),
+    ).toBeLessThanOrEqual(2);
+    await expect(addHighlightStyle.borderBlockStartStyle).toBe("dashed");
     await expect(
       canvas.getByRole("tablist", { name: "Release edit areas" }),
     ).toBeVisible();
@@ -89,6 +180,23 @@
     await expect(
       await canvas.findByRole("button", { name: "Collapse Logo" }),
     ).toBeVisible();
+    const logoToggle = canvas.getByRole("button", { name: "Collapse Logo" });
+    const logoHeader = logoToggle.closest<HTMLElement>(
+      ".cv-form-section-header",
+    );
+    const logoTitle = logoHeader?.querySelector<HTMLElement>(
+      ".cv-form-section-title-toggle",
+    );
+    if (logoHeader === null || logoHeader === undefined || logoTitle === null) {
+      throw new Error("Expected logo media section header");
+    }
+    await expect(getComputedStyle(logoHeader).display).toBe("flex");
+    await expect(
+      Math.abs(
+        logoToggle.getBoundingClientRect().top -
+          logoTitle.getBoundingClientRect().top,
+      ),
+    ).toBeLessThanOrEqual(4);
     await userEvent.click(
       canvas.getByRole("button", { name: "Remove Logo reference" }),
     );
