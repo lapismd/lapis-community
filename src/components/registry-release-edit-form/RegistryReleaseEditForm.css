@@ -1,7 +1,8 @@
 .registry-release-edit-form {
   display: grid;
-  gap: 1rem;
-  width: min(100%, 68rem);
+  min-width: 0;
+  gap: 1.5rem;
+  width: min(100%, 52rem);
   margin-inline: auto;
   color: var(--foreground);
 }
@@ -18,15 +19,123 @@
 
 .registry-release-edit-form__body {
   display: grid;
-  gap: 0.75rem;
+  gap: 1.35rem;
   min-width: 0;
 }
 
-.registry-release-edit-form__body :global(.cv-form-field-control) {
+.registry-release-edit-form__body .cv-structured-form {
+  gap: 1.35rem;
+}
+
+.registry-release-edit-form__body .ui-configured-form-group {
+  display: grid;
+  gap: 0.5rem;
   min-width: 0;
 }
 
-.registry-release-edit-form__body :global(.cv-forms-preview-value) {
+.registry-release-edit-form__body
+  .ui-configured-form-group
+  > .cv-form-section-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  padding-inline: 0.75rem;
+  --ui-form-section-title-line-height: 1.25rem;
+}
+
+.registry-release-edit-form__body .cv-form-section-toggle {
+  position: static;
+  flex: none;
+  order: 2;
+  translate: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: calc(var(--radius) * 0.75);
+  color: var(--muted-foreground);
+}
+
+.registry-release-edit-form__body .cv-form-section-toggle:hover,
+.registry-release-edit-form__body .cv-form-section-toggle:focus-visible {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.registry-release-edit-form__body .cv-form-section-title-row {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 0;
+  padding: 0;
+}
+
+.registry-release-edit-form__body .cv-form-section-title-toggle {
+  min-height: auto;
+  color: var(--foreground);
+  font-size: var(--community-text-body);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.registry-release-edit-form__body .ui-configured-form-group__body {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.25rem);
+  background: var(--background);
+}
+
+.registry-release-edit-form__body
+  .ui-configured-form-group__body
+  > .cv-form-field-renderer {
+  min-width: 0;
+}
+
+.registry-release-edit-form__body
+  .ui-configured-form-group__body
+  > .cv-form-field-renderer
+  + .cv-form-field-renderer {
+  border-block-start: 1px solid var(--border);
+}
+
+.registry-release-edit-form__body
+  .ui-configured-form-group__body
+  .cv-form-field {
+  min-height: auto;
+  border-bottom: 0;
+  padding: 1rem;
+}
+
+.registry-release-edit-form__body
+  .ui-configured-form-group__body
+  .cv-form-field
+  > span {
+  color: var(--muted-foreground);
+  font-size: var(--community-text-secondary);
+  font-weight: 500;
+}
+
+.registry-release-edit-form__body
+  .ui-configured-form-group__body
+  .cv-form-field-control
+  input,
+.registry-release-edit-form__body
+  .ui-configured-form-group__body
+  .cv-form-field-control
+  textarea {
+  font-size: var(--community-text-secondary);
+}
+
+.registry-release-edit-form__body
+  .ui-configured-form-group__body
+  > .cv-form-field-renderer
+  > .registry-release-gallery {
+  padding: 1rem;
+}
+
+.registry-release-edit-form__body .cv-form-field-control {
+  min-width: 0;
+}
+
+.registry-release-edit-form__body .cv-forms-preview-value {
   overflow-wrap: anywhere;
 }
 
@@ -60,171 +169,4 @@
 .registry-release-edit-form__errors p {
   color: var(--muted-foreground);
   font-size: var(--community-text-secondary);
-}
-
-.registry-release-media-reference {
-  display: grid;
-  grid-template-columns: minmax(5rem, 8rem) minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  align-items: start;
-  width: 100%;
-}
-
-.registry-release-media-reference__preview,
-.registry-release-gallery__preview,
-.registry-release-gallery__empty {
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) * 0.9);
-  background: var(--muted);
-  color: var(--muted-foreground);
-}
-
-.registry-release-media-reference__preview {
-  aspect-ratio: 1;
-}
-
-.registry-release-media-reference__preview img,
-.registry-release-gallery__preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.registry-release-media-reference__preview :global(svg),
-.registry-release-gallery__preview :global(svg),
-.registry-release-gallery__empty :global(svg) {
-  width: 1.4rem;
-  height: 1.4rem;
-}
-
-.registry-release-media-reference__fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
-  min-width: 0;
-}
-
-.registry-release-media-reference__fields label,
-.registry-release-gallery__fields label {
-  display: grid;
-  gap: 0.3rem;
-  min-width: 0;
-}
-
-.registry-release-media-reference__fields span,
-.registry-release-gallery__fields span {
-  color: var(--muted-foreground);
-  font-size: var(--community-text-secondary);
-  font-weight: 600;
-}
-
-.registry-release-media-reference__wide {
-  grid-column: 1 / -1;
-}
-
-.registry-release-gallery {
-  display: grid;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-.registry-release-gallery__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.registry-release-gallery__header p,
-.registry-release-gallery__item-header strong {
-  margin: 0;
-  color: var(--foreground);
-  font-size: var(--community-text-body);
-  font-weight: 650;
-}
-
-.registry-release-gallery__header span {
-  color: var(--muted-foreground);
-  font-size: var(--community-text-secondary);
-}
-
-.registry-release-gallery__rail {
-  display: grid;
-  gap: 0.75rem;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.registry-release-gallery__item {
-  display: grid;
-  grid-template-columns: minmax(6rem, 9rem) minmax(0, 1fr);
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--background);
-}
-
-.registry-release-gallery__preview {
-  aspect-ratio: 3 / 2;
-  grid-row: span 2;
-}
-
-.registry-release-gallery__item-header {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.registry-release-gallery__item-header strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.registry-release-gallery__item-header div {
-  display: flex;
-  flex: none;
-  gap: 0.15rem;
-}
-
-.registry-release-gallery__fields {
-  display: grid;
-  gap: 0.65rem;
-}
-
-.registry-release-gallery__numbers {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
-}
-
-.registry-release-gallery__empty {
-  min-height: 8rem;
-  gap: 0.4rem;
-  border-style: dashed;
-  font-size: var(--community-text-secondary);
-}
-
-@media (max-width: 720px) {
-  .registry-release-media-reference,
-  .registry-release-gallery__item {
-    grid-template-columns: 1fr;
-  }
-
-  .registry-release-gallery__preview {
-    grid-row: auto;
-  }
-
-  .registry-release-gallery__numbers,
-  .registry-release-media-reference__fields {
-    grid-template-columns: 1fr;
-  }
 }

@@ -13,6 +13,7 @@
     createBlankGalleryItem,
     type RegistryReleaseGalleryItemDraft,
   } from "./model.js";
+  import "./RegistryReleaseGalleryField.css";
 
   type Props = RegisteredFormRendererProps<
     "registry-gallery",

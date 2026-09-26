@@ -11,6 +11,7 @@
     createBlankMediaReference,
     type RegistryReleaseMediaReferenceDraft,
   } from "./model.js";
+  import "./RegistryReleaseMediaReferenceField.css";
 
   type Props = RegisteredFormRendererProps<
     "registry-media-reference",

@@ -1,0 +1,59 @@
+.registry-release-media-reference {
+  display: grid;
+  grid-template-columns: minmax(5rem, 8rem) minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+  width: 100%;
+}
+
+.registry-release-media-reference__preview {
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.9);
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.registry-release-media-reference__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.registry-release-media-reference__preview svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.registry-release-media-reference__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.registry-release-media-reference__fields label {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.registry-release-media-reference__fields span {
+  color: var(--muted-foreground);
+  font-size: var(--community-text-secondary);
+  font-weight: 600;
+}
+
+.registry-release-media-reference__wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 720px) {
+  .registry-release-media-reference,
+  .registry-release-media-reference__fields {
+    grid-template-columns: 1fr;
+  }
+}
