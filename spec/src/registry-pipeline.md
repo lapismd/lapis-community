@@ -372,3 +372,7 @@ repository announcements already present in the catalog; repository selection
 only chooses which member repository source loader to read. Channel inline
 Files sheets use the same verified catalog data and do not change registry
 materialization when they default to a channel-bound repository.
+
+## Runtime telemetry isolation
+
+The Community architecture baseline includes runtime telemetry parser and profile modules. These modules do not participate in registry release materialization, quorum evaluation, or publishing.

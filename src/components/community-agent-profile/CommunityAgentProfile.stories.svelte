@@ -157,6 +157,11 @@
     );
     await expect(runtimeDefaults).toBeVisible();
     await expect(canvas.getByText("Agent configuration")).toBeVisible();
+    await expect(canvas.getByText("Workers (shared)")).toBeVisible();
+    await expect(canvas.getByText("Worker RAM (shared)")).toBeVisible();
+    await expect(canvas.getByText("8.0 MiB")).toBeVisible();
+    await expect(canvas.getByText("Partial sample")).toBeVisible();
+    await expect(canvas.getByText("Saved memory candidates")).toBeVisible();
     await expect(canvas.getByText("Agent harness")).toBeVisible();
     await expect(canvas.getByText("Model")).toBeVisible();
     await expect(canvas.getByText("Thinking")).toBeVisible();

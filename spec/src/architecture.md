@@ -942,3 +942,7 @@ surface, file-browser story, and selector owner in the same change.
 Inline channel Files sheets reuse that selector owner for repository preference
 and feed the resolved repository into the existing file loader without requiring
 a durable project Files route first.
+
+## Agent runtime resource presentation
+
+Community validates optional provider resource telemetry in `src/community` before the agent profile renders it. The Runtime tab keeps process RAM separate from saved conversation-memory candidates; its profile component owns presentation only.

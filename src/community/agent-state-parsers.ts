@@ -8,6 +8,7 @@ import {
   parseRuntimeCatalog,
 } from "./agent-runtime-catalog.js";
 import { optionalRuntimeDefaults } from "./agent-runtime-defaults-parse.js";
+import { parseAgentRuntimeResources } from "./agent-runtime-resources.js";
 
 export { observerRecord, observerText } from "./agent-observer.js";
 import { observerRecord, observerText } from "./agent-observer.js";
@@ -32,6 +33,7 @@ export function parseRuntimeState(
     value.saved === null
       ? null
       : optionalRuntimeDefaults(observerRecord(value.saved));
+  const resources = parseAgentRuntimeResources(value.resources);
   return {
     agentId,
     host: {
@@ -73,6 +75,7 @@ export function parseRuntimeState(
         ? Math.max(0, Number(memory.candidates))
         : 0,
     },
+    ...(resources ? { resources } : {}),
   };
 }
 

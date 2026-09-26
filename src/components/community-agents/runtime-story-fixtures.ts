@@ -54,6 +54,15 @@ export const storyAgentRuntime: CommunityAgentRuntimeState = {
   ],
   bootstrapRevision: storyBootstrapRevision,
   memory: { enabled: true, candidates: 1 },
+  resources: {
+    scope: "provider-shared",
+    providerId: "codex",
+    status: "partial",
+    observedAt: 1_700_000_000_000,
+    workers: { busy: 1, idle: 2, starting: 0, stopping: 0 },
+    sessions: 4,
+    rssBytes: 8_388_608,
+  },
 };
 
 export const storyPendingCatalogRuntime: CommunityAgentRuntimeState = {

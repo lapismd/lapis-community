@@ -27,4 +27,15 @@ export interface CommunityAgentRuntimeState {
   tools: readonly { name: string; effect: "read" | "write" }[];
   bootstrapRevision?: string | null;
   memory: { enabled: boolean; candidates: number };
+  resources?: CommunityAgentRuntimeResources;
+}
+
+export interface CommunityAgentRuntimeResources {
+  scope: "provider-shared";
+  providerId: string;
+  status: "available" | "partial" | "unavailable";
+  observedAt: number;
+  workers: { busy: number; idle: number; starting: number; stopping: number };
+  sessions: number;
+  rssBytes: number | null;
 }

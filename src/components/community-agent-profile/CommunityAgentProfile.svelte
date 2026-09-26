@@ -52,6 +52,7 @@
     CommunityAgentSaveInput,
   } from "../../community/agent-contracts.js";
   import CommunityAgentRuntimeFields from "./CommunityAgentRuntimeFields.svelte";
+  import CommunityAgentRuntimeResources from "./CommunityAgentRuntimeResources.svelte";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityAgentEditorDialog from "../community-agent-editor/CommunityAgentEditorDialog.svelte";
@@ -636,14 +637,7 @@
                   {/if}
                 </dd>
               </div>
-              <div>
-                <dt>Memory</dt>
-                <dd>
-                  {runtime.memory.enabled
-                    ? `${runtime.memory.candidates} candidate${runtime.memory.candidates === 1 ? "" : "s"}`
-                    : "Disabled"}
-                </dd>
-              </div>
+              <CommunityAgentRuntimeResources {runtime} />
             </dl>
             <h3 class="agent-profile__runtime-config-title">
               Agent configuration

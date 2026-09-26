@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "b942de5e4c4ff87d753721b74b715bdc17157fc9",
+  "sourceCommit": "2ef28cee7f2022e6328756f2f5bfd812b8f6237f",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -685,8 +685,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/agent-runtime-contracts.ts": {
-      "countedLines": 27,
-      "physicalLines": 30,
+      "countedLines": 37,
+      "physicalLines": 41,
       "forbiddenImportCount": 0
     },
     "src/community/agent-runtime-defaults-parse.ts": {
@@ -702,6 +702,16 @@
     "src/community/agent-runtime-permission.ts": {
       "countedLines": 47,
       "physicalLines": 49,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-runtime-resources.test.ts": {
+      "countedLines": 42,
+      "physicalLines": 44,
+      "forbiddenImportCount": 0
+    },
+    "src/community/agent-runtime-resources.ts": {
+      "countedLines": 40,
+      "physicalLines": 42,
       "forbiddenImportCount": 0
     },
     "src/community/agent-runtime-set.ts": {
@@ -744,8 +754,8 @@
       "justification": "Agent session factory; control validation extracted"
     },
     "src/community/agent-state-parsers.ts": {
-      "countedLines": 159,
-      "physicalLines": 162,
+      "countedLines": 162,
+      "physicalLines": 165,
       "forbiddenImportCount": 0
     },
     "src/community/agent-transcript-contracts.ts": {
@@ -905,8 +915,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/community-controller.svelte.ts": {
-      "countedLines": 4278,
-      "physicalLines": 4363,
+      "countedLines": 4275,
+      "physicalLines": 4359,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Svelte 5 controller factory; history, Pulse, and operations extracted"
@@ -992,8 +1002,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/contracts.ts": {
-      "countedLines": 870,
-      "physicalLines": 983,
+      "countedLines": 867,
+      "physicalLines": 980,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -1349,6 +1359,16 @@
       "physicalLines": 90,
       "forbiddenImportCount": 0
     },
+    "src/community/profile-image-upload.test.ts": {
+      "countedLines": 105,
+      "physicalLines": 113,
+      "forbiddenImportCount": 0
+    },
+    "src/community/profile-image-upload.ts": {
+      "countedLines": 96,
+      "physicalLines": 103,
+      "forbiddenImportCount": 0
+    },
     "src/community/projection-state.test.ts": {
       "countedLines": 46,
       "physicalLines": 48,
@@ -1397,6 +1417,11 @@
     "src/community/send-contracts.ts": {
       "countedLines": 28,
       "physicalLines": 29,
+      "forbiddenImportCount": 0
+    },
+    "src/community/settings-image-actions.ts": {
+      "countedLines": 46,
+      "physicalLines": 49,
       "forbiddenImportCount": 0
     },
     "src/community/state-store.test.ts": {
@@ -2093,15 +2118,15 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-profile/CommunityAgentProfile.stories.svelte": {
-      "countedLines": 550,
-      "physicalLines": 560,
+      "countedLines": 555,
+      "physicalLines": 565,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-agent-profile/CommunityAgentProfile.svelte": {
-      "countedLines": 1467,
-      "physicalLines": 1486,
+      "countedLines": 1461,
+      "physicalLines": 1480,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -2109,6 +2134,11 @@
     "src/components/community-agent-profile/CommunityAgentRuntimeFields.svelte": {
       "countedLines": 109,
       "physicalLines": 112,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-profile/CommunityAgentRuntimeResources.svelte": {
+      "countedLines": 75,
+      "physicalLines": 78,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-profile/profile-editor-story.ts": {
@@ -2193,8 +2223,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agents/runtime-story-fixtures.ts": {
-      "countedLines": 67,
-      "physicalLines": 70,
+      "countedLines": 76,
+      "physicalLines": 79,
       "forbiddenImportCount": 0
     },
     "src/components/community-agents/saved-setup-delete-story.ts": {
@@ -2292,6 +2322,11 @@
       "physicalLines": 43,
       "forbiddenImportCount": 0
     },
+    "src/components/community-application/authenticated-result.ts": {
+      "countedLines": 15,
+      "physicalLines": 16,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-application/authentication-context.ts": {
       "countedLines": 33,
       "physicalLines": 38,
@@ -2307,6 +2342,11 @@
       "physicalLines": 279,
       "forbiddenImportCount": 0
     },
+    "src/components/community-application/CommunityAgentsMobileToolbar.stories.svelte": {
+      "countedLines": 70,
+      "physicalLines": 75,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-application/CommunityApplication.stories.helpers.ts": {
       "countedLines": 27,
       "physicalLines": 29,
@@ -2320,8 +2360,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9333,
-      "physicalLines": 9701,
+      "countedLines": 9331,
+      "physicalLines": 9697,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -2329,6 +2369,11 @@
     "src/components/community-application/CommunityApplicationAgentsHost.svelte": {
       "countedLines": 34,
       "physicalLines": 39,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/CommunityApplicationAgentsToolbar.svelte": {
+      "countedLines": 74,
+      "physicalLines": 82,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplicationCacheStoryHarness.svelte": {
@@ -2354,6 +2399,16 @@
     "src/components/community-application/CommunityApplicationMemberCommand.svelte": {
       "countedLines": 70,
       "physicalLines": 72,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/CommunityApplicationMobileNavigation.svelte": {
+      "countedLines": 52,
+      "physicalLines": 56,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/CommunityApplicationMobileToolbar.stories.svelte": {
+      "countedLines": 145,
+      "physicalLines": 155,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplicationPermissions.stories.svelte": {
@@ -2685,11 +2740,21 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-avatar-picker/CommunityAvatarPicker.svelte": {
-      "countedLines": 392,
-      "physicalLines": 397,
+      "countedLines": 390,
+      "physicalLines": 395,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
+    },
+    "src/components/community-avatar-picker/CommunityAvatarPickerMediaUpload.stories.svelte": {
+      "countedLines": 46,
+      "physicalLines": 50,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-avatar-picker/image-files.ts": {
+      "countedLines": 45,
+      "physicalLines": 50,
+      "forbiddenImportCount": 0
     },
     "src/components/community-channel-canvas/canvas-story-contracts.ts": {
       "countedLines": 34,
@@ -3795,8 +3860,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-navigation/CommunityNavigationShellFixture.svelte": {
-      "countedLines": 406,
-      "physicalLines": 419,
+      "countedLines": 401,
+      "physicalLines": 414,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -4982,11 +5047,16 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-settings/CommunitySettings.svelte": {
-      "countedLines": 492,
-      "physicalLines": 513,
+      "countedLines": 487,
+      "physicalLines": 508,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
+    },
+    "src/components/community-settings/CommunitySettingsMediaUpload.stories.svelte": {
+      "countedLines": 63,
+      "physicalLines": 67,
+      "forbiddenImportCount": 0
     },
     "src/components/community-settings/model.ts": {
       "countedLines": 1,
@@ -5211,8 +5281,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-workspace/CommunityWorkspaceStoryHarness.svelte": {
-      "countedLines": 538,
-      "physicalLines": 559,
+      "countedLines": 533,
+      "physicalLines": 554,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -5611,6 +5681,121 @@
     "src/components/registry-release-disclosure/RegistryReleaseDisclosureManagementStoryHarness.svelte": {
       "countedLines": 20,
       "physicalLines": 23,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/draft-media.ts": {
+      "countedLines": 79,
+      "physicalLines": 86,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/form-config.ts": {
+      "countedLines": 198,
+      "physicalLines": 202,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/form-kinds.ts": {
+      "countedLines": 26,
+      "physicalLines": 29,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/form-tabs.ts": {
+      "countedLines": 125,
+      "physicalLines": 133,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/gallery-field-model.ts": {
+      "countedLines": 80,
+      "physicalLines": 88,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/model.ts": {
+      "countedLines": 258,
+      "physicalLines": 279,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/preview-model.ts": {
+      "countedLines": 164,
+      "physicalLines": 174,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseDateTimeField.svelte": {
+      "countedLines": 87,
+      "physicalLines": 97,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseDescriptionField.svelte": {
+      "countedLines": 31,
+      "physicalLines": 36,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseEditableShaControl.svelte": {
+      "countedLines": 131,
+      "physicalLines": 141,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseEditForm.media-helper.test.ts": {
+      "countedLines": 158,
+      "physicalLines": 164,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseEditForm.sha-helper.test.ts": {
+      "countedLines": 43,
+      "physicalLines": 45,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseEditForm.stories-helper.test.ts": {
+      "countedLines": 416,
+      "physicalLines": 427,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseEditForm.stories.svelte": {
+      "countedLines": 307,
+      "physicalLines": 318,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseEditForm.svelte": {
+      "countedLines": 296,
+      "physicalLines": 311,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseEvidenceCopyField.svelte": {
+      "countedLines": 70,
+      "physicalLines": 79,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseGalleryField.svelte": {
+      "countedLines": 147,
+      "physicalLines": 160,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseHighlightsField.svelte": {
+      "countedLines": 191,
+      "physicalLines": 208,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseImageSetEditor.svelte": {
+      "countedLines": 170,
+      "physicalLines": 185,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseImageVariantFields.svelte": {
+      "countedLines": 83,
+      "physicalLines": 87,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseMediaSectionsField.svelte": {
+      "countedLines": 146,
+      "physicalLines": 158,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleaseProseComposer.svelte": {
+      "countedLines": 71,
+      "physicalLines": 78,
+      "forbiddenImportCount": 0
+    },
+    "src/components/registry-release-edit-form/RegistryReleasePublisherIdentityField.svelte": {
+      "countedLines": 32,
+      "physicalLines": 38,
       "forbiddenImportCount": 0
     },
     "src/components/registry-verified-image/context.ts": {
@@ -6274,8 +6459,8 @@
       "forbiddenImportCount": 0
     },
     "src/projects/repository-source-reads.test.ts": {
-      "countedLines": 150,
-      "physicalLines": 156,
+      "countedLines": 151,
+      "physicalLines": 157,
       "forbiddenImportCount": 0
     },
     "src/projects/repository-source-reads.ts": {

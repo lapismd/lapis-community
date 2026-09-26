@@ -744,3 +744,7 @@ over existing project and repository announcements. The selected repository
 coordinate MUST resolve to a member repository before source reads are prepared.
 The restored Files tab and channel inline Files sheet do not introduce a
 Nostr event kind, publication path, or signing requirement.
+
+## Owner runtime resource telemetry
+
+An owner-encrypted `runtime_state` may include `resources` with a provider-shared scope, worker counts, retained sessions, and an RSS sample. Clients must validate the numeric fields and show missing, partial, or unavailable samples without interpreting missing RAM as zero.
