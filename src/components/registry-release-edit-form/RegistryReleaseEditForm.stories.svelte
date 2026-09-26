@@ -235,9 +235,11 @@
     ) {
       throw new Error("Expected screenshot gallery chrome");
     }
-    await expect(getComputedStyle(galleryBody).borderBlockStartWidth).toBe(
-      "0px",
-    );
+    const galleryBodyStyle = getComputedStyle(galleryBody);
+    await expect(galleryBodyStyle.borderBlockStartStyle).toBe("solid");
+    await expect(
+      Number.parseFloat(galleryBodyStyle.borderTopLeftRadius),
+    ).toBeGreaterThan(0);
     await expect(getComputedStyle(galleryPreview).borderBlockStartStyle).toBe(
       "solid",
     );
@@ -263,9 +265,20 @@
     const newAlt = canvas.getByLabelText("Screenshot 3 alt text");
     await userEvent.clear(newAlt);
     await userEvent.type(newAlt, "Command palette screenshot");
+    await userEvent.click(canvas.getByRole("tab", { name: /Light/u }));
     await userEvent.click(
-      canvas.getByRole("tab", { name: /Light/u }),
+      canvas.getByRole("button", { name: "Add Light image" }),
     );
+    await userEvent.type(
+      canvas.getByLabelText("Screenshot 3 Light image URL"),
+      "https://example.com/screenshots/light.webp",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Delete Light image" }),
+    );
+    await expect(
+      await canvas.findByRole("button", { name: "Add Light image" }),
+    ).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Add Light image" }),
     );

@@ -9,8 +9,6 @@
   import type { RegisteredFormRendererProps } from "@lapismd/design-core/forms";
 
   import {
-    galleryNumberFieldOptions,
-    galleryTextFieldOptions,
     galleryVariantFor,
     galleryVariantLabel,
     galleryVariantOptions,
@@ -18,6 +16,7 @@
     nextGalleryItemCount,
     type GalleryImageField,
   } from "./gallery-field-model.js";
+  import RegistryReleaseGalleryVariantFields from "./RegistryReleaseGalleryVariantFields.svelte";
   import type { RegistryReleaseEditDraft } from "./model.js";
   import {
     createBlankGalleryItem,
@@ -27,14 +26,24 @@
   } from "./model.js";
   import "./RegistryReleaseGalleryField.css";
 
-  type Props = RegisteredFormRendererProps<"registry-gallery", RegistryReleaseEditDraft> & {
+  type Props = RegisteredFormRendererProps<
+    "registry-gallery",
+    RegistryReleaseEditDraft
+  > & {
     sectioned?: boolean;
   };
 
-  let { value = [], field, readonly = false, update, sectioned = false }: Props =
-    $props();
+  let {
+    value = [],
+    field,
+    readonly = false,
+    update,
+    sectioned = false,
+  }: Props = $props();
   let activeIndex = $state(0);
-  let activeVariants = $state<Record<string, RegistryReleaseGalleryVariant>>({});
+  let activeVariants = $state<Record<string, RegistryReleaseGalleryVariant>>(
+    {},
+  );
   const items = $derived(Array.isArray(value) ? value : []);
   const addLabel = $derived(field.addLabel ?? "Add screenshot");
   const activeItem = $derived(items[activeIndex] ?? null);
@@ -60,7 +69,10 @@
     activeVariants = { ...activeVariants, [activeItem.id]: variant };
   }
 
-  function updateItem(index: number, nextItem: RegistryReleaseGalleryItemDraft): void {
+  function updateItem(
+    index: number,
+    nextItem: RegistryReleaseGalleryItemDraft,
+  ): void {
     const next = [...items];
     if (!next[index]) return;
     next[index] = nextItem;
@@ -113,7 +125,10 @@
     activeIndex = Math.max(0, Math.min(index, items.length - 2));
   }
 
-  function addVariant(index: number, variant: RegistryReleaseGalleryVariant): void {
+  function addVariant(
+    index: number,
+    variant: RegistryReleaseGalleryVariant,
+  ): void {
     const item = items[index];
     if (!item) return;
     updateItem(index, {
@@ -127,9 +142,25 @@
     });
     selectVariant(variant);
   }
+
+  function removeVariant(
+    index: number,
+    variant: RegistryReleaseGalleryVariant,
+  ): void {
+    const item = items[index];
+    if (!item) return;
+    updateItem(index, {
+      ...item,
+      images: { ...item.images, [variant]: null },
+    });
+  }
 </script>
 
-<section class="registry-release-gallery" data-ui-part="registry-release-gallery" aria-label={field.label}>
+<section
+  class="registry-release-gallery"
+  data-ui-part="registry-release-gallery"
+  aria-label={field.label}
+>
   <div class="registry-release-gallery__header">
     <div>
       {#if !sectioned}
@@ -151,7 +182,10 @@
   </div>
 
   {#if activeItem}
-    <article class="registry-release-gallery__card" data-ui-part="registry-release-gallery-card">
+    <article
+      class="registry-release-gallery__card"
+      data-ui-part="registry-release-gallery-card"
+    >
       <div class="registry-release-gallery__card-header">
         <div class="registry-release-gallery__pager">
           <Button
@@ -204,7 +238,8 @@
               value={activeItem.alt}
               disabled={readonly}
               aria-label={`Screenshot ${activeIndex + 1} alt text`}
-              oninput={(event) => updateAlt(activeIndex, event.currentTarget.value)}
+              oninput={(event) =>
+                updateAlt(activeIndex, event.currentTarget.value)}
             />
           </label>
 
@@ -230,43 +265,15 @@
           </div>
 
           {#if activeImage}
-            <div class="registry-release-gallery__fields" role="tabpanel" aria-label={`${activeVariantLabel} screenshot fields`}>
-              {#each galleryTextFieldOptions as option (option.key)}
-                <label class="registry-release-gallery__field">
-                  <span>{option.label}</span>
-                  <Input
-                    value={activeImage[option.key]}
-                    disabled={readonly}
-                    aria-label={`Screenshot ${activeIndex + 1} ${activeVariantLabel} ${option.ariaLabel}`}
-                    oninput={(event) => updateImageField(
-                      activeIndex,
-                      activeVariant,
-                      option.key,
-                      event.currentTarget.value,
-                    )}
-                  />
-                </label>
-              {/each}
-              <div class="registry-release-gallery__numbers">
-                {#each galleryNumberFieldOptions as option (option.key)}
-                  <label class="registry-release-gallery__field">
-                    <span>{option.label}</span>
-                    <Input
-                      value={activeImage[option.key]}
-                      inputmode="numeric"
-                      disabled={readonly}
-                      aria-label={`Screenshot ${activeIndex + 1} ${activeVariantLabel} ${option.ariaLabel}`}
-                      oninput={(event) => updateImageField(
-                        activeIndex,
-                        activeVariant,
-                        option.key,
-                        event.currentTarget.value,
-                      )}
-                    />
-                  </label>
-                {/each}
-              </div>
-            </div>
+            <RegistryReleaseGalleryVariantFields
+              image={activeImage}
+              {activeIndex}
+              {activeVariantLabel}
+              {readonly}
+              onDelete={() => removeVariant(activeIndex, activeVariant)}
+              onFieldChange={(key, nextValue) =>
+                updateImageField(activeIndex, activeVariant, key, nextValue)}
+            />
           {:else}
             <div class="registry-release-gallery__missing">
               <ImagePlusIcon aria-hidden="true" />

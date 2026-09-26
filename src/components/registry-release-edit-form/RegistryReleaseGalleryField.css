@@ -96,6 +96,20 @@
   min-width: 0;
 }
 
+.registry-release-gallery__variant-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.registry-release-gallery__variant-actions > span {
+  color: var(--foreground);
+  font-size: var(--community-text-secondary);
+  font-weight: 650;
+}
+
 .registry-release-gallery__field {
   display: grid;
   gap: 0.3rem;
