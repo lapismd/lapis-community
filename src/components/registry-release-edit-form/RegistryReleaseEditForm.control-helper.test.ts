@@ -20,7 +20,9 @@ export async function expectReleasePlatformTagChrome(
   host: HTMLElement,
 ): Promise<void> {
   await expectCenteredFieldLabelByPath(host, "release.platforms");
+  await expectCenteredFieldLabelByPath(host, "release.changelog.tags");
   await expectFlatTagFieldByPath(host, "release.platforms");
+  await expectFlatTagFieldByPath(host, "release.changelog.tags");
 }
 
 export async function expectPreviewModeToggle(

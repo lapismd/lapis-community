@@ -109,6 +109,9 @@ function releaseFromDraft(
       original?.releasedAt ||
       new Date(0).toISOString(),
     platforms: nonEmptyList(draft.release.platforms, original?.platforms ?? []),
+    ...(changelogFromDraft(draft) === undefined
+      ? {}
+      : { changelog: changelogFromDraft(draft) }),
     bundle: {
       ...fallbackBundle,
       url: draft.evidence.artifactUrl || fallbackBundle.url,
@@ -123,12 +126,29 @@ function releaseFromDraft(
   };
 }
 
+function changelogFromDraft(
+  draft: RegistryReleaseEditDraft,
+): RegistryRelease["changelog"] {
+  const title = optionalText(draft.release.changelog.title);
+  const description = optionalText(draft.release.changelog.description);
+  const tags = draft.release.changelog.tags;
+  if (title === undefined && description === undefined && tags.length === 0) {
+    return undefined;
+  }
+  return {
+    title: title ?? "Untitled release notes",
+    ...(description === undefined ? {} : { description }),
+    ...(tags.length === 0 ? {} : { tags: [...tags] }),
+  };
+}
+
 function versionsFromDraft(
   detail: RegistryCatalogDetail,
   release: RegistryRelease,
 ): RegistryCatalogDetail["versions"] {
   const versions = { ...detail.versions };
-  if (detail.latestVersion !== release.version) delete versions[detail.latestVersion];
+  if (detail.latestVersion !== release.version)
+    delete versions[detail.latestVersion];
   return { ...versions, [release.version]: release };
 }
 

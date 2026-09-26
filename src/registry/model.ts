@@ -50,13 +50,30 @@ export const registryMediaItemSchema = z.object({
   images: registryGalleryItemSchema.shape.images,
 });
 
-export const registryMarkdownReferenceSchema = z.object({
-  url: nonEmptyString,
-  sourceUrl: z.string().url(),
-  sha256,
-  size: z.number().int().nonnegative(),
-  mediaType: z.literal("text/markdown"),
-});
+export const registryChangelogTagSchema = z.enum([
+  "feature",
+  "improvement",
+  "fix",
+  "security",
+  "breaking",
+  "deprecation",
+  "removal",
+]);
+
+export const registryReleaseChangelogSchema = z
+  .object({
+    title: nonEmptyString.max(200),
+    description: z.string().min(1).max(4_000).optional(),
+    tags: z
+      .array(registryChangelogTagSchema)
+      .max(8)
+      .refine(
+        (tags) => new Set(tags).size === tags.length,
+        "Changelog tags must be unique",
+      )
+      .optional(),
+  })
+  .strict();
 
 export const registryReleaseSchema = z.object({
   version: nonEmptyString,
@@ -69,6 +86,8 @@ export const registryReleaseSchema = z.object({
   minAppVersion: nonEmptyString,
   releasedAt: z.string().datetime({ offset: true }),
   platforms: z.array(nonEmptyString).min(1),
+  changelog: registryReleaseChangelogSchema.optional(),
+  releasePost: z.string().min(1).optional(),
   bundle: z.object({
     url: nonEmptyString,
     downloadUrl: nonEmptyString.optional(),
@@ -103,7 +122,6 @@ export const registryCatalogEntrySchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,127}$/u),
   name: nonEmptyString,
   description: nonEmptyString,
-  readmeUrl: nonEmptyString.optional(),
   author: nonEmptyString,
   authorUrl: z.string().url().optional(),
   authorAvatarUrl: z.string().url().optional(),
@@ -137,7 +155,6 @@ export const registryCatalogDetailSchema = z.object({
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,127}$/u),
   name: nonEmptyString,
   description: nonEmptyString,
-  readmeUrl: nonEmptyString.optional(),
   author: nonEmptyString,
   authorUrl: z.string().url().optional(),
   authorAvatarUrl: z.string().url().optional(),
@@ -163,12 +180,6 @@ export const registryCatalogDetailSchema = z.object({
     })
     .optional(),
   highlights: z.array(nonEmptyString).optional(),
-  content: z
-    .object({
-      overview: registryMarkdownReferenceSchema.optional(),
-      changelog: registryMarkdownReferenceSchema.optional(),
-    })
-    .optional(),
   contributes: registryContributionsSchema.optional(),
   versions: z.record(nonEmptyString, registryReleaseSchema),
 });
@@ -193,8 +204,9 @@ export type RegistryImageReference = z.infer<
 export type RegistryAppearance = z.infer<typeof registryAppearanceSchema>;
 export type RegistryGalleryItem = z.infer<typeof registryGalleryItemSchema>;
 export type RegistryMediaItem = z.infer<typeof registryMediaItemSchema>;
-export type RegistryMarkdownReference = z.infer<
-  typeof registryMarkdownReferenceSchema
+export type RegistryChangelogTag = z.infer<typeof registryChangelogTagSchema>;
+export type RegistryReleaseChangelog = z.infer<
+  typeof registryReleaseChangelogSchema
 >;
 export type RegistryRelease = z.infer<typeof registryReleaseSchema>;
 export type RegistryCatalogEntry = z.infer<typeof registryCatalogEntrySchema>;
@@ -392,10 +404,6 @@ export interface RegistryCatalogDataSource {
     version: string,
     options?: RegistryLoadOptions,
   ): Promise<RegistryVersionSnapshot>;
-  loadMarkdown(
-    reference: RegistryMarkdownReference,
-    options?: RegistryLoadOptions,
-  ): Promise<string>;
   loadImage?(
     reference: RegistryImageReference,
     options?: RegistryLoadOptions,
@@ -449,7 +457,4 @@ export interface LiveRegistryCatalogDataSource
 export interface RegistryResolvedDetail {
   entry: RegistryCatalogEntry;
   detail: RegistryCatalogDetail;
-  overviewHtml?: string;
-  changelogHtml?: string;
-  contentError?: string;
 }

@@ -46,7 +46,6 @@ function fixture() {
   const publisher = getPublicKey(publisherKey);
   const curator = getPublicKey(curatorKey);
   const imageBytes = new TextEncoder().encode("verified image bytes");
-  const markdownBytes = new TextEncoder().encode("# Verified overview");
   const image = {
     url: `/registry/assets/demo/${sha(imageBytes)}.webp`,
     sourceUrl: `https://assets.example/registry/assets/demo/${sha(imageBytes)}.webp`,
@@ -55,13 +54,6 @@ function fixture() {
     mediaType: "image/webp" as const,
     width: 1200,
     height: 800,
-  };
-  const markdown = {
-    url: "/registry/content/demo/overview.md",
-    sourceUrl: "https://assets.example/registry/content/demo/overview.md",
-    sha256: sha(markdownBytes),
-    size: markdownBytes.byteLength,
-    mediaType: "text/markdown" as const,
   };
   const plugin: PluginDefinitionContent = {
     schema: "lapis.registry.plugin/1",
@@ -98,7 +90,6 @@ function fixture() {
         },
       },
       owner: { name: "Lapis", verified: true },
-      content: { overview: markdown },
     },
   };
   const releaseContent: ReleaseContent = {
@@ -112,6 +103,11 @@ function fixture() {
       url: "https://assets.example/demo.lapis-plugin",
       sha256: "b".repeat(64),
       size: 100,
+    },
+    changelog: {
+      title: "Initial relay release",
+      description: "Signed release notes for **Demo**.",
+      tags: ["feature"],
     },
     metadata: {},
   };
@@ -146,8 +142,6 @@ function fixture() {
     image,
     imageBytes,
     manifestBytes,
-    markdown,
-    markdownBytes,
     publisher,
     publisherKey,
     plugin,
@@ -281,9 +275,6 @@ describe("NIP-29 registry catalog data source", () => {
       if (url.pathname.endsWith(data.image.sha256)) {
         return new Response(data.imageBytes);
       }
-      if (url.pathname.endsWith(data.markdown.sha256)) {
-        return new Response(data.markdownBytes);
-      }
       return new Response("missing", { status: 404 });
     });
     const source = createNip29RegistryCatalogDataSource({
@@ -307,15 +298,17 @@ describe("NIP-29 registry catalog data source", () => {
     });
     const entry = (await source.loadIndex()).plugins[0]!;
     const detail = await source.loadPluginDetail(entry);
-    await expect(source.loadMarkdown(data.markdown)).resolves.toBe(
-      "# Verified overview",
-    );
     const blob = await source.loadImage(data.image);
 
     expect(detail.id).toBe("demo");
     expect(detail.versions["1.0.0"]?.bundle).toMatchObject({
       url: `https://blossom.example/base/${"b".repeat(64)}`,
     });
+    expect(detail.versions["1.0.0"]?.changelog).toMatchObject({
+      title: "Initial relay release",
+      tags: ["feature"],
+    });
+    expect(detail.versions["1.0.0"]?.releasePost).toBe("Demo 1.0.0");
     expect(blob.type).toBe("image/webp");
     expect(new Uint8Array(await blob.arrayBuffer())).toEqual(data.imageBytes);
     expect(
@@ -1188,9 +1181,6 @@ describe("NIP-29 registry catalog data source", () => {
     });
     await source.loadIndex();
     await expect(source.loadImage(data.image)).rejects.toThrow(/verification/u);
-    await expect(source.loadMarkdown(data.markdown)).rejects.toThrow(
-      /verification/u,
-    );
     source.dispose();
   });
 

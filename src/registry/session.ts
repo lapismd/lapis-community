@@ -1,4 +1,3 @@
-import { renderRegistryMarkdown } from "./markdown.js";
 import type {
   RegistryCatalogDataSource,
   RegistryCatalogEntry,
@@ -24,41 +23,9 @@ export class RegistryCatalogSession {
     if (cached !== undefined) return cached;
 
     const detail = await this.#source.loadPluginDetail(entry, options);
-    const markdownFailures: string[] = [];
-    const [overview, changelog] = await Promise.all([
-      detail.content?.overview === undefined
-        ? undefined
-        : this.#source
-            .loadMarkdown(detail.content.overview, options)
-            .catch((cause: unknown) => {
-              if (isAbortError(cause)) throw cause;
-              markdownFailures.push("overview");
-              return undefined;
-            }),
-      detail.content?.changelog === undefined
-        ? undefined
-        : this.#source
-            .loadMarkdown(detail.content.changelog, options)
-            .catch((cause: unknown) => {
-              if (isAbortError(cause)) throw cause;
-              markdownFailures.push("changelog");
-              return undefined;
-            }),
-    ]);
     const resolved: RegistryResolvedDetail = {
       entry,
       detail,
-      ...(overview === undefined
-        ? {}
-        : { overviewHtml: renderRegistryMarkdown(overview) }),
-      ...(changelog === undefined
-        ? {}
-        : { changelogHtml: renderRegistryMarkdown(changelog) }),
-      ...(markdownFailures.length === 0
-        ? {}
-        : {
-            contentError: `The ${markdownFailures.join(" and ")} document could not be loaded.`,
-          }),
     };
     this.#details.set(entry.id, resolved);
     return resolved;
@@ -85,11 +52,7 @@ export class RegistryCatalogSession {
     );
     const cached = this.#versions.get(key);
     if (cached !== undefined) return { resolved: cached, snapshot };
-    const resolved = await this.#resolve(
-      snapshot.entry,
-      snapshot.detail,
-      options,
-    );
+    const resolved = this.#resolve(snapshot.entry, snapshot.detail);
     this.#versions.set(key, resolved);
     return { resolved, snapshot };
   }
@@ -103,50 +66,13 @@ export class RegistryCatalogSession {
     this.#versions.clear();
   }
 
-  async #resolve(
+  #resolve(
     entry: RegistryCatalogEntry,
     detail: RegistryResolvedDetail["detail"],
-    options: RegistryLoadOptions,
-  ): Promise<RegistryResolvedDetail> {
-    const markdownFailures: string[] = [];
-    const [overview, changelog] = await Promise.all([
-      detail.content?.overview === undefined
-        ? undefined
-        : this.#source
-            .loadMarkdown(detail.content.overview, options)
-            .catch((cause: unknown) => {
-              if (isAbortError(cause)) throw cause;
-              markdownFailures.push("overview");
-              return undefined;
-            }),
-      detail.content?.changelog === undefined
-        ? undefined
-        : this.#source
-            .loadMarkdown(detail.content.changelog, options)
-            .catch((cause: unknown) => {
-              if (isAbortError(cause)) throw cause;
-              markdownFailures.push("changelog");
-              return undefined;
-            }),
-    ]);
+  ): RegistryResolvedDetail {
     return {
       entry,
       detail,
-      ...(overview === undefined
-        ? {}
-        : { overviewHtml: renderRegistryMarkdown(overview) }),
-      ...(changelog === undefined
-        ? {}
-        : { changelogHtml: renderRegistryMarkdown(changelog) }),
-      ...(markdownFailures.length === 0
-        ? {}
-        : {
-            contentError: `The ${markdownFailures.join(" and ")} document could not be loaded.`,
-          }),
     };
   }
-}
-
-function isAbortError(cause: unknown): boolean {
-  return cause instanceof DOMException && cause.name === "AbortError";
 }

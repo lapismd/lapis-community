@@ -98,15 +98,19 @@ export async function expectEvidenceTab(
   await expectCopyIdButton(manifestHashCopy, "2222222222…222222");
   await expectCopyIdButton(artifactHashCopy, "0000000000…000000");
   await userEvent.hover(manifestHashCopy);
-  await expect(await within(document.body).findByText(manifestSha256)).toBeVisible();
+  await expect(
+    await within(document.body).findByText(manifestSha256),
+  ).toBeVisible();
   await userEvent.unhover(manifestHashCopy);
-  const artifactHash = canvas
-    .getByText("Artifact SHA-256")
-    .closest<HTMLElement>('[data-ui-part="form-field"]');
+  const artifactHash = (
+    canvas.getByText("Artifact SHA-256") as HTMLElement
+  ).closest('[data-ui-part="form-field"]') as HTMLElement | null;
   if (artifactHash === null) {
     throw new Error("Expected artifact hash read-only row");
   }
-  await expect(within(artifactHash).queryByRole("textbox")).not.toBeInTheDocument();
+  await expect(
+    within(artifactHash).queryByRole("textbox"),
+  ).not.toBeInTheDocument();
 }
 
 export function expectScrollFrame(element: HTMLElement): HTMLElement {
@@ -193,10 +197,9 @@ export async function expectProseComposerLayout(
   const label = host.matches('[data-ui-part="form-field"]')
     ? host.querySelector<HTMLElement>(":scope > span")
     : null;
-  const firstLine = must(
-    composer.querySelector<HTMLElement>(".cm-line"),
-    "Expected prose composer text line",
-  );
+  const lines = [...composer.querySelectorAll<HTMLElement>(".cm-line")];
+  const firstLine = must(lines[0], "Expected prose composer text line");
+  const lastLine = must(lines.at(-1), "Expected prose composer final line");
 
   await expect(editor).toBeVisible();
   await expect(
@@ -229,7 +232,7 @@ export async function expectProseComposerLayout(
   await expect(getComputedStyle(footer).marginBlockStart).toBe("0px");
   await expect(
     toolbar.getBoundingClientRect().top -
-      firstLine.getBoundingClientRect().bottom,
+      lastLine.getBoundingClientRect().bottom,
   ).toBeLessThanOrEqual(4);
   if (label) {
     await expect(

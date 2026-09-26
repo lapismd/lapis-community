@@ -246,18 +246,13 @@
               </ul>
             </section>
           {/if}
-          {#if resolved.overviewHtml}
-            {@html resolved.overviewHtml}
-          {:else}
-            <p>{detail.description}</p>
-          {/if}
+          <p>{detail.description}</p>
         </div>
       </Tabs.Content>
       <Tabs.Content value="changelog">
         <RegistryPluginChangelog
-          changelogHtml={resolved.changelogHtml}
           latestVersion={detail.latestVersion}
-          {release}
+          {releases}
         />
       </Tabs.Content>
       <Tabs.Content value="releases">

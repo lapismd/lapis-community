@@ -48,8 +48,16 @@ const plugin: PluginDefinitionContent = {
   description: "AI assistance for Lapis Notes",
   channel: "official",
   status: "active",
-  index: { author: "Lapis Notes", categories: ["ai"] },
-  detail: { license: "Apache-2.0" },
+  index: {
+    author: "Lapis Notes",
+    categories: ["ai"],
+    source: "legacy-static-site",
+  },
+  detail: {
+    license: "Apache-2.0",
+    content: { changelog: "legacy/changelog.md" },
+    manifest: { old: true },
+  },
 };
 
 const releaseManifest: ReleaseContent = {
@@ -64,7 +72,12 @@ const releaseManifest: ReleaseContent = {
     sha256: "b".repeat(64),
     size: 42_000,
   },
-  metadata: { version: "1.2.3" },
+  changelog: {
+    title: "Review-ready release",
+    description: "A concise release note for curators.",
+    tags: ["feature"],
+  },
+  metadata: { legacyField: "drop me" },
 };
 const manifest = {
   schema: "lapis.registry.nip29-release/1" as const,
@@ -216,8 +229,23 @@ describe("NIP-29 registry protocol", () => {
       { id: "ai", latestVersion: "1.2.3" },
     ]);
     expect(projection.plugins.get("ai")?.versions).toMatchObject({
-      "1.2.3": { bundle: { sha256: "b".repeat(64) } },
+      "1.2.3": {
+        bundle: { sha256: "b".repeat(64) },
+        changelog: { title: "Review-ready release" },
+        releasePost: "AI 1.2.3 is ready for review",
+      },
     });
+    const projectedVersions = projection.plugins.get("ai")?.versions as
+      | Record<string, unknown>
+      | undefined;
+    const projectedIndexPlugins = projection.index.plugins as Record<
+      string,
+      unknown
+    >[];
+    expect(projectedVersions?.["1.2.3"]).not.toHaveProperty("legacyField");
+    expect(projection.plugins.get("ai")).not.toHaveProperty("content");
+    expect(projection.plugins.get("ai")).not.toHaveProperty("manifest");
+    expect(projectedIndexPlugins[0]).not.toHaveProperty("source");
   });
 
   it("fails closed when a later trusted decision revokes a release", () => {

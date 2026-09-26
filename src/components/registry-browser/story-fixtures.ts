@@ -4,10 +4,8 @@ import type {
   RegistryCatalogEntry,
   RegistryCatalogIndex,
   RegistryImageReference,
-  RegistryMarkdownReference,
   RegistryResolvedDetail,
 } from "../../registry/index.js";
-import { renderRegistryMarkdown } from "../../registry/index.js";
 
 const sha256 = "0".repeat(64);
 
@@ -191,22 +189,6 @@ export const registryStoryIndex: RegistryCatalogIndex = {
   plugins: registryStoryEntries,
 };
 
-const overviewReference: RegistryMarkdownReference = {
-  url: "content/overview.md",
-  sourceUrl: "https://example.com/overview.md",
-  sha256,
-  size: 0,
-  mediaType: "text/markdown",
-};
-
-const changelogReference: RegistryMarkdownReference = {
-  url: "content/changelog.md",
-  sourceUrl: "https://example.com/changelog.md",
-  sha256,
-  size: 0,
-  mediaType: "text/markdown",
-};
-
 function imageReference(
   label: string,
   accent: string,
@@ -302,10 +284,6 @@ export function registryStoryDetail(
       "Uses your current Lapis theme",
       "Designed for keyboard and screen reader access",
     ],
-    content: {
-      overview: overviewReference,
-      changelog: changelogReference,
-    },
     contributes: {
       editorViews: [
         {
@@ -332,6 +310,13 @@ export function registryStoryDetail(
           size: entry.latestRelease?.bundleSize ?? 500_000,
           ...(entry.status === "pending" ? { pending: true } : {}),
         },
+        changelog: {
+          title: "Better defaults, smoother DX",
+          description:
+            "This release focuses on improving the developer experience with saner defaults, better error messages, and a few quality-of-life improvements.\n\n## Features\n\n- Add automatic configuration detection\n- Introduce `--watch` mode for faster feedback\n\n## Fixes\n\n- Fix incorrect paths on Windows\n- Resolve occasional crashes when config is missing\n\n## Improved\n\n- Clearer error messages\n- Faster startup time",
+          tags: ["feature", "fix", "improvement"],
+        },
+        releasePost: `${entry.name} ${entry.latestVersion}`,
       },
       "0.9.0": {
         version: "0.9.0",
@@ -346,6 +331,13 @@ export function registryStoryDetail(
           sha256,
           size: 420_000,
         },
+        changelog: {
+          title: "Foundation release",
+          description:
+            "Stabilized the first public workflow and tightened the plugin metadata model.",
+          tags: ["improvement"],
+        },
+        releasePost: `${entry.name} 0.9.0`,
       },
     },
   };
@@ -357,12 +349,6 @@ export function registryStoryResolvedDetail(
   return {
     entry,
     detail: registryStoryDetail(entry),
-    overviewHtml: renderRegistryMarkdown(
-      `# ${entry.name}\n\n${entry.description}\n\n## Built for your notes\n\n- Stay in context while you work\n- Keep host controls explicit\n- Browse community discussion below`,
-    ),
-    changelogHtml: renderRegistryMarkdown(
-      "# Better defaults, smoother DX\n\nThis release focuses on improving the developer experience with saner defaults, better error messages, and a few quality-of-life improvements.\n\n## ✨ Features\n\n- Add automatic configuration detection\n- Introduce `--watch` mode for faster feedback\n\n## 🐞 Bug Fixes\n\n- Fix incorrect paths on Windows\n- Resolve occasional crashes when config is missing\n\n## 🔧 Improved\n\n- Clearer error messages\n- Faster startup time",
-    ),
   };
 }
 
@@ -395,11 +381,6 @@ export function createRegistryStoryDataSource(
         );
       }
       return registryStoryDetail(catalogEntry);
-    },
-    async loadMarkdown(reference) {
-      return reference.url.includes("changelog")
-        ? "# Better defaults, smoother DX\n\nThis release focuses on improving the developer experience with saner defaults, better error messages, and a few quality-of-life improvements.\n\n## ✨ Features\n\n- Add automatic configuration detection\n- Introduce `--watch` mode for faster feedback\n\n## 🐞 Bug Fixes\n\n- Fix incorrect paths on Windows\n- Resolve occasional crashes when config is missing\n\n## 🔧 Improved\n\n- Clearer error messages\n- Faster startup time"
-        : "# Work with your notes\n\nKeep your ideas flowing with a plugin designed for the Lapis workspace.\n\n- Fast, focused commands\n- Theme-aware presentation\n- Community support";
     },
     async loadReleaseInspection(eventId) {
       if (!recognizedReleaseEventIds.has(eventId)) return undefined;

@@ -6,6 +6,7 @@ import type {
   JsonValue,
   LegacyNip29ReleaseManifest,
   LegacyNostrReleaseProof,
+  ReleaseChangelog,
   LegacyReleaseContent,
   Nip29ReleaseManifest,
   Nip29RegistryHeadContent,
@@ -28,6 +29,15 @@ const version = z
   .string()
   .max(128)
   .refine((value) => semver.valid(value) !== null, "Expected a SemVer version");
+const releaseChangelogTag = z.enum([
+  "feature",
+  "improvement",
+  "fix",
+  "security",
+  "breaking",
+  "deprecation",
+  "removal",
+]);
 
 export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
@@ -41,6 +51,21 @@ export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 );
 
 const jsonObjectSchema = z.record(z.string(), jsonValueSchema);
+
+const releaseChangelogSchema: z.ZodType<ReleaseChangelog> = z
+  .object({
+    title: z.string().min(1).max(200),
+    description: z.string().min(1).max(4_000).optional(),
+    tags: z
+      .array(releaseChangelogTag)
+      .max(8)
+      .refine(
+        (tags) => new Set(tags).size === tags.length,
+        "Changelog tags must be unique",
+      )
+      .optional(),
+  })
+  .strict();
 
 export const nostrEventSchema: z.ZodType<NostrEvent> = z
   .object({
@@ -90,6 +115,7 @@ export const legacyReleaseContentSchema: z.ZodType<LegacyReleaseContent> = z
         size: z.number().int().nonnegative(),
       })
       .strict(),
+    changelog: releaseChangelogSchema.optional(),
     metadata: jsonObjectSchema,
   })
   .strict();
@@ -113,6 +139,7 @@ export const sequencedReleaseContentSchema: z.ZodType<SequencedReleaseContent> =
           size: z.number().int().nonnegative(),
         })
         .strict(),
+      changelog: releaseChangelogSchema.optional(),
       metadata: jsonObjectSchema,
     })
     .strict();

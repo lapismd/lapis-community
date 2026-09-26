@@ -199,14 +199,6 @@ export async function loadLocalPluginFixtures(
       resources,
       value: registry.gallery,
     });
-    const content = await resolveContent({
-      packageRoot,
-      pluginId,
-      publicBaseUrl: options.publicBaseUrl,
-      resources,
-      value: registry.content,
-    });
-    const readmeUrl = content.overview?.sourceUrl;
     const links = compact({
       homepage: optionalText(packageJson.homepage),
       repository: repositoryUrl,
@@ -246,7 +238,6 @@ export async function loadLocalPluginFixtures(
           author,
           ...(authorUrl === undefined ? {} : { authorUrl }),
           ...(authorAvatarUrl === undefined ? {} : { authorAvatarUrl }),
-          ...(readmeUrl === undefined ? {} : { readmeUrl }),
           ...(appearance === undefined ? {} : { appearance }),
           minAppVersion,
           platforms,
@@ -262,7 +253,6 @@ export async function loadLocalPluginFixtures(
           author,
           ...(authorUrl === undefined ? {} : { authorUrl }),
           ...(authorAvatarUrl === undefined ? {} : { authorAvatarUrl }),
-          ...(readmeUrl === undefined ? {} : { readmeUrl }),
           ...(appearance === undefined ? {} : { appearance }),
           ...(media === undefined ? {} : { media }),
           ...(gallery === undefined ? {} : { gallery }),
@@ -272,7 +262,6 @@ export async function loadLocalPluginFixtures(
             : { license: optionalText(packageJson.license)! }),
           ...(Object.keys(links).length === 0 ? {} : { links }),
           highlights,
-          ...(Object.keys(content).length === 0 ? {} : { content }),
           contributes,
           manifest,
           registry,
@@ -337,57 +326,6 @@ interface ResourceOptions {
   publicBaseUrl: URL;
   resources: LocalFixtureResource[];
   value: unknown;
-}
-
-async function resolveContent(
-  options: ResourceOptions,
-): Promise<Record<string, JsonObject>> {
-  if (
-    options.value === undefined ||
-    options.value === null ||
-    Array.isArray(options.value) ||
-    typeof options.value !== "object"
-  ) {
-    return {};
-  }
-  return Object.fromEntries(
-    await Promise.all(
-      Object.entries(options.value).map(async ([kind, value]) => {
-        const relativePath = safeRelativePath(
-          value,
-          `${options.pluginId} ${kind} content`,
-        );
-        if (!relativePath.endsWith(".md")) {
-          throw new Error(
-            `${options.pluginId} ${kind} content must be Markdown`,
-          );
-        }
-        const bytes = await readFile(
-          path.join(options.packageRoot, relativePath),
-        );
-        const resourcePath = `registry/content/${options.pluginId}/${kind}.md`;
-        const resource = addResource(
-          options.resources,
-          resourcePath,
-          bytes,
-          "text/markdown",
-        );
-        return [
-          kind,
-          {
-            url: `/${resourcePath}`,
-            sourceUrl: new URL(
-              resource.sha256,
-              options.publicBaseUrl,
-            ).toString(),
-            sha256: resource.sha256,
-            size: bytes.byteLength,
-            mediaType: "text/markdown",
-          },
-        ];
-      }),
-    ),
-  );
 }
 
 async function resolveAppearance(

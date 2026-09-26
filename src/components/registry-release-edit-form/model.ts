@@ -4,6 +4,7 @@ import type {
   RegistryGalleryItem,
   RegistryImageReference,
   RegistryMediaItem,
+  RegistryChangelogTag,
   RegistryResolvedDetail,
 } from "../../registry/model.js";
 
@@ -66,6 +67,11 @@ export interface RegistryReleaseEditDraft {
     minAppVersion: string;
     releasedAt: string;
     platforms: string[];
+    changelog: {
+      title: string;
+      description: string;
+      tags: RegistryChangelogTag[];
+    };
   };
   media: {
     logo: RegistryReleaseImageSetDraft | null;
@@ -97,6 +103,16 @@ export const registryReleaseChannelOptions = [
 ];
 
 export const registryReleasePlatformSuggestions = ["desktop", "web", "mobile"];
+
+export const registryReleaseChangelogTagSuggestions: RegistryChangelogTag[] = [
+  "feature",
+  "improvement",
+  "fix",
+  "security",
+  "breaking",
+  "deprecation",
+  "removal",
+];
 
 export const registryReleaseCategorySuggestions = [
   "ai",
@@ -144,6 +160,12 @@ export function draftFromResolvedDetail(
       minAppVersion: release?.minAppVersion ?? entry.minAppVersion,
       releasedAt: release?.releasedAt ?? "",
       platforms: [...(release?.platforms ?? entry.platforms)],
+      changelog: {
+        title: release?.changelog?.title ?? "",
+        description:
+          release?.changelog?.description ?? release?.releasePost ?? "",
+        tags: [...(release?.changelog?.tags ?? [])],
+      },
     },
     media: {
       logo: detail.appearance?.logo

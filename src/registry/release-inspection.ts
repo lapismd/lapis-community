@@ -144,7 +144,9 @@ export function inspectRegistryReleaseCandidate(
     [
       {
         content: parsed.data.plugin,
-        releases: [parsed.data.release],
+        releases: [
+          { content: parsed.data.release, releasePost: event.content },
+        ],
         latestVersion: parsed.data.release.version,
       },
     ],

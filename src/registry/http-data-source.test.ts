@@ -1,13 +1,7 @@
-import { createHash } from "node:crypto";
-
 import { describe, expect, it, vi } from "vitest";
 
 import { createHttpRegistryCatalogDataSource } from "./http-data-source.js";
-import type {
-  RegistryCatalogEntry,
-  RegistryImageReference,
-  RegistryMarkdownReference,
-} from "./model.js";
+import type { RegistryCatalogEntry, RegistryImageReference } from "./model.js";
 
 function image(url: string): RegistryImageReference {
   return {
@@ -267,28 +261,6 @@ describe("HTTP registry catalog data source", () => {
     await expect(text.loadRuntime()).rejects.toThrow(
       "Registry runtime response was not JSON",
     );
-  });
-
-  it("verifies mirrored Markdown size and SHA-256", async () => {
-    const body = new TextEncoder().encode("# Verified\n");
-    const reference: RegistryMarkdownReference = {
-      url: "/registry/content/ai/overview.md",
-      sourceUrl: "https://source.example/overview.md",
-      mediaType: "text/markdown",
-      size: body.byteLength,
-      sha256: createHash("sha256").update(body).digest("hex"),
-    };
-    const source = createHttpRegistryCatalogDataSource({
-      baseUrl: "https://community.example/registry/",
-      fetch: vi.fn<typeof fetch>(async () => new Response(body)),
-    });
-    await expect(source.loadMarkdown(reference)).resolves.toBe("# Verified\n");
-    await expect(
-      source.loadMarkdown({ ...reference, sha256: "0".repeat(64) }),
-    ).rejects.toThrow("hash does not match");
-    await expect(
-      source.loadMarkdown({ ...reference, size: body.byteLength + 1 }),
-    ).rejects.toThrow("size does not match");
   });
 
   it("passes AbortSignal through to fetch", async () => {

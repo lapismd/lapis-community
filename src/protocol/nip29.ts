@@ -846,7 +846,10 @@ export function projectNip29Registry(
   const projection = projectRegistry(
     registry.plugins.map((plugin) => ({
       content: plugin.content,
-      releases: plugin.releases.map((release) => release.content),
+      releases: plugin.releases.map((release) => ({
+        content: release.content,
+        releasePost: release.event.content,
+      })),
       latestVersion: plugin.latestVersion,
     })),
     { generatedAt, ...(indexBase === undefined ? {} : { indexBase }) },

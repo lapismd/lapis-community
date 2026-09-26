@@ -15,7 +15,6 @@
 
   import {
     formatRegistryBytes,
-    renderRegistryMarkdown,
     titleCaseRegistryValue,
     type RegistryCatalogDataSource,
     type RegistryReleaseInspection,
@@ -45,7 +44,6 @@
   let inspection = $state<RegistryReleaseInspection>();
   let resolved = $state<RegistryResolvedDetail>();
   let loading = $state(false);
-  let contentError = $state("");
   let acceptedPlugin = $state(false);
   let revision = $state.raw({});
   let inspectionRevision = $state.raw({});
@@ -135,38 +133,18 @@
     if (!open || current?.preview === undefined) {
       resolved = undefined;
       acceptedPlugin = false;
-      contentError = "";
       return;
     }
     const controller = new AbortController();
     let active = true;
-    const loadOverview = current.preview.detail.content?.overview
-      ? source
-          .loadMarkdown(current.preview.detail.content.overview, {
-            signal: controller.signal,
-          })
-          .then(renderRegistryMarkdown)
-      : Promise.resolve(undefined);
-    const loadChangelog = current.preview.detail.content?.changelog
-      ? source
-          .loadMarkdown(current.preview.detail.content.changelog, {
-            signal: controller.signal,
-          })
-          .then(renderRegistryMarkdown)
-      : Promise.resolve(undefined);
-    void Promise.all([
-      loadOverview,
-      loadChangelog,
-      source.loadIndex({ signal: controller.signal }),
-    ])
-      .then(([overviewHtml, changelogHtml, index]) => {
+    resolved = {
+      entry: current.preview.entry,
+      detail: current.preview.detail,
+    };
+    void source
+      .loadIndex({ signal: controller.signal })
+      .then((index) => {
         if (!active) return;
-        resolved = {
-          entry: current.preview!.entry,
-          detail: current.preview!.detail,
-          ...(overviewHtml === undefined ? {} : { overviewHtml }),
-          ...(changelogHtml === undefined ? {} : { changelogHtml }),
-        };
         acceptedPlugin =
           current.state === "approved" &&
           index.plugins.some((plugin) => plugin.id === current.pluginId);
@@ -176,11 +154,6 @@
           active &&
           (!(cause instanceof DOMException) || cause.name !== "AbortError")
         ) {
-          resolved = {
-            entry: current.preview!.entry,
-            detail: current.preview!.detail,
-          };
-          contentError = "Verified plugin content is unavailable.";
           acceptedPlugin = current.state === "approved";
         }
       });
@@ -194,6 +167,20 @@
     inspection?.preview?.entry.name ?? inspection?.pluginId ?? "Plugin release",
   );
   const summaryEntry = $derived(inspection?.preview?.entry);
+  const summaryRelease = $derived(
+    inspection?.preview === undefined
+      ? undefined
+      : inspection.preview.detail.versions[
+          inspection.preview.detail.latestVersion
+        ],
+  );
+  const summaryDescription = $derived(
+    summaryRelease?.changelog?.title ??
+      summaryRelease?.releasePost ??
+      summaryEntry?.description ??
+      inspection?.pluginId ??
+      "Signed plugin release",
+  );
   const SummaryIcon = $derived(
     registryPluginIcon(
       summaryEntry?.appearance?.icon ?? summaryEntry?.categories[0],
@@ -289,9 +276,7 @@
       <span class="registry-release-disclosure__summary">
         <span class="registry-release-disclosure__title">{title}</span>
         <span class="registry-release-disclosure__description">
-          {summaryEntry?.description ??
-            inspection.pluginId ??
-            "Signed plugin release"}
+          {summaryDescription}
         </span>
         <span class="registry-release-disclosure__metadata">
           {#if inspection.version}<span>{inspection.version}</span>{/if}
@@ -354,11 +339,6 @@
           <RegistryPluginPreview {resolved} {onOpenPlugin} />
         {:else}
           <RegistryPluginPreview {resolved} />
-        {/if}
-        {#if contentError}
-          <p class="registry-release-disclosure__notice" role="status">
-            {contentError}
-          </p>
         {/if}
       {:else if inspection?.preview && open}
         <CommunitySkeleton
@@ -623,8 +603,7 @@
     background: var(--muted);
   }
   .registry-release-disclosure__diagnostics h4,
-  .registry-release-disclosure__diagnostics ul,
-  .registry-release-disclosure__notice {
+  .registry-release-disclosure__diagnostics ul {
     margin: 0;
   }
   .registry-release-disclosure__diagnostics h4 {
@@ -647,8 +626,7 @@
     font-size: var(--community-text-secondary);
     font-weight: 600;
   }
-  .registry-release-disclosure__diagnostics span,
-  .registry-release-disclosure__notice {
+  .registry-release-disclosure__diagnostics span {
     color: var(--muted-foreground);
     font-size: var(--community-text-body);
   }

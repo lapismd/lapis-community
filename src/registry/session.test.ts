@@ -26,15 +26,6 @@ const entry: RegistryCatalogEntry = {
 const detail: RegistryCatalogDetail = {
   ...entry,
   schemaVersion: 1,
-  content: {
-    overview: {
-      url: "content/ai.md",
-      sourceUrl: "https://example.com/ai.md",
-      sha256: "0".repeat(64),
-      size: 4,
-      mediaType: "text/markdown",
-    },
-  },
   versions: {
     "1.0.0": {
       version: "1.0.0",
@@ -47,14 +38,12 @@ const detail: RegistryCatalogDetail = {
 };
 
 describe("RegistryCatalogSession", () => {
-  it("loads each detail and its Markdown once per component session", async () => {
+  it("loads each detail once per component session", async () => {
     const loadPluginDetail = vi.fn(async () => detail);
-    const loadMarkdown = vi.fn(async () => "# Overview");
     const source: RegistryCatalogDataSource = {
       loadIndex: vi.fn(),
       loadRuntime: vi.fn(),
       loadPluginDetail,
-      loadMarkdown,
     };
     const session = new RegistryCatalogSession(source);
 
@@ -64,23 +53,6 @@ describe("RegistryCatalogSession", () => {
     expect(second).toBe(first);
     expect(session.hasDetail("ai")).toBe(true);
     expect(loadPluginDetail).toHaveBeenCalledOnce();
-    expect(loadMarkdown).toHaveBeenCalledOnce();
-    expect(first.overviewHtml).toContain("<h1>Overview</h1>");
-  });
-
-  it("keeps catalog detail usable when optional Markdown fails", async () => {
-    const source: RegistryCatalogDataSource = {
-      loadIndex: vi.fn(),
-      loadRuntime: vi.fn(),
-      loadPluginDetail: vi.fn(async () => detail),
-      loadMarkdown: vi.fn(async () => {
-        throw new Error("offline");
-      }),
-    };
-
-    const resolved = await new RegistryCatalogSession(source).loadDetail(entry);
-
-    expect(resolved.detail).toBe(detail);
-    expect(resolved.contentError).toContain("overview");
+    expect(first).toEqual({ entry, detail });
   });
 });

@@ -4,6 +4,7 @@ import type { RuntimePathFormConfig } from "@lapismd/design-core/forms/core";
 import "./form-kinds.js";
 import type { RegistryReleaseEditDraft } from "./model.js";
 import {
+  registryReleaseChangelogTagSuggestions,
   registryReleaseCategorySuggestions,
   registryReleaseChannelOptions,
   registryReleasePlatformSuggestions,
@@ -21,6 +22,17 @@ const optionalUrl = (label: string) => (value: string) => {
   } catch {
     return `${label} must be a valid URL`;
   }
+};
+
+const optionalChangelogTitle = (
+  value: string,
+  args: { root: RegistryReleaseEditDraft },
+) => {
+  const title = value.trim();
+  const { description, tags } = args.root.release.changelog;
+  return title || (!description.trim() && tags.length === 0)
+    ? undefined
+    : "Changelog title is required";
 };
 
 export const registryReleaseEditConfig: RuntimePathFormConfig<RegistryReleaseEditDraft> =
@@ -156,6 +168,25 @@ export const registryReleaseEditConfig: RuntimePathFormConfig<RegistryReleaseEdi
         label: "Release platforms",
         align: "center",
         suggestions: registryReleasePlatformSuggestions,
+      },
+      "release.changelog.title": {
+        kind: "text",
+        group: "release",
+        label: "Changelog title",
+        validate: optionalChangelogTitle,
+      },
+      "release.changelog.description": {
+        kind: "registry-description-composer",
+        group: "release",
+        label: "Changelog",
+        placeholder: "Summarize what changed in this release.",
+      },
+      "release.changelog.tags": {
+        kind: "tag-list",
+        group: "release",
+        label: "Changelog tags",
+        align: "center",
+        suggestions: registryReleaseChangelogTagSuggestions,
       },
       media: {
         kind: "registry-media-sections",

@@ -30,6 +30,7 @@
   import RegistryMediaGallery from "../registry-media-gallery/RegistryMediaGallery.svelte";
   import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
+  import RegistryPluginChangelog from "../registry-release-disclosure/RegistryPluginChangelog.svelte";
   import RegistryPluginCard from "../registry-plugin-card/RegistryPluginCard.svelte";
   import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
   import { registryPluginIcon } from "../registry-plugin-icons.js";
@@ -501,12 +502,6 @@
       <RegistryMediaGallery items={detail.gallery} pluginName={detail.name} />
     {/if}
 
-    {#if resolved.contentError}
-      <p class="registry-plugin-detail__content-warning" role="status">
-        {resolved.contentError} The verified catalog metadata is still available.
-      </p>
-    {/if}
-
     <div class="registry-plugin-detail__layout">
       <section class="registry-plugin-detail__content">
         <Tabs.Root bind:value={activeTab}>
@@ -556,13 +551,7 @@
                   </ul>
                 </section>
               {/if}
-              {#if resolved.overviewHtml}
-                <section class="registry-plugin-detail__markdown">
-                  {@html resolved.overviewHtml}
-                </section>
-              {:else}
-                <p>{detail.description}</p>
-              {/if}
+              <p>{detail.description}</p>
               {#if filePatterns.length > 0}
                 <section>
                   <h2>File handlers</h2>
@@ -574,15 +563,10 @@
             </div>
           </Tabs.Content>
           <Tabs.Content value="changelog">
-            <div class="registry-plugin-detail__prose">
-              {#if resolved.changelogHtml}
-                <section class="registry-plugin-detail__markdown">
-                  {@html resolved.changelogHtml}
-                </section>
-              {:else}<p>
-                  No structured changelog is available for this plugin yet.
-                </p>{/if}
-            </div>
+            <RegistryPluginChangelog
+              latestVersion={detail.latestVersion}
+              {releases}
+            />
           </Tabs.Content>
           <Tabs.Content value="releases">
             <div class="registry-plugin-detail__releases">
@@ -972,14 +956,6 @@
     white-space: nowrap;
   }
 
-  .registry-plugin-detail__content-warning {
-    margin: 0;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 0.75rem 1rem;
-    color: var(--muted-foreground);
-    background: var(--muted);
-  }
   .registry-plugin-detail__banner {
     display: block;
     width: 100%;
@@ -1068,9 +1044,6 @@
   .registry-plugin-detail__sidebar h2 {
     margin: 0 0 0.65rem;
     font-size: var(--community-text-section);
-  }
-  .registry-plugin-detail__markdown :global(:first-child) {
-    margin-top: 0;
   }
   .registry-plugin-detail__file-patterns {
     display: flex;

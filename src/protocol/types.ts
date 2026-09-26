@@ -36,6 +36,21 @@ export interface ReleaseArtifact {
   size: number;
 }
 
+export type ReleaseChangelogTag =
+  | "feature"
+  | "improvement"
+  | "fix"
+  | "security"
+  | "breaking"
+  | "deprecation"
+  | "removal";
+
+export interface ReleaseChangelog {
+  title: string;
+  description?: string | undefined;
+  tags?: ReleaseChangelogTag[] | undefined;
+}
+
 export interface LegacyReleaseContent {
   schema: "lapis.registry.release/1";
   pluginId: string;
@@ -44,6 +59,7 @@ export interface LegacyReleaseContent {
   platforms: string[];
   releasedAt: string;
   artifact: ReleaseArtifact;
+  changelog?: ReleaseChangelog | undefined;
   metadata: JsonObject;
 }
 
@@ -58,6 +74,7 @@ export interface SequencedReleaseContent {
   platforms: string[];
   releasedAt: string;
   artifact: ReleaseArtifact;
+  changelog?: ReleaseChangelog | undefined;
   metadata: JsonObject;
 }
 
@@ -169,8 +186,13 @@ export interface RegistryIssue {
 
 export interface RegistryProjectionPlugin {
   content: PluginDefinitionContent;
-  releases: ReleaseContent[];
+  releases: (ReleaseContent | RegistryProjectionRelease)[];
   latestVersion: string;
+}
+
+export interface RegistryProjectionRelease {
+  content: ReleaseContent;
+  releasePost?: string | undefined;
 }
 
 export interface RegistryProjectionOptions {

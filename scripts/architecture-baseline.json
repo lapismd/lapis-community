@@ -5643,8 +5643,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/registry-plugin-detail/RegistryPluginDetail.svelte": {
-      "countedLines": 1196,
-      "physicalLines": 1234,
+      "countedLines": 1170,
+      "physicalLines": 1207,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -5672,8 +5672,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/registry-release-disclosure/RegistryReleaseDisclosure.svelte": {
-      "countedLines": 660,
-      "physicalLines": 680,
+      "countedLines": 638,
+      "physicalLines": 658,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -5689,8 +5689,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/registry-release-edit-form/form-config.ts": {
-      "countedLines": 198,
-      "physicalLines": 202,
+      "countedLines": 228,
+      "physicalLines": 233,
       "forbiddenImportCount": 0
     },
     "src/components/registry-release-edit-form/form-kinds.ts": {
@@ -5709,13 +5709,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/registry-release-edit-form/model.ts": {
-      "countedLines": 258,
-      "physicalLines": 279,
+      "countedLines": 272,
+      "physicalLines": 293,
       "forbiddenImportCount": 0
     },
     "src/components/registry-release-edit-form/preview-model.ts": {
-      "countedLines": 164,
-      "physicalLines": 174,
+      "countedLines": 183,
+      "physicalLines": 194,
       "forbiddenImportCount": 0
     },
     "src/components/registry-release-edit-form/RegistryReleaseDateTimeField.svelte": {
@@ -5744,13 +5744,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/registry-release-edit-form/RegistryReleaseEditForm.stories-helper.test.ts": {
-      "countedLines": 416,
-      "physicalLines": 427,
+      "countedLines": 419,
+      "physicalLines": 430,
       "forbiddenImportCount": 0
     },
     "src/components/registry-release-edit-form/RegistryReleaseEditForm.stories.svelte": {
-      "countedLines": 307,
-      "physicalLines": 318,
+      "countedLines": 332,
+      "physicalLines": 343,
       "forbiddenImportCount": 0
     },
     "src/components/registry-release-edit-form/RegistryReleaseEditForm.svelte": {
@@ -5926,8 +5926,8 @@
       "forbiddenImportCount": 0
     },
     "src/fixture/source.ts": {
-      "countedLines": 511,
-      "physicalLines": 538,
+      "countedLines": 450,
+      "physicalLines": 476,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -6609,13 +6609,13 @@
       "forbiddenImportCount": 0
     },
     "src/protocol/nip29.test.ts": {
-      "countedLines": 380,
-      "physicalLines": 398,
+      "countedLines": 408,
+      "physicalLines": 426,
       "forbiddenImportCount": 0
     },
     "src/protocol/nip29.ts": {
-      "countedLines": 1328,
-      "physicalLines": 1393,
+      "countedLines": 1331,
+      "physicalLines": 1396,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -6626,8 +6626,8 @@
       "forbiddenImportCount": 0
     },
     "src/protocol/projection.ts": {
-      "countedLines": 86,
-      "physicalLines": 93,
+      "countedLines": 193,
+      "physicalLines": 207,
       "forbiddenImportCount": 0
     },
     "src/protocol/registry-control.ts": {
@@ -6646,8 +6646,8 @@
       "forbiddenImportCount": 0
     },
     "src/protocol/schemas.ts": {
-      "countedLines": 204,
-      "physicalLines": 221,
+      "countedLines": 230,
+      "physicalLines": 248,
       "forbiddenImportCount": 0
     },
     "src/protocol/transcript-comment-anchor.ts": {
@@ -6656,8 +6656,8 @@
       "forbiddenImportCount": 0
     },
     "src/protocol/types.ts": {
-      "countedLines": 163,
-      "physicalLines": 190,
+      "countedLines": 182,
+      "physicalLines": 212,
       "forbiddenImportCount": 0
     },
     "src/registry/catalog.test.ts": {
@@ -6671,13 +6671,13 @@
       "forbiddenImportCount": 0
     },
     "src/registry/http-data-source.test.ts": {
-      "countedLines": 293,
-      "physicalLines": 311,
+      "countedLines": 267,
+      "physicalLines": 283,
       "forbiddenImportCount": 0
     },
     "src/registry/http-data-source.ts": {
-      "countedLines": 232,
-      "physicalLines": 246,
+      "countedLines": 205,
+      "physicalLines": 219,
       "forbiddenImportCount": 0
     },
     "src/registry/index.ts": {
@@ -6691,8 +6691,8 @@
       "forbiddenImportCount": 0
     },
     "src/registry/model.ts": {
-      "countedLines": 412,
-      "physicalLines": 455,
+      "countedLines": 416,
+      "physicalLines": 460,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -6732,18 +6732,18 @@
       "forbiddenImportCount": 0
     },
     "src/registry/release-inspection.ts": {
-      "countedLines": 276,
-      "physicalLines": 299,
+      "countedLines": 278,
+      "physicalLines": 301,
       "forbiddenImportCount": 0
     },
     "src/registry/session.test.ts": {
-      "countedLines": 77,
-      "physicalLines": 86,
+      "countedLines": 52,
+      "physicalLines": 58,
       "forbiddenImportCount": 0
     },
     "src/registry/session.ts": {
-      "countedLines": 143,
-      "physicalLines": 152,
+      "countedLines": 70,
+      "physicalLines": 78,
       "forbiddenImportCount": 0
     },
     "src/registry/snapshot-store.test.ts": {

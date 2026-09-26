@@ -58,7 +58,6 @@ import {
   type RegistryCatalogSourceStatus,
   type RegistryImageReference,
   type RegistryLoadOptions,
-  type RegistryMarkdownReference,
   type RegistryReleaseDiagnostic,
   type RegistryReleaseManagementAction,
   type RegistryReleaseManagementCapabilities,
@@ -723,7 +722,7 @@ export function createNip29RegistryCatalogDataSource(
   }
 
   async function loadVerifiedResource(
-    reference: RegistryImageReference | RegistryMarkdownReference,
+    reference: RegistryImageReference,
     loadOptions: RegistryLoadOptions = {},
   ): Promise<Uint8Array> {
     await openStore();
@@ -1300,10 +1299,6 @@ export function createNip29RegistryCatalogDataSource(
       }
       return snapshot;
     },
-    async loadMarkdown(reference, loadOptions) {
-      const bytes = await loadVerifiedResource(reference, loadOptions);
-      return new TextDecoder().decode(bytes);
-    },
     async loadImage(reference, loadOptions) {
       const bytes = await loadVerifiedResource(reference, loadOptions);
       return new Blob([bytes], { type: reference.mediaType });
@@ -1556,7 +1551,9 @@ function projectVersionSnapshot(
     [
       {
         content: release.plugin,
-        releases: [release.content],
+        releases: [
+          { content: release.content, releasePost: release.event.content },
+        ],
         latestVersion: release.content.version,
       },
     ],
@@ -1692,7 +1689,7 @@ function mergeEvents(
 }
 
 function verifyResource(
-  reference: RegistryImageReference | RegistryMarkdownReference,
+  reference: RegistryImageReference,
   bytes: Uint8Array,
 ): void {
   if (bytes.byteLength !== reference.size) {
@@ -1704,7 +1701,7 @@ function verifyResource(
 }
 
 function resourceSources(
-  reference: RegistryImageReference | RegistryMarkdownReference,
+  reference: RegistryImageReference,
   blossomUrls: readonly URL[],
 ): URL[] {
   return [
@@ -1721,11 +1718,7 @@ function relayBackedDetail(
   detail: RegistryCatalogDetail,
   blossomUrl: URL,
 ): RegistryCatalogDetail {
-  const resource = <
-    T extends RegistryImageReference | RegistryMarkdownReference,
-  >(
-    reference: T,
-  ): T => ({
+  const resource = <T extends RegistryImageReference>(reference: T): T => ({
     ...reference,
     sourceUrl: new URL(reference.sha256, blossomUrl).toString(),
   });
@@ -1780,18 +1773,6 @@ function relayBackedDetail(
             ...item,
             images: images(item.images),
           })),
-        }),
-    ...(detail.content === undefined
-      ? {}
-      : {
-          content: {
-            ...(detail.content.overview === undefined
-              ? {}
-              : { overview: resource(detail.content.overview) }),
-            ...(detail.content.changelog === undefined
-              ? {}
-              : { changelog: resource(detail.content.changelog) }),
-          },
         }),
     versions: Object.fromEntries(
       Object.entries(detail.versions).map(([version, release]) => [

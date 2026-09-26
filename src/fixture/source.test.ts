@@ -59,13 +59,7 @@ describe("local registry fixture", () => {
       schemaVersion: 1,
       categories: ["writing"],
       highlights: ["Counts words locally"],
-      content: { overview: "README.md" },
     });
-    await writeFile(
-      path.join(pluginRoot, "README.md"),
-      "# Word Count\n",
-      "utf8",
-    );
 
     const options = {
       limit: 1,
@@ -79,16 +73,8 @@ describe("local registry fixture", () => {
       release: { version: "0.1.2", platforms: ["web", "desktop"] },
     });
     expect(first[0]?.artifact.sha256).toBe(second[0]?.artifact.sha256);
-    const overview = first[0]?.plugin.detail.content as {
-      overview: { sourceUrl: string; sha256: string };
-    };
-    expect(overview.overview.sourceUrl).toBe(
-      `http://registry.localhost:8281/${overview.overview.sha256}`,
-    );
-    expect(first[0]?.resources[0]).toMatchObject({
-      mediaType: "text/markdown",
-      sha256: overview.overview.sha256,
-    });
+    expect(first[0]?.plugin.detail).not.toHaveProperty("content");
+    expect(first[0]?.resources).toEqual([]);
     expect(new TextDecoder().decode(first[0]?.artifact.bytes)).toContain(
       "lapis.registry.local-source-fixture/1",
     );

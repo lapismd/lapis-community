@@ -196,6 +196,23 @@
     await expect(canvas.getByLabelText("Minimum app version")).toBeVisible();
     await expectReleaseDateTimeControls(canvasElement);
     await expectReleasePlatformTagChrome(canvasElement);
+    const changelogTitle = canvas.getByLabelText("Changelog title");
+    await expect(changelogTitle).toBeVisible();
+    await userEvent.clear(changelogTitle);
+    await userEvent.type(changelogTitle, "Sharper review workflow");
+    const changelogRow = must(
+      canvasElement.querySelector<HTMLElement>(
+        '[data-field-path="release.changelog.description"] [data-ui-part="form-field"]',
+      ),
+      "Expected changelog composer row",
+    );
+    const changelogComposer = await expectProseComposerLayout(changelogRow);
+    await userEvent.click(
+      within(changelogComposer).getByRole("textbox", {
+        name: "Markdown editor",
+      }),
+    );
+    await userEvent.keyboard("{End}\n\n- Tightens registry review copy");
     await userEvent.click(canvas.getByRole("tab", { name: "Media" }));
     await expectMediaTabChrome(canvas, canvasElement);
     await userEvent.click(canvas.getByRole("tab", { name: /Split/u }));
@@ -285,6 +302,15 @@
     await expect(
       saved.plugin.highlights.some((item) => item.includes("for curators")),
     ).toBe(true);
+    await expect(saved.release.changelog.title).toBe("Sharper review workflow");
+    await expect(saved.release.changelog.description).toContain(
+      "Tightens registry review copy",
+    );
+    await expect(saved.release.changelog.tags).toEqual([
+      "feature",
+      "fix",
+      "improvement",
+    ]);
     await expect(saved.media.logo?.images.full).not.toBeNull();
     await expect(saved.media.banner?.images.light?.url).toBe(
       "https://example.com/banner-light.webp",

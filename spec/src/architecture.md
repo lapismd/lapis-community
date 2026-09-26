@@ -15,7 +15,9 @@ materialization, relay write, or package-public component barrels. The shared
 `RegistryMediaViewer` owns the fullscreen dark media lightbox and its colocated
 CSS; its Design Core dialog primitive exception is limited to that image-stage
 geometry because `DialogFrame` would restore form-dialog chrome and shrink the
-gallery.
+gallery. Release changelog editing stays in the form model/config owner, while
+Community registry materialization whitelists only runtime-consumed fields in
+the protocol projection and registry data-source owners.
 
 For LC-UI-019, the room-browser create-row vertical spacing assertion records the updated
 CommunityRoomBrowser component and focused Storybook budgets in

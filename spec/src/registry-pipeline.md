@@ -234,12 +234,14 @@ data URL and worker constructor; all other dependencies use the ordinary Vite
 pipeline.
 
 The materializer uses the relay's `BLOSSOM_URL` for manifests and every
-content-addressed Registry resource. The projection still contains only
-hash-verified mirrored resources. The final smoke starts a fresh Storybook
-process against the seeded relay,
+content-addressed Registry resource. Community projection whitelists only the
+fields consumed by the Nostr-native registry model, keeps hash-verified mirrored
+image resources, and renders release changelogs from signed release metadata or
+the signed release post fallback instead of static-site Markdown references.
+The final smoke starts a fresh Storybook process against the seeded relay,
 rejects static index or detail requests, and exercises Blob-backed AI media in a
-real browser. It separately retains the materializer and built Astro route
-assertions without modifying the sibling renderer.
+real browser. The sibling Astro renderer is legacy/deprecated; new Community
+registry functionality and verification lanes MUST NOT depend on it.
 
 The repository's deterministic script lane scans Community Svelte and CSS
 sources for direct Badge use outside `CommunityChip`, native chip-like markup,

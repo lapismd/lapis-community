@@ -9,7 +9,6 @@ import {
   type RegistryGalleryItem,
   type RegistryImageReference,
   type RegistryLoadOptions,
-  type RegistryMarkdownReference,
   type RegistryMediaItem,
 } from "./model.js";
 
@@ -94,32 +93,6 @@ export function createHttpRegistryCatalogDataSource(
         );
       }
       return detail;
-    },
-    async loadMarkdown(
-      reference: RegistryMarkdownReference,
-      loadOptions?: RegistryLoadOptions,
-    ) {
-      const response = await request(
-        resolveRegistryUrl(baseUrl, reference.url),
-        requestInit("text/markdown", loadOptions?.signal),
-      );
-      if (!response.ok) {
-        throw new Error(
-          `Registry content request failed with ${response.status}`,
-        );
-      }
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (bytes.byteLength !== reference.size) {
-        throw new Error("Registry content size does not match signed metadata");
-      }
-      const digest = await crypto.subtle.digest("SHA-256", bytes);
-      const actual = [...new Uint8Array(digest)]
-        .map((value) => value.toString(16).padStart(2, "0"))
-        .join("");
-      if (actual !== reference.sha256) {
-        throw new Error("Registry content hash does not match signed metadata");
-      }
-      return new TextDecoder().decode(bytes);
     },
   };
 }

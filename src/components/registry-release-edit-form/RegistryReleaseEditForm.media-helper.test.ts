@@ -33,9 +33,9 @@ export async function expectMediaTabChrome(
     name: "Release media assets",
   });
   await expect(mediaTabList).toBeVisible();
-  const mediaSurface = mediaTabList.closest<HTMLElement>(
+  const mediaSurface = (mediaTabList as HTMLElement).closest(
     ".registry-release-media-tabs__surface",
-  );
+  ) as HTMLElement | null;
   if (mediaSurface === null) throw new Error("Expected media tab surface");
   const mediaTabListStyle = getComputedStyle(mediaTabList);
   await expect(mediaTabListStyle.borderTopLeftRadius).toBe("0px");
@@ -62,9 +62,7 @@ export async function expectMediaTabChrome(
   await expect(logoMediaTab).toBeVisible();
   await expect(logoMediaTabStyle.fontFamily).toBe(mainMediaTabStyle.fontFamily);
   await expect(logoMediaTabStyle.fontSize).toBe(mainMediaTabStyle.fontSize);
-  await expect(logoMediaTabStyle.fontWeight).toBe(
-    mainMediaTabStyle.fontWeight,
-  );
+  await expect(logoMediaTabStyle.fontWeight).toBe(mainMediaTabStyle.fontWeight);
   await expect(logoMediaTab.getBoundingClientRect().height).toBeLessThan(
     mainMediaTab.getBoundingClientRect().height,
   );
@@ -76,7 +74,7 @@ export async function expectMediaTabChrome(
   ).not.toBeInTheDocument();
   const logoPanel = canvasElement
     .querySelector<HTMLElement>('[aria-label="Logo alt text"]')
-    ?.closest<HTMLElement>(".registry-release-media-tabs__surface");
+    ?.closest(".registry-release-media-tabs__surface") as HTMLElement | null;
   if (logoPanel === null || logoPanel === undefined) {
     throw new Error("Expected logo media tab panel");
   }
