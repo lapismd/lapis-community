@@ -46,7 +46,6 @@
     onRefreshRuntime={async () => {
       status = { ...status, status: "pending" };
     }}
-    onLoadRuntime={async () => runtime}
     onMessage={noop}
     onFollow={noop}
     onActivity={noop}

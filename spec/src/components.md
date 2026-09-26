@@ -1243,3 +1243,5 @@ any already submitted persistent draft cleanup retains its captured draft key.
 Runtime profiles display the last snapshot and its observation time while a
 refresh is pending or timed out. Refresh status is independent of form actions;
 late snapshots update the shared state without clearing existing content.
+The Runtime tab accepts `onRefreshRuntime` alone; `onLoadRuntime` remains an
+optional compatibility callback.

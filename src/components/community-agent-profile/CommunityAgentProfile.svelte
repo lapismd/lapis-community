@@ -169,6 +169,7 @@
   let runtimeToolsOpen = $state(false);
   let runtimeRequested = $state("");
   let runtimeRefreshing = $state(false);
+  const refreshRuntimeAction = $derived(onRefreshRuntime ?? onLoadRuntime);
   let memoryChannel = $state("");
   let memoryStatus = $state<"approved" | "review" | "rejected" | "retracted">(
     "review",
@@ -274,11 +275,7 @@
       runtimeRequested = "";
       return;
     }
-    if (
-      tab === "runtime" &&
-      onLoadRuntime &&
-      runtimeRequested !== agent.pubkey
-    ) {
+    if (refreshRuntimeAction && runtimeRequested !== agent.pubkey) {
       runtimeRequested = agent.pubkey;
       void loadRuntime();
     }
@@ -315,11 +312,10 @@
   }
 
   async function loadRuntime(): Promise<void> {
-    if (!onLoadRuntime) return;
+    if (!refreshRuntimeAction) return;
     runtimeRefreshing = true;
     try {
-      if (onRefreshRuntime) await onRefreshRuntime();
-      else await onLoadRuntime();
+      await refreshRuntimeAction();
     } catch (cause) {
       error = cause instanceof Error ? cause.message : "Runtime refresh failed";
     } finally {
@@ -438,7 +434,8 @@
     <Tabs.List class="agent-profile__tabs"
       ><Tabs.Trigger value="info">Info</Tabs.Trigger><Tabs.Trigger
         value="channels">Channels</Tabs.Trigger
-      >{#if onLoadRuntime}<Tabs.Trigger value="runtime">Runtime</Tabs.Trigger
+      >{#if refreshRuntimeAction}<Tabs.Trigger value="runtime"
+          >Runtime</Tabs.Trigger
         >{/if}{#if onLoadMemories}<Tabs.Trigger value="memories"
           >Memories</Tabs.Trigger
         >{/if}</Tabs.List
@@ -593,7 +590,7 @@
           </p>{/if}
       </div>
     </Tabs.Content>
-    {#if onLoadRuntime}<Tabs.Content value="runtime">
+    {#if refreshRuntimeAction}<Tabs.Content value="runtime">
         <div class="agent-profile__runtime">
           <CommunityAgentRuntimeRefresh
             state={runtimeRefresh}

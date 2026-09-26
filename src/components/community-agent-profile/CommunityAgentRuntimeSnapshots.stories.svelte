@@ -16,7 +16,7 @@
             "<script>",
             'import { CommunityAgentProfile } from "@lapismd/lapis-community/components";',
             "<" + "/script>",
-            "<CommunityAgentProfile {agent} {runtime} {runtimeRefresh} onRefreshRuntime={refreshRuntime} onLoadRuntime={loadRuntime} {...profileActions} />",
+            "<CommunityAgentProfile {agent} {runtime} {runtimeRefresh} onRefreshRuntime={refreshRuntime} {...profileActions} />",
           ].join("\n"),
         },
       },
