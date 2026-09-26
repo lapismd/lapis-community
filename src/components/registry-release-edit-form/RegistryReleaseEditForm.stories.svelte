@@ -14,7 +14,11 @@
     registryStoryResolvedDetail,
   } from "../registry-browser/story-fixtures.js";
   import {
-    expectCenteredFieldLabelByPath,
+    expectDetailsControlChrome,
+    expectPreviewModeToggle,
+    expectReleasePlatformTagChrome,
+  } from "./RegistryReleaseEditForm.control-helper.test.js";
+  import {
     expectEvidenceTab,
     expectHighlightsTabLayout,
     expectProseComposerLayout,
@@ -152,14 +156,9 @@
     await expect(
       canvas.queryByRole("button", { name: "Collapse Details" }),
     ).not.toBeInTheDocument();
-    await expectCenteredFieldLabelByPath(
-      canvasElement,
-      "plugin.platforms",
-    );
+    await expectDetailsControlChrome(canvasElement);
     expectScrollFrame(nameRow);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Preview release card" }),
-    );
+    await userEvent.click(await expectPreviewModeToggle(canvas));
     await expect(
       await canvas.findByRole("article", { name: "Bases Lab preview" }),
     ).toBeVisible();
@@ -193,10 +192,7 @@
     ).not.toBeInTheDocument();
     await expect(canvas.getByLabelText("Minimum app version")).toBeVisible();
     await expectReleaseDateTimeControls(canvasElement);
-    await expectCenteredFieldLabelByPath(
-      canvasElement,
-      "release.platforms",
-    );
+    await expectReleasePlatformTagChrome(canvasElement);
     await userEvent.click(canvas.getByRole("tab", { name: "Media" }));
     await expectMediaTabChrome(canvas, canvasElement);
     await userEvent.click(canvas.getByRole("tab", { name: /Split/u }));

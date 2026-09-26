@@ -9,7 +9,7 @@
   import * as ScrollArea from "@lapismd/design-core/shadcn/scroll-area";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import { Toggle } from "@lapismd/design-core/shadcn/toggle";
-  import BookmarkIcon from "@lucide/svelte/icons/bookmark";
+  import BookOpenIcon from "@lucide/svelte/icons/book-open";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import SaveIcon from "@lucide/svelte/icons/save";
@@ -240,7 +240,7 @@
             : "Edit release form"}
         >
           {#if formMode === "edit"}
-            <BookmarkIcon aria-hidden="true" />
+            <BookOpenIcon data-preview-mode-icon="book-open" aria-hidden="true" />
           {:else}
             <PencilIcon aria-hidden="true" />
           {/if}

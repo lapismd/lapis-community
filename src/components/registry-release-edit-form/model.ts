@@ -96,14 +96,6 @@ export const registryReleaseChannelOptions = [
   { value: "community", label: "Community" },
 ];
 
-export const registryReleaseStatusOptions = [
-  { value: "pending", label: "Pending" },
-  { value: "active", label: "Active" },
-  { value: "deprecated", label: "Deprecated" },
-  { value: "disabled", label: "Disabled" },
-  { value: "revoked", label: "Revoked" },
-];
-
 export const registryReleasePlatformSuggestions = ["desktop", "web", "mobile"];
 
 export const registryReleaseCategorySuggestions = [

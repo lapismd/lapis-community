@@ -368,6 +368,47 @@
   min-width: 0;
 }
 
+.registry-release-edit-form__body .chip-autocomplete {
+  padding: 0;
+}
+
+.registry-release-edit-form__body .chip-autocomplete-box {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding-inline-start: 0;
+  box-shadow: none;
+}
+
+.registry-release-edit-form__body .chip-autocomplete-box:focus-within {
+  outline: 2px solid
+    color-mix(in srgb, var(--ring, var(--primary)) 34%, transparent);
+  outline-offset: 2px;
+}
+
+.registry-release-edit-form__body .chip-input input {
+  padding-inline-start: 0;
+}
+
+.registry-release-edit-form__body
+  [data-field-path="plugin.status"]
+  .cv-form-inline-option-trigger,
+.registry-release-edit-form__body
+  [data-field-path="plugin.status"]
+  .cv-form-inline-option-list
+  button {
+  border-color: color-mix(
+    in srgb,
+    var(--cv-inline-option-accent) 30%,
+    var(--ui-form-border)
+  );
+  background: color-mix(
+    in srgb,
+    var(--cv-inline-option-accent) 10%,
+    var(--ui-form-popover)
+  );
+}
+
 .registry-release-edit-form__body .cv-forms-preview-value {
   overflow-wrap: anywhere;
 }

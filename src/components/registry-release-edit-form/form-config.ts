@@ -7,8 +7,8 @@ import {
   registryReleaseCategorySuggestions,
   registryReleaseChannelOptions,
   registryReleasePlatformSuggestions,
-  registryReleaseStatusOptions,
 } from "./model.js";
+import { registryReleaseStatusOptions } from "./status-options.js";
 
 const required = (label: string) => (value: string) =>
   value.trim() ? undefined : `${label} is required`;
