@@ -7,6 +7,8 @@ For LC-NOSTR-001, Blossom server-list discovery and upload authorization live
 in dedicated `src/community` owners. Settings actions compose those owners and
 retain only the verified returned URL; NIP-94 descriptor parsing does not move
 relay transport or signed profile and emoji publication into UI components.
+Blossom URI parsing, creation and bounded hash-verified resolution remain in a
+separate owner that accepts author-server discovery as an injected capability.
 
 For LC-UI-035, the CommunityRelativeTime component, formatter, unit regression,
 and focused Storybook story budgets are recorded in
