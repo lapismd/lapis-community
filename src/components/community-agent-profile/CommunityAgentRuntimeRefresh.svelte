@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Reasoning } from "@lapismd/design-core/ai/experimental";
+  import CommunityRelativeTime from "../community-relative-time/CommunityRelativeTime.svelte";
   import { Button } from "@lapismd/design-core/shadcn/button";
   import RotateCwIcon from "@lucide/svelte/icons/rotate-cw";
   import type { CommunityRuntimeRefreshState } from "../../community/agent-runtime-snapshot-protocol.js";
@@ -30,11 +32,9 @@
   >
 </div>
 {#if state?.observedAt}<p>
-    Last updated <time datetime={new Date(state.observedAt).toISOString()}
-      >{new Date(state.observedAt).toLocaleString()}</time
-    >
+    Last updated <CommunityRelativeTime timestamp={state.observedAt / 1_000} />
   </p>{/if}
-{#if refreshing}<p role="status">Refreshing runtime details…</p>
+{#if refreshing}<Reasoning label="Refreshing runtime details…" streaming />
 {:else if state?.status === "timed-out"}<p role="status">
     No response within thirty seconds. Refresh to retry. Last-known details are
     retained.

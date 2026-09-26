@@ -1245,3 +1245,6 @@ refresh is pending or timed out. Refresh status is independent of form actions;
 late snapshots update the shared state without clearing existing content.
 The Runtime tab accepts `onRefreshRuntime` alone; `onLoadRuntime` remains an
 optional compatibility callback.
+Pending runtime refreshes MUST use the shared streaming Reasoning indicator used
+for agent Working status. Last updated MUST use CommunityRelativeTime, including
+its full-date tooltip, with the snapshot observation time converted to seconds.

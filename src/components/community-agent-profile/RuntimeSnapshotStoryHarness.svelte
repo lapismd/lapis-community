@@ -15,7 +15,7 @@
   let status = $state<CommunityRuntimeRefreshState>(
     untrack(() => ({
       status: scenario === "timeout" ? "timed-out" : "pending",
-      observedAt: 1800000000000,
+      observedAt: Math.floor(Date.now() / 1_000) * 1_000 - 120_000,
       revision: 1,
     })),
   );
@@ -25,7 +25,7 @@
       ...runtime,
       host: { ...runtime.host, id: "updated-workspace" },
     };
-    status = { status: "completed", observedAt: 1800000060000, revision: 2 };
+    status = { status: "completed", observedAt: Date.now(), revision: 2 };
   }
 </script>
 

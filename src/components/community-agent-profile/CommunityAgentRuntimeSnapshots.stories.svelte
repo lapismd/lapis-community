@@ -32,7 +32,18 @@
       canvas.getByText("local-workspace", { exact: true }),
     ).toBeVisible();
     await expect(canvas.getByText("Refreshing runtime details…")).toBeVisible();
+    const status = canvas.getByRole("status");
+    await expect(status).toHaveTextContent("Refreshing runtime details…");
+    await expect(
+      status.closest('[data-ui-component="ai-chat-reasoning"]'),
+    ).toHaveAttribute("data-streaming", "true");
     await expect(canvas.getByText(/Last updated/)).toBeVisible();
+    const observed = canvas.getByText("2 minutes ago");
+    await expect(observed).toBeVisible();
+    await expect(observed).toHaveAttribute("datetime");
+    await expect(observed).toHaveAttribute("title");
+    await userEvent.hover(observed);
+    await expect(observed).toHaveAttribute("aria-describedby");
     await expect(
       canvas.getByRole("button", { name: "Refresh runtime details" }),
     ).toBeDisabled();
@@ -73,6 +84,10 @@
     await expect(
       canvas.getByText("updated-workspace", { exact: true }),
     ).toBeVisible();
+    await expect(canvas.getByText("just now")).toBeVisible();
+    await expect(
+      canvas.queryByText("Refreshing runtime details…"),
+    ).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("button", { name: "Refresh runtime details" }),
     ).toBeEnabled();
