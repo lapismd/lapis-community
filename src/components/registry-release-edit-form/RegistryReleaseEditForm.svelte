@@ -8,15 +8,18 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import * as ScrollArea from "@lapismd/design-core/shadcn/scroll-area";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
+  import { Toggle } from "@lapismd/design-core/shadcn/toggle";
+  import BookmarkIcon from "@lucide/svelte/icons/bookmark";
+  import PencilIcon from "@lucide/svelte/icons/pencil";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import SaveIcon from "@lucide/svelte/icons/save";
   import XIcon from "@lucide/svelte/icons/x";
   import { tick, untrack } from "svelte";
 
   import type { RegistryResolvedDetail } from "../../registry/model.js";
+  import RegistryPluginPreview from "../registry-release-disclosure/RegistryPluginPreview.svelte";
   import RegistryReleaseDateTimeField from "./RegistryReleaseDateTimeField.svelte";
   import RegistryReleaseDescriptionField from "./RegistryReleaseDescriptionField.svelte";
-  import RegistryReleaseEditableShaField from "./RegistryReleaseEditableShaField.svelte";
   import RegistryReleaseEvidenceCopyField from "./RegistryReleaseEvidenceCopyField.svelte";
   import RegistryReleaseGalleryField from "./RegistryReleaseGalleryField.svelte";
   import RegistryReleaseHighlightsField from "./RegistryReleaseHighlightsField.svelte";
@@ -35,6 +38,9 @@
     type RegistryReleaseEditDraftOptions,
     type RegistryReleaseEditDraft,
   } from "./model.js";
+  import { resolvedDetailFromDraft } from "./preview-model.js";
+
+  type RegistryReleaseEditFormMode = "edit" | "preview";
 
   let {
     resolved,
@@ -68,6 +74,10 @@
   let draft = $state<RegistryReleaseEditDraft>(untrack(createDraft));
   let saving = $state(false);
   let activeTab = $state<RegistryReleaseEditTab>("details");
+  let previewMode = $state(false);
+  const formMode = $derived<RegistryReleaseEditFormMode>(
+    previewMode ? "preview" : "edit",
+  );
   const controller = createFormController<RegistryReleaseEditDraft>({
     defaultValues: untrack(createDraft),
     validationMode: "onTouched",
@@ -92,11 +102,6 @@
     align: "center",
     as: "div",
   });
-  registry.register("registry-editable-sha", {
-    component: RegistryReleaseEditableShaField,
-    align: "center",
-    as: "div",
-  });
   registry.register("registry-publisher-identity", {
     component: RegistryReleasePublisherIdentityField,
     align: "middle",
@@ -111,6 +116,7 @@
     wrapper: "none",
   });
   const activeTabConfig = $derived(registryReleaseEditTabConfigs[activeTab]);
+  const previewResolved = $derived(resolvedDetailFromDraft(resolved, draft));
   const activeTabDefinition = $derived(
     registryReleaseEditTabs.find((tab) => tab.value === activeTab) ??
       registryReleaseEditTabs[0],
@@ -172,6 +178,7 @@
       else controller.collapseAll(groupId);
     }
   }
+
 </script>
 
 <form
@@ -205,47 +212,81 @@
 
   <div class="registry-release-edit-form__body">
     <Tabs.Root bind:value={activeTab} class="registry-release-edit-form__tabs">
-      <Tabs.List
-        class="registry-release-edit-form__tab-list"
-        aria-label="Release edit areas"
-      >
-        {#each registryReleaseEditTabs as tab (tab.value)}
-          <Tabs.Trigger
-            class="registry-release-edit-form__tab-trigger"
-            value={tab.value}
-          >
-            {tab.label}
-          </Tabs.Trigger>
-        {/each}
-      </Tabs.List>
-
-      {#each registryReleaseEditTabs as tab (tab.value)}
-        <Tabs.Content
-          value={tab.value}
-          class="registry-release-edit-form__tab-content"
+      <div class="registry-release-edit-form__tab-bar">
+        <Tabs.List
+          class="registry-release-edit-form__tab-list"
+          aria-label="Release edit areas"
         >
-          {#if activeTab === tab.value}
-            <ScrollArea.Root
-              class="registry-release-edit-form__tab-scroll"
-              data-release-edit-tab={tab.value}
-              orientation="vertical"
-              type="always"
+          {#each registryReleaseEditTabs as tab (tab.value)}
+            <Tabs.Trigger
+              class="registry-release-edit-form__tab-trigger"
+              value={tab.value}
             >
-              <div class="registry-release-edit-form__tab-scroll-content">
-                <StructuredForm
-                  value={draft}
-                  config={activeTabConfig}
-                  {controller}
-                  {registry}
-                  onChange={(next) => {
-                    draft = next;
-                  }}
-                />
-              </div>
-            </ScrollArea.Root>
+              {tab.label}
+            </Tabs.Trigger>
+          {/each}
+        </Tabs.List>
+        <Toggle
+          type="button"
+          variant="outline"
+          size="sm"
+          class="registry-release-edit-form__mode-toggle"
+          bind:pressed={previewMode}
+          aria-label={formMode === "edit"
+            ? "Preview release card"
+            : "Edit release form"}
+          title={formMode === "edit"
+            ? "Preview release card"
+            : "Edit release form"}
+        >
+          {#if formMode === "edit"}
+            <BookmarkIcon aria-hidden="true" />
+          {:else}
+            <PencilIcon aria-hidden="true" />
           {/if}
-        </Tabs.Content>
-      {/each}
+        </Toggle>
+      </div>
+
+      {#if formMode === "preview"}
+        <ScrollArea.Root
+          class="registry-release-edit-form__tab-scroll registry-release-edit-form__preview-scroll"
+          data-release-edit-tab="preview"
+          orientation="vertical"
+          type="always"
+        >
+          <div class="registry-release-edit-form__preview-content">
+            <RegistryPluginPreview resolved={previewResolved} />
+          </div>
+        </ScrollArea.Root>
+      {:else}
+        {#each registryReleaseEditTabs as tab (tab.value)}
+          <Tabs.Content
+            value={tab.value}
+            class="registry-release-edit-form__tab-content"
+          >
+            {#if activeTab === tab.value}
+              <ScrollArea.Root
+                class="registry-release-edit-form__tab-scroll"
+                data-release-edit-tab={tab.value}
+                orientation="vertical"
+                type="always"
+              >
+                <div class="registry-release-edit-form__tab-scroll-content">
+                  <StructuredForm
+                    value={draft}
+                    config={activeTabConfig}
+                    {controller}
+                    {registry}
+                    onChange={(next) => {
+                      draft = next;
+                    }}
+                  />
+                </div>
+              </ScrollArea.Root>
+            {/if}
+          </Tabs.Content>
+        {/each}
+      {/if}
     </Tabs.Root>
     {#if blockingIssues.length}
       <div class="registry-release-edit-form__errors" role="alert">

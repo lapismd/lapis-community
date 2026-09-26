@@ -20,6 +20,18 @@
   border-radius: calc(var(--radius) * 0.9);
   background: var(--muted);
   color: var(--muted-foreground);
+  cursor: pointer;
+  padding: 0;
+}
+
+.registry-release-image-set__preview:disabled {
+  cursor: default;
+}
+
+.registry-release-image-set__preview:focus-visible {
+  border-color: var(--ring);
+  outline: 2px solid color-mix(in srgb, var(--ring) 50%, transparent);
+  outline-offset: 2px;
 }
 
 .registry-release-image-set__preview img {

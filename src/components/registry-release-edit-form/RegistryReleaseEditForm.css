@@ -35,9 +35,18 @@
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+.registry-release-edit-form__tab-bar {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .registry-release-edit-form__tab-list[data-slot="tabs-list"] {
   display: flex;
-  width: 100%;
+  width: auto;
+  flex: 1 1 auto;
   max-width: 100%;
   height: auto;
   flex-wrap: wrap;
@@ -48,6 +57,20 @@
   background: transparent;
   padding: 0;
   box-shadow: none;
+}
+
+.registry-release-edit-form__mode-toggle[data-ui-component="toggle"] {
+  flex: 0 0 auto;
+  width: 1.8rem;
+  min-width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  color: var(--muted-foreground);
+}
+
+.registry-release-edit-form__mode-toggle[data-ui-component="toggle"]:hover,
+.registry-release-edit-form__mode-toggle[data-ui-component="toggle"][aria-pressed="true"] {
+  color: var(--foreground);
 }
 
 .registry-release-edit-form__tab-trigger[data-slot="tabs-trigger"] {
@@ -123,6 +146,16 @@
   display: grid;
   min-width: 0;
   gap: 1rem;
+}
+
+.registry-release-edit-form__preview-content {
+  display: grid;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.registry-release-edit-form__preview-content .registry-plugin-preview {
+  width: 100%;
 }
 
 .registry-release-edit-form__tab-scroll-content > .cv-structured-form {

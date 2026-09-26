@@ -27,12 +27,6 @@ export const registryReleaseEditTabs = [
     collapsibleGroupIds: [],
   },
   {
-    value: "content",
-    label: "Content",
-    groupIds: ["content"],
-    collapsibleGroupIds: [],
-  },
-  {
     value: "media",
     label: "Media",
     groupIds: ["media"],

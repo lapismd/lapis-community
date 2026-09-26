@@ -1,9 +1,11 @@
 .registry-release-editable-sha__split {
   display: inline-flex;
+  width: fit-content;
   min-width: 0;
   max-width: 100%;
   min-height: 1.4rem;
   align-items: center;
+  justify-self: start;
   overflow: hidden;
   border: 1px solid transparent;
   border-radius: calc(var(--radius) * 0.7);

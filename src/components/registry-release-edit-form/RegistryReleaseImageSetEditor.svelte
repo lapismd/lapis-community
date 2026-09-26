@@ -3,6 +3,8 @@
   import ImagePlusIcon from "@lucide/svelte/icons/image-plus";
   import { Button } from "@lapismd/design-core/shadcn/button";
 
+  import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
+  import { mediaItemFromImageSetDraft } from "./draft-media.js";
   import {
     galleryVariantFor,
     galleryVariantLabel,
@@ -28,9 +30,13 @@
 
   let { value, itemLabel, readonly = false, update, onEmpty }: Props = $props();
   let activeVariant = $state<RegistryReleaseGalleryVariant>("full");
+  let viewerOpen = $state(false);
+  let viewerOpener = $state<HTMLElement | null>(null);
   const selectedVariant = $derived(galleryVariantFor(value, activeVariant));
   const activeImage = $derived(value.images[selectedVariant]);
   const activeVariantLabel = $derived(galleryVariantLabel(selectedVariant));
+  const viewerItem = $derived(mediaItemFromImageSetDraft(value));
+  const viewerMode = $derived(selectedVariant === "full" ? "full" : selectedVariant);
 
   $effect(() => {
     activeVariant = selectedVariant;
@@ -80,6 +86,12 @@
     }
     commit({ ...value, images });
   }
+
+  function openViewer(target: HTMLElement): void {
+    if (!activeImage?.url || viewerItem === undefined) return;
+    viewerOpener = target;
+    viewerOpen = true;
+  }
 </script>
 
 <div
@@ -87,13 +99,19 @@
   data-ui-part="registry-release-image-set"
 >
   <div class="registry-release-image-set__content">
-    <div class="registry-release-image-set__preview">
+    <button
+      type="button"
+      class="registry-release-image-set__preview"
+      aria-label={`Open ${itemLabel} ${activeVariantLabel} image preview`}
+      disabled={!activeImage?.url || viewerItem === undefined}
+      onclick={(event) => openViewer(event.currentTarget)}
+    >
       {#if activeImage?.url}
         <img src={activeImage.url} alt="" loading="lazy" />
       {:else}
         <ImagePlusIcon aria-hidden="true" />
       {/if}
-    </div>
+    </button>
 
     <div class="registry-release-image-set__editor">
       <label class="registry-release-image-set__field">
@@ -155,3 +173,13 @@
     </div>
   </div>
 </div>
+
+{#if viewerItem}
+  <RegistryMediaViewer
+    items={[viewerItem]}
+    pluginName={itemLabel}
+    opener={viewerOpener}
+    initialMode={viewerMode}
+    bind:open={viewerOpen}
+  />
+{/if}

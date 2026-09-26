@@ -30,7 +30,6 @@ export const registryReleaseEditConfig =
       identity: { title: "Details", collapsible: true },
       highlights: { title: "Highlights", collapsible: false },
       release: { title: "Release", collapsible: true },
-      content: { title: "Content references", collapsible: true },
       media: { title: "Media references", collapsible: true },
       evidence: { title: "Signed evidence", collapsible: true },
     },
@@ -156,50 +155,6 @@ export const registryReleaseEditConfig =
         label: "Release platforms",
         align: "center",
         suggestions: registryReleasePlatformSuggestions,
-      },
-      "content.overview.url": {
-        kind: "text",
-        group: "content",
-        label: "Overview markdown path",
-      },
-      "content.overview.sourceUrl": {
-        kind: "text",
-        group: "content",
-        label: "Overview source URL",
-        inputType: "url",
-        validate: optionalUrl("Overview source URL"),
-      },
-      "content.overview.sha256": {
-        kind: "registry-editable-sha",
-        group: "content",
-        label: "Overview SHA-256",
-      },
-      "content.overview.size": {
-        kind: "text",
-        group: "content",
-        label: "Overview size bytes",
-      },
-      "content.changelog.url": {
-        kind: "text",
-        group: "content",
-        label: "Changelog markdown path",
-      },
-      "content.changelog.sourceUrl": {
-        kind: "text",
-        group: "content",
-        label: "Changelog source URL",
-        inputType: "url",
-        validate: optionalUrl("Changelog source URL"),
-      },
-      "content.changelog.sha256": {
-        kind: "registry-editable-sha",
-        group: "content",
-        label: "Changelog SHA-256",
-      },
-      "content.changelog.size": {
-        kind: "text",
-        group: "content",
-        label: "Changelog size bytes",
       },
       media: {
         kind: "registry-media-sections",

@@ -14,7 +14,6 @@ declare module "@lapismd/design-core/forms/core" {
     >;
     "registry-copy-id": FormFieldKindDefinition<string, { copyLabel?: string }>;
     "registry-date-time": FormFieldKindDefinition<string>;
-    "registry-editable-sha": FormFieldKindDefinition<string>;
     "registry-publisher-identity": FormFieldKindDefinition<string>;
     "registry-media-sections": FormFieldKindDefinition<
       RegistryReleaseEditDraft["media"],

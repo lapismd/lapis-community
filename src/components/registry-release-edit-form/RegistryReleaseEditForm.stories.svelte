@@ -3,8 +3,12 @@
   import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
   import type { RegistryReleaseEditDraft } from "./model.js";
-  import { editBannerMediaSha } from "./RegistryReleaseEditForm.media-helper.test.js";
-  import { editContentShaReferences } from "./RegistryReleaseEditForm.sha-helper.test.js";
+  import {
+    editBannerMediaSha,
+    expectMediaTabChrome,
+    expectScreenshotGalleryChrome,
+    openBannerMediaLightbox,
+  } from "./RegistryReleaseEditForm.media-helper.test.js";
   import {
     registryStoryEntries,
     registryStoryResolvedDetail,
@@ -28,8 +32,6 @@
   const cancelEdit = fn();
   const manifestSha256 = "2".repeat(64);
   const releaseEventId = "1".repeat(64);
-  const editedOverviewSha256 = "a".repeat(64);
-  const editedChangelogSha256 = "b".repeat(64);
   const editedBannerSha256 = "c".repeat(64);
 
   function lastSavedDraft(): RegistryReleaseEditDraft {
@@ -140,6 +142,9 @@
     await expect(detailsTab).toBeVisible();
     await expect(canvas.getByRole("tab", { name: "Highlights" })).toBeVisible();
     await expect(
+      canvas.queryByRole("tab", { name: "Content" }),
+    ).not.toBeInTheDocument();
+    await expect(
       canvas.queryByRole("tab", { name: "Listing" }),
     ).not.toBeInTheDocument();
     await expect(getComputedStyle(editTabList).overflowX).not.toBe("auto");
@@ -152,6 +157,21 @@
       "plugin.platforms",
     );
     expectScrollFrame(nameRow);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Preview release card" }),
+    );
+    await expect(
+      await canvas.findByRole("article", { name: "Bases Lab preview" }),
+    ).toBeVisible();
+    const previewArticle = canvas.getByRole("article", {
+      name: "Bases Lab preview",
+    });
+    await expect(canvas.queryByLabelText("Plugin name")).not.toBeInTheDocument();
+    await expect(within(previewArticle).getAllByText(/for teams/u).length).toBeGreaterThan(0);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Edit release form" }),
+    );
+    await expect(await canvas.findByLabelText("Plugin name")).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: "Highlights" }));
     await expect(
       canvas.queryByRole("button", { name: "Collapse Highlights" }),
@@ -177,78 +197,8 @@
       canvasElement,
       "release.platforms",
     );
-    await userEvent.click(canvas.getByRole("tab", { name: "Content" }));
-    await editContentShaReferences(
-      canvasElement,
-      editedOverviewSha256,
-      editedChangelogSha256,
-    );
     await userEvent.click(canvas.getByRole("tab", { name: "Media" }));
-    await expect(
-      canvas.queryByRole("button", { name: "Collapse Media references" }),
-    ).not.toBeInTheDocument();
-    const mediaTabList = await canvas.findByRole("tablist", {
-      name: "Release media assets",
-    });
-    await expect(mediaTabList).toBeVisible();
-    const mediaSurface = mediaTabList.closest<HTMLElement>(
-      ".registry-release-media-tabs__surface",
-    );
-    if (mediaSurface === null) {
-      throw new Error("Expected media tab surface");
-    }
-    const mediaTabListStyle = getComputedStyle(mediaTabList);
-    await expect(mediaTabListStyle.borderTopLeftRadius).toBe("0px");
-    await expect(mediaTabListStyle.borderTopRightRadius).toBe("0px");
-    await expect(mediaTabListStyle.borderBottomRightRadius).toBe("0px");
-    await expect(mediaTabListStyle.borderLeftStyle).toBe("solid");
-    await expect(mediaTabListStyle.borderBottomStyle).toBe("solid");
-    await expect(
-      Math.abs(
-        mediaTabList.getBoundingClientRect().top -
-          mediaSurface.getBoundingClientRect().top,
-      ),
-    ).toBeLessThanOrEqual(1);
-    await expect(
-      Math.abs(
-        mediaTabList.getBoundingClientRect().right -
-          mediaSurface.getBoundingClientRect().right,
-      ),
-    ).toBeLessThanOrEqual(1);
-    const mainMediaTab = canvas.getByRole("tab", { name: "Media" });
-    const logoMediaTab = canvas.getByRole("tab", { name: "Logo" });
-    const mainMediaTabStyle = getComputedStyle(mainMediaTab);
-    const logoMediaTabStyle = getComputedStyle(logoMediaTab);
-    await expect(logoMediaTab).toBeVisible();
-    await expect(logoMediaTabStyle.fontFamily).toBe(
-      mainMediaTabStyle.fontFamily,
-    );
-    await expect(logoMediaTabStyle.fontSize).toBe(mainMediaTabStyle.fontSize);
-    await expect(logoMediaTabStyle.fontWeight).toBe(
-      mainMediaTabStyle.fontWeight,
-    );
-    await expect(logoMediaTab.getBoundingClientRect().height).toBeLessThan(
-      mainMediaTab.getBoundingClientRect().height,
-    );
-    await expect(canvas.getByRole("tab", { name: "Banner" })).toBeVisible();
-    await expect(canvas.getByRole("tab", { name: "Overview" })).toBeVisible();
-    await expect(
-      canvas.getByRole("tab", { name: "Screenshots" }),
-    ).toBeVisible();
-    await expect(
-      canvas.queryByRole("button", { name: "Add screenshot" }),
-    ).not.toBeInTheDocument();
-    const logoPanel = canvas
-      .getByLabelText("Logo alt text")
-      .closest<HTMLElement>(".registry-release-media-tabs__surface");
-    if (logoPanel === null) {
-      throw new Error("Expected logo media tab panel");
-    }
-    const logoPanelStyle = getComputedStyle(logoPanel);
-    await expect(logoPanelStyle.borderBlockStartStyle).toBe("solid");
-    await expect(
-      Number.parseFloat(logoPanelStyle.borderTopLeftRadius),
-    ).toBeGreaterThan(0);
+    await expectMediaTabChrome(canvas, canvasElement);
     await userEvent.click(canvas.getByRole("tab", { name: /Split/u }));
     await userEvent.click(
       canvas.getByRole("button", { name: "Delete Logo Split image" }),
@@ -277,44 +227,10 @@
       "https://example.com/banner-light.webp",
     );
     await editBannerMediaSha(canvas, editedBannerSha256);
-    await userEvent.click(canvas.getByRole("tab", { name: "Screenshots" }));
-    const gallery = canvasElement.querySelector<HTMLElement>(
-      '[data-ui-part="registry-release-gallery"]',
-    );
-    const galleryBody = gallery?.closest<HTMLElement>(
-      ".registry-release-media-tabs__surface",
-    );
-    const galleryPreview = gallery?.querySelector<HTMLElement>(
-      ".registry-release-image-set__preview",
-    );
-    if (
-      gallery === null ||
-      gallery === undefined ||
-      galleryBody === null ||
-      galleryBody === undefined ||
-      galleryPreview === null ||
-      galleryPreview === undefined
-    ) {
-      throw new Error("Expected screenshot gallery chrome");
-    }
-    const galleryBodyStyle = getComputedStyle(galleryBody);
-    await expect(galleryBodyStyle.borderBlockStartStyle).toBe("solid");
-    await expect(
-      Number.parseFloat(galleryBodyStyle.borderTopLeftRadius),
-    ).toBeGreaterThan(0);
-    await expect(getComputedStyle(galleryPreview).borderBlockStartStyle).toBe(
-      "solid",
-    );
-    await expect(
-      canvasElement.querySelectorAll(
-        '[data-ui-part="registry-release-gallery-card"]',
-      ),
-    ).toHaveLength(1);
-    const addScreenshot = canvas.getByRole("button", {
-      name: "Add screenshot",
-    });
-    await expect(getComputedStyle(addScreenshot).borderBlockStartStyle).toBe(
-      "dashed",
+    await openBannerMediaLightbox(canvas);
+    const addScreenshot = await expectScreenshotGalleryChrome(
+      canvas,
+      canvasElement,
     );
 
     await userEvent.click(addScreenshot);
@@ -367,8 +283,6 @@
     const saved = lastSavedDraft();
     await expect(saved.plugin.name).toBe("Bases Lab");
     await expect(saved.plugin.description).toContain("for teams");
-    await expect(saved.content.overview.sha256).toBe(editedOverviewSha256);
-    await expect(saved.content.changelog.sha256).toBe(editedChangelogSha256);
     await expect(
       saved.plugin.highlights.some((item) => item.includes("for curators")),
     ).toBe(true);

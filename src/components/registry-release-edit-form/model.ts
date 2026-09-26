@@ -3,7 +3,6 @@ import type {
   RegistryCatalogStatus,
   RegistryGalleryItem,
   RegistryImageReference,
-  RegistryMarkdownReference,
   RegistryMediaItem,
   RegistryResolvedDetail,
 } from "../../registry/model.js";
@@ -68,10 +67,6 @@ export interface RegistryReleaseEditDraft {
     releasedAt: string;
     platforms: string[];
   };
-  content: {
-    overview: RegistryMarkdownReferenceDraft;
-    changelog: RegistryMarkdownReferenceDraft;
-  };
   media: {
     logo: RegistryReleaseImageSetDraft | null;
     banner: RegistryReleaseImageSetDraft | null;
@@ -86,13 +81,6 @@ export interface RegistryReleaseEditDraft {
     artifactSha256: string;
     bundleSize: string;
   };
-}
-
-export interface RegistryMarkdownReferenceDraft {
-  url: string;
-  sourceUrl: string;
-  sha256: string;
-  size: string;
 }
 
 export interface RegistryReleaseEditDraftOptions {
@@ -165,10 +153,6 @@ export function draftFromResolvedDetail(
       releasedAt: release?.releasedAt ?? "",
       platforms: [...(release?.platforms ?? entry.platforms)],
     },
-    content: {
-      overview: markdownDraft(detail.content?.overview),
-      changelog: markdownDraft(detail.content?.changelog),
-    },
     media: {
       logo: detail.appearance?.logo
         ? imageSetDraft(detail.appearance.logo.alt, {
@@ -234,17 +218,6 @@ export function createBlankImageSet(
   return {
     alt,
     images,
-  };
-}
-
-function markdownDraft(
-  reference: RegistryMarkdownReference | undefined,
-): RegistryMarkdownReferenceDraft {
-  return {
-    url: reference?.url ?? "",
-    sourceUrl: reference?.sourceUrl ?? "",
-    sha256: reference?.sha256 ?? emptySha256,
-    size: reference?.size === undefined ? "0" : String(reference.size),
   };
 }
 
