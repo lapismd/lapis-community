@@ -9,6 +9,14 @@ stories, UI exceptions, and architecture budgets. Registry ingestion, release
 proofs, materialization, relay writes, fixture hydration, and publication
 behavior are unchanged.
 
+For LC-UI-055, Community reads owner uploads, lifecycle evidence, and the
+manager report queue from the relay's signed Blossom HTTP extensions. Asset
+deletion remains subject to relay-owned active profile and Registry reference
+retention. The Media settings destination cannot mutate a release manifest,
+advance a Registry head, publish a report, or bypass curator and publisher
+rules; the client and component changes update only their focused architecture
+budgets.
+
 For LC-UI-019, the room-browser create-row vertical spacing regression records the
 component and focused Storybook budgets in `scripts/architecture-baseline.json`;
 no registry materialization or publication behavior changes.

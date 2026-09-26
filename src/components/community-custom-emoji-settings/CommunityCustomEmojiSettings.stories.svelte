@@ -3,12 +3,27 @@
   import { expect, userEvent, waitFor } from "storybook/test";
   import type { CommunitySettingsState } from "../../community/index.js";
 
-  import CommunitySettings from "./CommunitySettings.svelte";
+  import CommunitySettings from "../community-settings/CommunitySettings.svelte";
 
   const { Story } = defineMeta({
     title: "Community/Navigation/Settings/Media upload",
     component: CommunitySettings,
     tags: ["visual-pending"],
+    parameters: {
+      docs: {
+        source: {
+          language: "svelte",
+          code: `<CommunitySettings
+  model={community.state.settings}
+  section="custom-emoji"
+  onUploadCustomEmojiImage={uploadImage}
+  onAddCustomEmoji={saveEmoji}
+  onRemoveCustomEmoji={removeEmoji}
+  onUpdateProfile={updateProfile}
+/>`,
+        },
+      },
+    },
   });
 
   const model: CommunitySettingsState = {

@@ -792,3 +792,19 @@ they cannot reopen or replace its terminal execution outcome.
 | ID           | Requirement                                                                                                                                                                                                                        |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | LC-NOSTR-042 | Runtime inspection MUST consume encrypted replaceable snapshot and request heads, retain cached data during asynchronous refresh, use thirty-second deadlines, reject stale updates, and refresh only on entry or explicit action. |
+
+## Blossom asset lifecycle management
+
+The connected owner MAY list their uploaded assets through the relay HTTP
+origin using a signed kind `24242` BUD-11 `list` token and the indexed
+`tag.purpose` extension. The same scoped token authorizes owner lifecycle
+history and, when the relay grants manager access, the report queue. Client
+projections MUST validate complete asset descriptors, lifecycle pages, and
+report event envelopes before exposing them, and MUST use the server's history
+cursor while deriving list and report cursors from the final bounded result.
+
+Deletion MUST use a signed kind `24242` `delete` token bound to the asset
+SHA-256, expiration, and relay host. A conflict response from retained active
+references MUST remain visible and retryable. Manager authorization and
+retention policy remain relay decisions; Community MUST NOT publish reports,
+rewrite lifecycle evidence, or bypass an HTTP `403` or `409`.

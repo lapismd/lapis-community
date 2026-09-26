@@ -1252,3 +1252,9 @@ optional compatibility callback.
 Pending runtime refreshes MUST use the shared streaming Reasoning indicator used
 for agent Working status. Last updated MUST use CommunityRelativeTime, including
 its full-date tooltip, with the snapshot observation time converted to seconds.
+
+## Personal media lifecycle
+
+| ID        | Requirement |
+| --------- | ----------- |
+| LC-UI-055 | Personal settings MUST expose a Media destination that lists the connected owner's avatar and custom-emoji uploads, marks profile or signed emoji references as in use, omits ordinary deletion for those current references, and confirms deletion of unreferenced assets with an awaited, retryable shared confirmation. HTTP conflict reasons MUST remain visible for retry. The destination MUST show append-only lifecycle history and MUST load the manager report queue only on request, rendering relay `403` as a manager-access-required state. Initial loading MUST use representative shared skeletons; empty, error, retry, content-preserving refresh, and successful deletion states MUST remain explicit. Changed stories MUST remain `visual-pending`. |

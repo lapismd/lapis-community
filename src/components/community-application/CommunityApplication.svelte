@@ -353,7 +353,6 @@
   import { loadRepositoryPathCommitFromQuery } from "./project-repository-path-commit-query.js";
   import { loadRepositoryCommitsFromQuery } from "./project-repository-read-query.js";
   import { createProjectApplicationQueryActions } from "./project-application-query-actions.js";
-  import { runCommunityAuthenticatedResult } from "./authenticated-result.js";
 
   type CommunityAuthenticatedAction = () => void | Promise<void>;
   type CommunityParticipationAction = "message" | "post" | "reaction" | "reply";
@@ -2250,12 +2249,6 @@
     });
     lastAction = `opened-profile:${member.id}`;
   }
-  const emojiOperation = $derived.by(() =>
-    Object.entries(community.state.operations)
-      .filter(([key]) => key.startsWith("settings:emoji:"))
-      .map(([, operation]) => operation)
-      .find((operation) => operation.status !== "idle"),
-  );
   const relayOperation = $derived(
     activeConnection === undefined
       ? undefined
@@ -7653,51 +7646,11 @@
           </AppShell.Body>
         {:else if activeDestination === "settings"}
           <CommunityApplicationSettings
-            model={community.state.settings}
+            controller={community}
+            relayUrl={activeConnection?.relayUrl}
             section={settingsSection}
-            account={applicationAuthentication?.account?.()}
-            accountConfig={applicationAuthentication?.config?.()}
-            accountActions={applicationAuthentication?.accountActions?.()}
-            accountResumeAction={applicationAuthentication?.resumeAccountAction?.()}
-            accountAuthenticationState={applicationAuthentication?.status?.()}
-            accountActiveExternalSigner={applicationAuthentication?.activeExternalSigner?.()}
-            accountBusy={applicationAuthentication?.status?.() ===
-              "restoring" ||
-              applicationAuthentication?.status?.() === "redirecting"}
-            accountMessage={applicationAuthentication?.status?.() ===
-            "reconnect-required"
-              ? "Reconnect the Nostr signer before an action needs a signature."
-              : ""}
             onCopyPublicKey={(pubkey) => copyText(pubkey, "Public key copied")}
-            onConnectGitHub={applicationAuthentication?.connectGitHub ===
-            undefined
-              ? undefined
-              : () => applicationAuthentication.connectGitHub?.()}
-            onSignOut={signOutCurrentIdentity}
-            profileOperation={community.state.operations["settings:profile"]}
-            {emojiOperation}
-            onUpdateProfile={(profile) =>
-              runAuthenticated(() => community.actions.updateProfile(profile))}
-            onUploadProfileImage={(file) =>
-              runCommunityAuthenticatedResult(
-                runAuthenticated,
-                () => community.actions.uploadSettingsImage(file, "profile"),
-                "Profile image upload was cancelled",
-              )}
-            onUploadCustomEmojiImage={(file) =>
-              runCommunityAuthenticatedResult(
-                runAuthenticated,
-                () => community.actions.uploadSettingsImage(file, "emoji"),
-                "Emoji image upload was cancelled",
-              )}
-            onAddCustomEmoji={(shortcode, url) =>
-              runAuthenticated(() =>
-                community.actions.setCustomEmoji(shortcode, url),
-              )}
-            onRemoveCustomEmoji={(shortcode) =>
-              runAuthenticated(() =>
-                community.actions.removeCustomEmoji(shortcode),
-              )}
+            onAuthenticationRequired={runAuthenticated}
           />
         {:else if activeDestination === "pulse" && community.state.pulse && community.actions.pulse}
           <CommunityApplicationPulseHost

@@ -2,6 +2,7 @@
   import { Button } from "@lapismd/design-core/shadcn/button";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import KeyRoundIcon from "@lucide/svelte/icons/key-round";
+  import ImagesIcon from "@lucide/svelte/icons/images";
   import SmileIcon from "@lucide/svelte/icons/smile";
   import UserRoundIcon from "@lucide/svelte/icons/user-round";
 
@@ -59,6 +60,16 @@
     >
       <SmileIcon data-icon="inline-start" aria-hidden="true" />
       Custom emoji
+    </Button>
+    <Button
+      variant="ghost"
+      class="community-settings-navigation__item"
+      data-active={section === "media" ? "" : undefined}
+      aria-pressed={section === "media"}
+      onclick={() => onSelect("media")}
+    >
+      <ImagesIcon data-icon="inline-start" aria-hidden="true" />
+      Media
     </Button>
   </section>
 </nav>

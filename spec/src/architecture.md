@@ -10,6 +10,14 @@ relay transport or signed profile and emoji publication into UI components.
 Blossom URI parsing, creation and bounded hash-verified resolution remain in a
 separate owner that accepts author-server discovery as an injected capability.
 
+For LC-UI-055, signed asset listing, lifecycle history, report review, and
+deletion live in the bounded `asset-management` community owner. The
+application settings host owns active signer and relay adaptation. Media and
+custom-emoji presentation have dedicated component folders and colocated
+`visual-pending` stories, reducing `CommunitySettings.svelte` below the
+production-file limit and shrinking `CommunityApplication.svelte`. Their
+focused path budgets are recorded in `scripts/architecture-baseline.json`.
+
 For LC-UI-035, the CommunityRelativeTime component, formatter, unit regression,
 and focused Storybook story budgets are recorded in
 `scripts/architecture-baseline.json`.

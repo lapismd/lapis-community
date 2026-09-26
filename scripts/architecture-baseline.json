@@ -788,6 +788,16 @@
       "physicalLines": 58,
       "forbiddenImportCount": 0
     },
+    "src/community/asset-management.test.ts": {
+      "countedLines": 193,
+      "physicalLines": 202,
+      "forbiddenImportCount": 0
+    },
+    "src/community/asset-management.ts": {
+      "countedLines": 232,
+      "physicalLines": 253,
+      "forbiddenImportCount": 0
+    },
     "src/community/avatar-content.test.ts": {
       "countedLines": 39,
       "physicalLines": 43,
@@ -2363,8 +2373,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9328,
-      "physicalLines": 9694,
+      "countedLines": 9281,
+      "physicalLines": 9647,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour",
@@ -2460,8 +2470,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplicationSettings.svelte": {
-      "countedLines": 11,
-      "physicalLines": 14,
+      "countedLines": 108,
+      "physicalLines": 115,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/CommunityApplicationStoryHarness.svelte": {
@@ -2738,6 +2748,21 @@
     "src/components/community-application/workspace-identity.ts": {
       "countedLines": 28,
       "physicalLines": 29,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-asset-settings/asset-settings-presentation.ts": {
+      "countedLines": 34,
+      "physicalLines": 39,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-asset-settings/CommunityAssetSettings.stories.svelte": {
+      "countedLines": 283,
+      "physicalLines": 300,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-asset-settings/CommunityAssetSettings.svelte": {
+      "countedLines": 300,
+      "physicalLines": 312,
       "forbiddenImportCount": 0
     },
     "src/components/community-avatar-picker/CommunityAvatarPicker.stories.svelte": {
@@ -3368,6 +3393,16 @@
     "src/components/community-conversation/message-row-estimate.ts": {
       "countedLines": 45,
       "physicalLines": 51,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-custom-emoji-settings/CommunityCustomEmojiSettings.stories.svelte": {
+      "countedLines": 78,
+      "physicalLines": 82,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-custom-emoji-settings/CommunityCustomEmojiSettings.svelte": {
+      "countedLines": 224,
+      "physicalLines": 235,
       "forbiddenImportCount": 0
     },
     "src/components/community-details/CommunityDetails.stories.svelte": {
@@ -5043,8 +5078,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-settings-navigation/CommunitySettingsNavigation.svelte": {
-      "countedLines": 61,
-      "physicalLines": 64,
+      "countedLines": 72,
+      "physicalLines": 75,
       "forbiddenImportCount": 0
     },
     "src/components/community-settings/CommunitySettings.stories.svelte": {
@@ -5053,20 +5088,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-settings/CommunitySettings.svelte": {
-      "countedLines": 487,
-      "physicalLines": 508,
-      "forbiddenImportCount": 0,
-      "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
-    },
-    "src/components/community-settings/CommunitySettingsMediaUpload.stories.svelte": {
-      "countedLines": 63,
-      "physicalLines": 67,
+      "countedLines": 296,
+      "physicalLines": 311,
       "forbiddenImportCount": 0
     },
     "src/components/community-settings/model.ts": {
-      "countedLines": 1,
-      "physicalLines": 1,
+      "countedLines": 5,
+      "physicalLines": 5,
       "forbiddenImportCount": 0
     },
     "src/components/community-skeleton/CommunitySkeleton.stories.svelte": {
