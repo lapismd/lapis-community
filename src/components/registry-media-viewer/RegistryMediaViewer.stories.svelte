@@ -36,10 +36,17 @@
       name: /AI Assistant media viewer/u,
     });
     await expect(dialog).toBeVisible();
-    await expect(page.getByRole("radio", { name: "Split" })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
+    const frame = dialog.getBoundingClientRect(),
+      viewport = canvasElement.ownerDocument.defaultView!,
+      style = getComputedStyle(dialog);
+    expect([Math.round(frame.top), Math.round(frame.left)]).toEqual([0, 0]);
+    expect([style.backgroundColor, style.borderRadius]).toEqual([
+      "rgb(0, 0, 0)",
+      "0px",
+    ]);
+    expect(frame.width >= viewport.innerWidth - 1).toBe(true);
+    expect(frame.height >= viewport.innerHeight - 1).toBe(true);
+    await expect(page.getByRole("radio", { name: "Split" })).toHaveAttribute("aria-checked", "true");
     await userEvent.click(page.getByRole("radio", { name: "Light" }));
     await expect(dialog).toHaveAttribute("data-media-mode", "light");
     await userEvent.click(page.getByRole("radio", { name: "Dark" }));

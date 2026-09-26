@@ -5613,13 +5613,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/registry-media-viewer/RegistryMediaViewer.stories.svelte": {
-      "countedLines": 54,
-      "physicalLines": 57,
+      "countedLines": 61,
+      "physicalLines": 65,
       "forbiddenImportCount": 0
     },
     "src/components/registry-media-viewer/RegistryMediaViewer.svelte": {
-      "countedLines": 240,
-      "physicalLines": 260,
+      "countedLines": 213,
+      "physicalLines": 232,
       "forbiddenImportCount": 0
     },
     "src/components/registry-plugin-card/RegistryPluginCard.stories.svelte": {

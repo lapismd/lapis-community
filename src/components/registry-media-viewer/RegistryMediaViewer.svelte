@@ -1,16 +1,17 @@
 <script lang="ts">
-  import { DialogFrame } from "@lapismd/design-core/forms/dialog";
   import { tick } from "svelte";
 
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as ButtonGroup from "@lapismd/design-core/shadcn/button-group";
   import * as Dialog from "@lapismd/design-core/shadcn/dialog";
-  import * as ToggleGroup from "@lapismd/design-core/shadcn/toggle-group";
 
   import ChevronLeftIcon from "@lucide/svelte/icons/chevron-left";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+  import XIcon from "@lucide/svelte/icons/x";
 
   import type { RegistryMediaItem } from "../../registry/index.js";
   import RegistryVerifiedImage from "../registry-verified-image/RegistryVerifiedImage.svelte";
+  import "./RegistryMediaViewer.css";
 
   type MediaMode = "preview" | "full" | "light" | "dark";
   type SelectableMediaMode = Exclude<MediaMode, "preview">;
@@ -125,36 +126,47 @@
 
 <Dialog.Root bind:open>
   {#if open}
-    <DialogFrame
+    <Dialog.Content
       bind:ref={dialog}
+      class="registry-media-viewer"
+      showCloseButton={false}
       data-media-mode={mode}
       onkeydown={handleKeydown}
-      closeLabel="Close media viewer"
-      size="wide"
-      bodyPadding="none"
     >
-      {#snippet title()}
+      <Dialog.Title class="sr-only">
         {pluginName} media viewer
-      {/snippet}
-
-      {#snippet headerActions()}
-        <ToggleGroup.Root
-          type="single"
-          value={mode}
-          onValueChange={(value) => value && setMode(value as MediaMode)}
-          size="sm"
-          spacing={1}
-          variant="outline"
-          class="registry-media-viewer__modes"
-          aria-label="Image theme"
-        >
-          {#each mediaModes as [value, label]}
-            <ToggleGroup.Item {value} data-media-mode={value}
-              >{label}</ToggleGroup.Item
-            >
-          {/each}
-        </ToggleGroup.Root>
-      {/snippet}
+      </Dialog.Title>
+      <ButtonGroup.Root
+        role="radiogroup"
+        class="registry-media-viewer__modes"
+        aria-label="Image theme"
+      >
+        {#each mediaModes as [value, label]}
+          <Button
+            type="button"
+            variant={mode === value ? "secondary" : "ghost"}
+            size="sm"
+            role="radio"
+            aria-checked={mode === value}
+            data-media-mode={value}
+            onclick={() => setMode(value)}
+          >
+            {label}
+          </Button>
+        {/each}
+      </ButtonGroup.Root>
+      <Button
+        class="registry-media-viewer__close"
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Close media viewer"
+        onclick={() => {
+          open = false;
+        }}
+      >
+        <XIcon aria-hidden="true" />
+      </Button>
 
       <div
         bind:this={track}
@@ -186,75 +198,34 @@
         {/each}
       </div>
 
-      {#snippet footer()}
-        {#if items.length > 1}
-          <Button
-            class="registry-media-viewer__previous"
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label="Previous image"
-            disabled={selectedIndex === 0}
-            onclick={() => moveTo(selectedIndex - 1)}
-          >
-            <ChevronLeftIcon aria-hidden="true" />
-          </Button>
-          <Button
-            class="registry-media-viewer__next"
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label="Next image"
-            disabled={selectedIndex === lastIndex}
-            onclick={() => moveTo(selectedIndex + 1)}
-          >
-            <ChevronRightIcon aria-hidden="true" />
-          </Button>
-        {/if}
+      {#if items.length > 1}
+        <Button
+          class="registry-media-viewer__previous"
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Previous image"
+          disabled={selectedIndex === 0}
+          onclick={() => moveTo(selectedIndex - 1)}
+        >
+          <ChevronLeftIcon aria-hidden="true" />
+        </Button>
+        <Button
+          class="registry-media-viewer__next"
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Next image"
+          disabled={selectedIndex === lastIndex}
+          onclick={() => moveTo(selectedIndex + 1)}
+        >
+          <ChevronRightIcon aria-hidden="true" />
+        </Button>
+      {/if}
 
-        <p class="registry-media-viewer__status" aria-live="polite">
-          {selectedIndex + 1} of {items.length}: {items[selectedIndex]?.alt}
-        </p>
-      {/snippet}
-    </DialogFrame>
+      <p class="registry-media-viewer__status" aria-live="polite">
+        {selectedIndex + 1} of {items.length}: {items[selectedIndex]?.alt}
+      </p>
+    </Dialog.Content>
   {/if}
 </Dialog.Root>
-
-<style>
-  .registry-media-viewer__track {
-    display: flex;
-    width: 100%;
-    height: min(60dvh, 40rem);
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-behavior: smooth;
-    scroll-snap-type: x mandatory;
-    overscroll-behavior-x: contain;
-  }
-  .registry-media-viewer__slide {
-    display: grid;
-    flex: 0 0 100%;
-    min-width: 0;
-    height: 100%;
-    padding: 1rem;
-    place-items: center;
-    box-sizing: border-box;
-    scroll-snap-align: start;
-  }
-  .registry-media-viewer__slide :global(img) {
-    display: block;
-    max-width: 100%;
-    max-height: min(55dvh, 36rem);
-    object-fit: contain;
-  }
-  .registry-media-viewer__status {
-    margin: auto 0 auto auto;
-    font-size: var(--community-text-secondary);
-    color: var(--muted-foreground);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .registry-media-viewer__track {
-      scroll-behavior: auto;
-    }
-  }
-</style>

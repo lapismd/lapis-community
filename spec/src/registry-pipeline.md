@@ -3,6 +3,12 @@ the component, formatter, unit test, and focused Storybook budgets in
 `scripts/architecture-baseline.json`; registry materialization and publication
 behavior are unchanged.
 
+For LC-UI-053, restoring the shared registry media viewer fullscreen lightbox
+and ButtonGroup mode controls changes only Community presentation components,
+stories, UI exceptions, and architecture budgets. Registry ingestion, release
+proofs, materialization, relay writes, fixture hydration, and publication
+behavior are unchanged.
+
 For LC-UI-019, the room-browser create-row vertical spacing regression records the
 component and focused Storybook budgets in `scripts/architecture-baseline.json`;
 no registry materialization or publication behavior changes.

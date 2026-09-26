@@ -519,6 +519,30 @@
       "requirement": "LC-UI-019"
     },
     {
+      "file": "src/components/registry-media-viewer/RegistryMediaViewer.svelte",
+      "rule": "dialog",
+      "symbol": "@lapismd/design-core/shadcn/dialog:Content",
+      "reason": "The registry media viewer is a fullscreen dark image lightbox, not a form or content dialog, so DialogFrame chrome would shrink the gallery and regress the Obsidian-style preview contract.",
+      "story": "community-registry-media-viewer--split-light-and-dark-media",
+      "requirement": "LC-UI-053"
+    },
+    {
+      "file": "src/components/registry-media-viewer/RegistryMediaViewer.svelte",
+      "rule": "dialog",
+      "symbol": "@lapismd/design-core/shadcn/dialog:Title",
+      "reason": "The fullscreen registry media lightbox keeps an accessible dialog title without rendering form-dialog header chrome.",
+      "story": "community-registry-media-viewer--split-light-and-dark-media",
+      "requirement": "LC-UI-053"
+    },
+    {
+      "file": "src/components/registry-media-viewer/RegistryMediaViewer.css",
+      "rule": "dialog",
+      "symbol": "component internals: .registry-media-viewer[data-ui-component=\"dialog\"][data-ui-part=\"dialog-content\"]",
+      "reason": "The shared registry media lightbox must override the generic dialog content recipe to occupy the full viewport with a dark image stage.",
+      "story": "community-registry-media-viewer--split-light-and-dark-media",
+      "requirement": "LC-UI-053"
+    },
+    {
       "file": "src/components/community-chat-composer/autocomplete.ts",
       "rule": "emoji",
       "symbol": "emoji-mart",
