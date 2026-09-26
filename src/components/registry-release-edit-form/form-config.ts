@@ -28,6 +28,7 @@ export const registryReleaseEditConfig =
     validationMode: "onTouched",
     groups: {
       identity: { title: "Listing", collapsible: true },
+      highlights: { title: "Highlights", collapsible: true },
       release: { title: "Release", collapsible: true },
       content: { title: "Content references", collapsible: true },
       media: { title: "Media references", collapsible: true },
@@ -126,7 +127,7 @@ export const registryReleaseEditConfig =
       },
       "plugin.highlights": {
         kind: "ordered-string-list",
-        group: "identity",
+        group: "highlights",
         label: "Highlights",
         addLabel: "Add highlight",
       },

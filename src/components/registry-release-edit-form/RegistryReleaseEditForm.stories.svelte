@@ -72,9 +72,20 @@
 
     await userEvent.type(name, "Bases Lab");
     await expect(
+      canvas.getByRole("button", { name: "Collapse Highlights" }),
+    ).toBeVisible();
+    await expect(
       canvas.getByRole("tablist", { name: "Release edit areas" }),
     ).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: "Release" }));
+    await expect(
+      canvas.queryByRole("button", { name: "Collapse Release" }),
+    ).not.toBeInTheDocument();
+    await expect(canvas.getByLabelText("Minimum app version")).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: "Media" }));
+    await expect(
+      canvas.queryByRole("button", { name: "Collapse Media references" }),
+    ).not.toBeInTheDocument();
     await expect(
       await canvas.findByRole("button", { name: "Collapse Logo" }),
     ).toBeVisible();

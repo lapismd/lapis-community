@@ -80,8 +80,14 @@
     registryReleaseEditTabs.find((tab) => tab.value === activeTab) ??
       registryReleaseEditTabs[0],
   );
+  const activeTabCollapsible = $derived(
+    activeTabDefinition.collapsibleGroupIds.length > 0,
+  );
   const collapsedAll = $derived(
-    controller.allDisclosuresCollapsed(activeTabDefinition.groupId),
+    activeTabCollapsible &&
+      activeTabDefinition.collapsibleGroupIds.every((groupId) =>
+        controller.allDisclosuresCollapsed(groupId),
+      ),
   );
   const blockingIssues = $derived(
     controller.issues.filter(
@@ -124,11 +130,19 @@
     controller.reset(nextDraft, { emit: false });
     await onCancel();
   }
+
+  function toggleActiveTabSections(): void {
+    for (const groupId of activeTabDefinition.collapsibleGroupIds) {
+      if (collapsedAll) controller.expandAll(groupId);
+      else controller.collapseAll(groupId);
+    }
+  }
 </script>
 
 <form
   class="registry-release-edit-form"
   data-ui-part="registry-release-edit-form"
+  data-collapsible-sections={activeTabCollapsible ? "true" : "false"}
   aria-label={`${draft.plugin.name} release edit form`}
   onsubmit={(event) => {
     event.preventDefault();
@@ -139,10 +153,7 @@
     {collapsedAll}
     collapseLabel={`Collapse all ${activeTabDefinition.label} sections`}
     expandLabel={`Expand all ${activeTabDefinition.label} sections`}
-    onToggleCollapse={() =>
-      collapsedAll
-        ? controller.expandAll(activeTabDefinition.groupId)
-        : controller.collapseAll(activeTabDefinition.groupId)}
+    onToggleCollapse={toggleActiveTabSections}
   >
     {#snippet leading()}
       <span class="registry-release-edit-form__title"
@@ -159,9 +170,17 @@
 
   <div class="registry-release-edit-form__body">
     <Tabs.Root bind:value={activeTab} class="registry-release-edit-form__tabs">
-      <Tabs.List variant="line" aria-label="Release edit areas">
+      <Tabs.List
+        class="registry-release-edit-form__tab-list"
+        aria-label="Release edit areas"
+      >
         {#each registryReleaseEditTabs as tab (tab.value)}
-          <Tabs.Trigger value={tab.value}>{tab.label}</Tabs.Trigger>
+          <Tabs.Trigger
+            class="registry-release-edit-form__tab-trigger"
+            value={tab.value}
+          >
+            {tab.label}
+          </Tabs.Trigger>
         {/each}
       </Tabs.List>
 

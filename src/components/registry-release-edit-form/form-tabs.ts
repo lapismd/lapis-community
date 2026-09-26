@@ -8,11 +8,36 @@ import { registryReleaseEditConfig } from "./form-config.js";
 import type { RegistryReleaseEditDraft } from "./model.js";
 
 export const registryReleaseEditTabs = [
-  { value: "listing", label: "Listing", groupId: "identity" },
-  { value: "release", label: "Release", groupId: "release" },
-  { value: "content", label: "Content", groupId: "content" },
-  { value: "media", label: "Media", groupId: "media" },
-  { value: "evidence", label: "Evidence", groupId: "evidence" },
+  {
+    value: "listing",
+    label: "Listing",
+    groupIds: ["identity", "highlights"],
+    collapsibleGroupIds: ["identity", "highlights"],
+  },
+  {
+    value: "release",
+    label: "Release",
+    groupIds: ["release"],
+    collapsibleGroupIds: [],
+  },
+  {
+    value: "content",
+    label: "Content",
+    groupIds: ["content"],
+    collapsibleGroupIds: [],
+  },
+  {
+    value: "media",
+    label: "Media",
+    groupIds: ["media"],
+    collapsibleGroupIds: ["media"],
+  },
+  {
+    value: "evidence",
+    label: "Evidence",
+    groupIds: ["evidence"],
+    collapsibleGroupIds: [],
+  },
 ] as const;
 
 export type RegistryReleaseEditTab =
@@ -26,17 +51,29 @@ type RegistryReleaseEditConfig = RuntimePathFormConfig<
 function configForGroup(
   tab: (typeof registryReleaseEditTabs)[number],
 ): RegistryReleaseEditConfig {
+  const groupIds = new Set<string>(tab.groupIds);
+  const hideSingleGroupHeader = tab.groupIds.length === 1;
   const fields = Object.fromEntries(
     Object.entries(registryReleaseEditConfig.fields).filter(
-      ([, field]) => field?.group === tab.groupId,
+      ([, field]) =>
+        typeof field?.group === "string" && groupIds.has(field.group),
     ),
+  );
+  const groups = Object.fromEntries(
+    tab.groupIds.map((groupId) => {
+      const group = registryReleaseEditConfig.groups?.[groupId]!;
+      return [
+        groupId,
+        hideSingleGroupHeader
+          ? { ...group, hiddenHeader: true, collapsible: false }
+          : group,
+      ];
+    }),
   );
   return {
     id: `registry-release-edit-${tab.value}`,
     validationMode: registryReleaseEditConfig.validationMode,
-    groups: {
-      [tab.groupId]: registryReleaseEditConfig.groups?.[tab.groupId]!,
-    },
+    groups,
     fields,
   } as RegistryReleaseEditConfig;
 }
@@ -55,8 +92,11 @@ export function registryReleaseTabForPath(
           path as keyof typeof registryReleaseEditConfig.fields
         ];
   return (
-    registryReleaseEditTabs.find((tab) => tab.groupId === field?.group)
-      ?.value ?? "listing"
+    registryReleaseEditTabs.find(
+      (tab) =>
+        typeof field?.group === "string" &&
+        (tab.groupIds as readonly string[]).includes(field.group),
+    )?.value ?? "listing"
   );
 }
 

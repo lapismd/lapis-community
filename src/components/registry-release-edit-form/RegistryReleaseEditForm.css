@@ -26,22 +26,47 @@
 .registry-release-edit-form__tabs {
   display: grid;
   min-width: 0;
-  gap: 1rem;
+  gap: 0.9rem;
 }
 
-.registry-release-edit-form__tabs > [role="tablist"] {
+.registry-release-edit-form__tab-list[data-slot="tabs-list"] {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  height: auto;
   justify-content: flex-start;
+  gap: 0.4rem;
   overflow-x: auto;
-  border-bottom: 1px solid var(--border);
   border-radius: 0;
   background: transparent;
   padding: 0;
+  box-shadow: none;
 }
 
-.registry-release-edit-form__tabs > [role="tablist"] [role="tab"] {
+.registry-release-edit-form__tab-trigger[data-slot="tabs-trigger"] {
   flex: 0 0 auto;
-  border-radius: 0;
-  padding-inline: 0.75rem;
+  min-height: 1.8rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.25rem 0.8rem;
+  background: color-mix(in srgb, var(--muted) 38%, transparent);
+  color: var(--muted-foreground);
+  box-shadow: none;
+  font-size: var(--community-text-secondary);
+  font-weight: 500;
+}
+
+.registry-release-edit-form__tab-trigger[data-slot="tabs-trigger"][data-state="active"] {
+  background: var(--muted);
+  color: var(--foreground);
+  box-shadow: none;
+}
+
+.registry-release-edit-form__tab-trigger[data-slot="tabs-trigger"]:hover:not(
+    :disabled
+  ) {
+  background: color-mix(in srgb, var(--muted) 72%, transparent);
+  color: var(--foreground);
 }
 
 .registry-release-edit-form__tab-content {
@@ -50,7 +75,7 @@
 }
 
 .registry-release-edit-form__body .cv-structured-form {
-  gap: 1.35rem;
+  gap: 1rem;
 }
 
 .registry-release-edit-form__body .ui-configured-form-group {
@@ -110,6 +135,15 @@
 }
 
 .registry-release-edit-form__body
+  .ui-configured-form-group[data-group-id="media"]
+  > .ui-configured-form-group__body {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.registry-release-edit-form__body
   .ui-configured-form-group__body
   > .cv-form-field-renderer {
   min-width: 0;
@@ -120,6 +154,14 @@
   > .cv-form-field-renderer
   + .cv-form-field-renderer {
   border-block-start: 1px solid var(--border);
+}
+
+.registry-release-edit-form__body
+  .ui-configured-form-group__body
+  > .cv-form-field-renderer
+  + .cv-form-field-renderer
+  .cv-form-field {
+  padding-block-start: 1rem;
 }
 
 .registry-release-edit-form__body
@@ -163,6 +205,11 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.registry-release-edit-form[data-collapsible-sections="false"]
+  .ui-form-toolbar-collapse {
+  display: none;
 }
 
 .registry-release-edit-form__errors {
