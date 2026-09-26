@@ -422,8 +422,8 @@ describe("agent activity controller", () => {
       const { controller } = await setup();
       const pending = expect(
         controller.actions.loadRuntime(agent),
-      ).rejects.toThrow(/within ten seconds/iu);
-      await vi.advanceTimersByTimeAsync(10_001);
+      ).rejects.toThrow(/within thirty seconds/iu);
+      await vi.advanceTimersByTimeAsync(30_001);
       await pending;
     } finally {
       vi.useRealTimers();

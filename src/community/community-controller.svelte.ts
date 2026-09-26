@@ -1,3 +1,4 @@
+import { runtimeActionBridge } from "./agent-runtime-action-bridge.js";
 import { agentControlActions } from "./agent-control-actions.js";
 import { historyPageKey, eventInHistoryWindow } from "./history-pages.js";
 import { createProjectionQueue, shareProjection } from "./projection-state.js";
@@ -1525,16 +1526,7 @@ export function createCommunityController(
           expectedRevision,
         );
       },
-      loadRuntime: async (pubkey) => {
-        if (!agentController)
-          throw new Error("Agent controls require a signed-in community");
-        return agentController.actions.loadRuntime(pubkey);
-      },
-      saveRuntime: async (pubkey, defaults) => {
-        if (!agentController)
-          throw new Error("Agent controls require a signed-in community");
-        return agentController.actions.saveRuntime(pubkey, defaults);
-      },
+      ...runtimeActionBridge(() => agentController),
       loadMemories: async (pubkey, channelId, filter) => {
         if (!agentController)
           throw new Error("Agent controls require a signed-in community");

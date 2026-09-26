@@ -100,7 +100,7 @@ export function agentOwner(profile: NostrEvent): string | undefined {
   return credential.ownerPubkey;
 }
 
-function managedAgentOwner(
+export function managedAgentOwner(
   profile: NostrEvent,
   owner: string,
   relay: string,

@@ -16,6 +16,12 @@ export async function subscribeAgentEvents(
   signal?: AbortSignal,
 ): Promise<{ close(): void }> {
   const filters: RelayFilter[] = [
+    ...(info.capabilities.runtimeSnapshots
+      ? [
+          { kinds: [30180], "#p": [owner] },
+          { kinds: [30181], authors: [owner] },
+        ]
+      : []),
     { kinds: [30175, 30177, 3, 5], authors: [owner] },
     { kinds: [39002], authors: [info.self] },
     ...(info.capabilities.activity

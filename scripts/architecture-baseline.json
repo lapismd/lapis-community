@@ -455,8 +455,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/agent-contracts.ts": {
-      "countedLines": 536,
-      "physicalLines": 583,
+      "countedLines": 533,
+      "physicalLines": 580,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -489,8 +489,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-controller.ts": {
-      "countedLines": 1896,
-      "physicalLines": 1946,
+      "countedLines": 1822,
+      "physicalLines": 1870,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Agent controller factory; runtime and memory parsers extracted"
@@ -566,8 +566,8 @@
       "forbiddenImportCount": 0
     },
     "src/community/agent-event-subscription.ts": {
-      "countedLines": 64,
-      "physicalLines": 65,
+      "countedLines": 70,
+      "physicalLines": 71,
       "forbiddenImportCount": 0
     },
     "src/community/agent-execution-policy.test.ts": {
@@ -747,8 +747,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-session.ts": {
-      "countedLines": 1354,
-      "physicalLines": 1410,
+      "countedLines": 1344,
+      "physicalLines": 1399,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Agent session factory; control validation extracted"
@@ -915,8 +915,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/community-controller.svelte.ts": {
-      "countedLines": 4275,
-      "physicalLines": 4359,
+      "countedLines": 4267,
+      "physicalLines": 4351,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Svelte 5 controller factory; history, Pulse, and operations extracted"
@@ -2125,11 +2125,14 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-agent-profile/CommunityAgentProfile.svelte": {
-      "countedLines": 1461,
-      "physicalLines": 1480,
+      "countedLines": 1454,
+      "physicalLines": 1472,
       "forbiddenImportCount": 0,
       "kind": "legacy",
-      "justification": "Existing file above the new-file counted-line limit; do not grow"
+      "justification": "Existing file above the new-file counted-line limit; do not grow",
+      "scriptCounted": 354,
+      "markupCounted": 632,
+      "stylePhysical": 469
     },
     "src/components/community-agent-profile/CommunityAgentRuntimeFields.svelte": {
       "countedLines": 109,
@@ -2360,11 +2363,14 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9331,
-      "physicalLines": 9697,
+      "countedLines": 9328,
+      "physicalLines": 9694,
       "forbiddenImportCount": 0,
       "kind": "legacy",
-      "justification": "Application composition root; extract destination hosts before adding behaviour"
+      "justification": "Application composition root; extract destination hosts before adding behaviour",
+      "scriptCounted": 5504,
+      "markupCounted": 3109,
+      "stylePhysical": 813
     },
     "src/components/community-application/CommunityApplicationAgentsHost.svelte": {
       "countedLines": 34,

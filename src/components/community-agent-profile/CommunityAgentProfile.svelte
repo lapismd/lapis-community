@@ -40,7 +40,6 @@
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import XIcon from "@lucide/svelte/icons/x";
   import BrainIcon from "@lucide/svelte/icons/brain";
-  import RotateCwIcon from "@lucide/svelte/icons/rotate-cw";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import type {
     CommunityAgentIdentity,
@@ -53,6 +52,9 @@
   } from "../../community/agent-contracts.js";
   import CommunityAgentRuntimeFields from "./CommunityAgentRuntimeFields.svelte";
   import CommunityAgentRuntimeResources from "./CommunityAgentRuntimeResources.svelte";
+  import CommunitySkeleton from "../community-skeleton/CommunitySkeleton.svelte";
+  import CommunityAgentRuntimeRefresh from "./CommunityAgentRuntimeRefresh.svelte";
+  import type { CommunityRuntimeRefreshState } from "../../community/agent-runtime-snapshot-protocol.js";
   import type { CommunityRoomModel } from "../community-workspace/model.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import CommunityAgentEditorDialog from "../community-agent-editor/CommunityAgentEditorDialog.svelte";
@@ -89,6 +91,8 @@
     onSetProcessing,
     memories,
     onLoadRuntime,
+    onRefreshRuntime,
+    runtimeRefresh,
     onSaveRuntime,
     onLoadMemories,
     onActOnMemory,
@@ -128,6 +132,8 @@
     runtime?: CommunityAgentRuntimeState | undefined;
     memories?: CommunityAgentMemoryState | undefined;
     onLoadRuntime?: () => Promise<CommunityAgentRuntimeState>;
+    onRefreshRuntime?: (() => Promise<void>) | undefined;
+    runtimeRefresh?: CommunityRuntimeRefreshState | undefined;
     onSaveRuntime?: (
       input: import("../../community/agent-runtime-set.js").CommunityAgentRuntimeSettings,
     ) => Promise<CommunityAgentRuntimeState>;
@@ -155,12 +161,14 @@
   let addTrigger = $state<HTMLButtonElement | null>(null);
   let channelSearch = $state<HTMLInputElement | null>(null);
   let profile = $state<HTMLElement>();
-  let runtimeAgent = $state("");
-  let runtimeModel = $state("");
-  let runtimeThinking = $state("");
+  const runtimeAgent = $derived(runtime?.effective.runtimeAgent ?? "");
+  const runtimeModel = $derived(
+    runtime?.effective.model ?? runtime?.catalog.currentModel ?? "",
+  );
+  const runtimeThinking = $derived(runtime?.effective.thinking ?? "");
   let runtimeToolsOpen = $state(false);
-  let runtimeLoaded = $state("");
   let runtimeRequested = $state("");
+  let runtimeRefreshing = $state(false);
   let memoryChannel = $state("");
   let memoryStatus = $state<"approved" | "review" | "rejected" | "retracted">(
     "review",
@@ -257,22 +265,15 @@
   );
 
   $effect(() => {
-    if (runtime && runtimeLoaded !== `${agent.pubkey}:${runtime.agentId}`) {
-      runtimeAgent = runtime.effective.runtimeAgent;
-      runtimeModel =
-        runtime.effective.model ?? runtime.catalog.currentModel ?? "";
-      runtimeThinking = (runtime.effective.thinking ??
-        "") as typeof runtimeThinking;
-      runtimeLoaded = `${agent.pubkey}:${runtime.agentId}`;
-    }
-  });
-
-  $effect(() => {
     if (!memoryChannel && channels.length > 0)
       memoryChannel = channels[0]!.groupId ?? channels[0]!.id;
   });
 
   $effect(() => {
+    if (tab !== "runtime") {
+      runtimeRequested = "";
+      return;
+    }
     if (
       tab === "runtime" &&
       onLoadRuntime &&
@@ -315,14 +316,15 @@
 
   async function loadRuntime(): Promise<void> {
     if (!onLoadRuntime) return;
-    await action(async () => {
-      const next = await onLoadRuntime();
-      runtimeAgent = next.effective.runtimeAgent;
-      runtimeModel = next.effective.model ?? next.catalog.currentModel ?? "";
-      runtimeThinking = (next.effective.thinking ??
-        "") as typeof runtimeThinking;
-      runtimeLoaded = `${agent.pubkey}:${next.agentId}`;
-    });
+    runtimeRefreshing = true;
+    try {
+      if (onRefreshRuntime) await onRefreshRuntime();
+      else await onLoadRuntime();
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : "Runtime refresh failed";
+    } finally {
+      runtimeRefreshing = false;
+    }
   }
 
   async function loadMemories(): Promise<void> {
@@ -593,22 +595,12 @@
     </Tabs.Content>
     {#if onLoadRuntime}<Tabs.Content value="runtime">
         <div class="agent-profile__runtime">
-          <div class="agent-profile__section-heading">
-            <div>
-              <h3>Runtime</h3>
-              <p>Harness settings apply to the next agent session.</p>
-            </div>
-            <div class="agent-profile__section-actions">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                aria-label="Refresh runtime details"
-                disabled={!connected || pending}
-                onclick={loadRuntime}
-                ><RotateCwIcon aria-hidden="true" /></Button
-              >
-            </div>
-          </div>
+          <CommunityAgentRuntimeRefresh
+            state={runtimeRefresh}
+            pending={runtimeRefreshing}
+            {connected}
+            onRefresh={loadRuntime}
+          />
           {#if runtime}
             <dl class="agent-profile__runtime-summary">
               <div>
@@ -632,8 +624,12 @@
                       commitLabel="bootstrap revision"
                       placement="inline"
                     />
-                  {:else}
-                    Current configuration
+                  {:else if runtimeRefreshing || runtimeRefresh?.status === "pending"}
+                    <CommunitySkeleton
+                      layout="details"
+                      label="Loading runtime details"
+                    />
+                  {:else}<p>Runtime details are unavailable.</p>
                   {/if}
                 </dd>
               </div>
@@ -1099,7 +1095,6 @@
     padding-top: 1rem;
   }
   .agent-profile__section-heading,
-  .agent-profile__section-actions,
   .agent-profile__memory-meta,
   .agent-profile__memory-actions,
   .agent-profile__tool-list {
@@ -1109,9 +1104,6 @@
   }
   .agent-profile__section-heading {
     justify-content: space-between;
-  }
-  .agent-profile__section-actions {
-    justify-content: flex-end;
   }
   .agent-profile__section-heading h3,
   .agent-profile__section-heading p,

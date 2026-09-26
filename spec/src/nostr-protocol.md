@@ -748,3 +748,35 @@ Nostr event kind, publication path, or signing requirement.
 ## Owner runtime resource telemetry
 
 An owner-encrypted `runtime_state` may include `resources` with a provider-shared scope, worker counts, retained sessions, and an RSS sample. Clients must validate the numeric fields and show missing, partial, or unavailable samples without interpreting missing RAM as zero.
+
+## Encrypted runtime snapshots
+
+Lapis kind `30180` is an agent-authored NIP-44 runtime snapshot with exact
+`p=<owner>`, `agent=<agent>` and `d=<owner>` tags. Kind `30181` is an
+owner-authored NIP-44 read-only runtime refresh request with exact
+`p=<agent>`, `agent=<agent>` and `d=<agent>` tags. These addressable events
+retain only the latest head per owner-agent pair. No channel tags are allowed.
+Current ownership gates publication, queries, live delivery and signing.
+They are excluded from full-text search and unauthorized counts.
+
+Encrypted version-1 requests carry a UUID `requestId`, `requestedAt` and
+`expiresAt` in milliseconds, exactly thirty seconds apart. Expiry is logical:
+the latest request remains stored to explain a timeout after reload. Snapshots
+carry `revision`, `observedAt`, `runtime` (last-good data or null), and optional
+`request` acknowledgement (`eventId`, `requestId`, `status` completed/error,
+optional sanitized `error`). Observation time refers to runtime sampling, not
+publication. Failures preserve last-good values and their observation time.
+Nostr replacement ordering is descending created_at, then ascending event ID.
+
+Requests are deduplicated and coalesced per agent. An initial cached catalog
+snapshot completes the request; later discovery enriches it. Expired requests
+are not started; late results may update the cache. Publication is serialized
+and coalesced to one snapshot per second, with persisted ordering. Older
+configuration generations cannot overwrite current state. Controls, progress
+and activity replay stay encrypted ephemeral kind `24200`; JJ durability is
+unchanged. Clients subscribe before reading heads, refresh on entry/manual
+action, preserve cached content and derive pending state from both heads.
+
+| ID           | Requirement                                                                                                                                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LC-NOSTR-042 | Runtime inspection MUST consume encrypted replaceable snapshot and request heads, retain cached data during asynchronous refresh, use thirty-second deadlines, reject stale updates, and refresh only on entry or explicit action. |

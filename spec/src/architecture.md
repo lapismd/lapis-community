@@ -952,3 +952,8 @@ a durable project Files route first.
 ## Agent runtime resource presentation
 
 Community validates optional provider resource telemetry in `src/community` before the agent profile renders it. The Runtime tab keeps process RAM separate from saved conversation-memory candidates; its profile component owns presentation only.
+
+LC-NOSTR-042 runtime administration and snapshot state have dedicated community
+modules. Profile refresh presentation has its own component. Controller, session,
+profile and application composition budgets shrink; bounded public contract and
+subscription additions update their path budgets under LC-ARCH-028.

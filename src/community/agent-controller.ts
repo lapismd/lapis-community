@@ -1,3 +1,5 @@
+import { AgentAdministration } from "./agent-administration.js";
+import { AgentRuntimeSnapshots } from "./agent-runtime-snapshot-client.js";
 import {
   applyAgentStatePatch,
   createActivitySyncSelection,
@@ -141,8 +143,13 @@ export class CommunityAgentsController {
     send: (agent, control) => this.#sendControl(agent, control),
     update: (turnControls) => this.#update({ turnControls }),
   });
-  #administrationSerial = 0;
-  #administrationRequests = new Map<string, AgentAdministrationRequest>();
+  readonly #administration = new AgentAdministration({
+    state: () => this.#state,
+    update: (patch) => this.#update(patch),
+    hasSnapshot: (agent) => this.#runtimeSnapshots.hasSnapshot(agent),
+    send: (agent, control) => this.#sendControl(agent, control),
+  });
+  readonly #runtimeSnapshots: AgentRuntimeSnapshots;
   #state: CommunityAgentsState;
 
   readonly actions: CommunityAgentsActions = {
@@ -392,31 +399,47 @@ export class CommunityAgentsController {
       });
     },
     loadProcessing: (pubkey) =>
-      this.#requestAdministration<CommunityAgentProcessingState>(
+      this.#administration.request<CommunityAgentProcessingState>(
         pubkey,
         { version: 2, command: "processing_get" },
         "processing_state",
       ),
     setProcessing: (pubkey, enabled, expectedRevision) =>
-      this.#requestAdministration<CommunityAgentProcessingState>(
+      this.#administration.request<CommunityAgentProcessingState>(
         pubkey,
         { version: 2, command: "processing_set", enabled, expectedRevision },
         "processing_state",
       ),
+    refreshRuntime: (pubkey) =>
+      this.#state.capabilities.runtimeSnapshots &&
+      this.#options.session.sendRuntimeRequest
+        ? this.#runtimeSnapshots.refresh(pubkey)
+        : this.#administration
+            .request<CommunityAgentRuntimeState>(
+              pubkey,
+              { version: 2, command: "runtime_get" },
+              "runtime_state",
+            )
+            .then(() => {}),
     loadRuntime: (pubkey) =>
-      this.#requestAdministration<CommunityAgentRuntimeState>(
-        pubkey,
-        { version: 2, command: "runtime_get" },
-        "runtime_state",
-      ),
+      this.#state.capabilities.runtimeSnapshots &&
+      this.#options.session.sendRuntimeRequest
+        ? this.#runtimeSnapshots.load(pubkey)
+        : this.#administration.request<CommunityAgentRuntimeState>(
+            pubkey,
+            { version: 2, command: "runtime_get" },
+            "runtime_state",
+          ),
     saveRuntime: (pubkey, defaults) =>
-      this.#requestAdministration<CommunityAgentRuntimeState>(
-        pubkey,
-        { version: 2, command: "runtime_set", ...defaults },
-        "runtime_state",
-      ).then((state) => confirmedRuntimeSettings(defaults, state)),
+      this.#administration
+        .request<CommunityAgentRuntimeState>(
+          pubkey,
+          { version: 2, command: "runtime_set", ...defaults },
+          "runtime_state",
+        )
+        .then((state) => confirmedRuntimeSettings(defaults, state)),
     loadMemories: (pubkey, channelId, filter = {}) =>
-      this.#requestAdministration<CommunityAgentMemoryState>(
+      this.#administration.request<CommunityAgentMemoryState>(
         pubkey,
         {
           version: 2,
@@ -427,7 +450,7 @@ export class CommunityAgentsController {
         "memory_state",
       ),
     actOnMemory: (pubkey, input) =>
-      this.#requestAdministration<CommunityAgentMemoryState>(
+      this.#administration.request<CommunityAgentMemoryState>(
         pubkey,
         { version: 2, command: "memory_action", ...input },
         "memory_state",
@@ -436,6 +459,36 @@ export class CommunityAgentsController {
 
   constructor(options: AgentControllerOptions) {
     this.#options = options;
+    this.#runtimeSnapshots = new AgentRuntimeSnapshots({
+      owner: options.scope.ownerPubkey,
+      now: () => this.#now() * 1000,
+      agent: (pubkey) =>
+        this.#state.agents.find((agent) => agent.pubkey === pubkey),
+      relay: () => this.#directory?.relayPubkey,
+      decrypt: (peer, content) => {
+        if (!options.identity.nip44) throw new Error("NIP-44 signer required");
+        return options.identity.nip44.decrypt(peer, content);
+      },
+      send: (agent, request) =>
+        options.session.sendRuntimeRequest!(agent, request, this.#abort.signal),
+      loadHeads: options.session.loadRuntimeHeads
+        ? (agent) =>
+            options.session.loadRuntimeHeads!(agent, this.#abort.signal)
+        : undefined,
+      legacy: (agent) =>
+        this.#administration.request<CommunityAgentRuntimeState>(
+          agent,
+          { version: 2, command: "runtime_get" },
+          "runtime_state",
+        ),
+      update: (agent, runtime, status) =>
+        this.#update({
+          ...(runtime
+            ? { runtime: { ...this.#state.runtime, [agent]: runtime } }
+            : {}),
+          runtimeRefresh: { ...this.#state.runtimeRefresh, [agent]: status },
+        }),
+    });
     this.#state = {
       status: "loading",
       agents: [],
@@ -452,6 +505,7 @@ export class CommunityAgentsController {
       pendingPermissions: {},
       processing: {},
       runtime: {},
+      runtimeRefresh: {},
       memories: {},
       partial: false,
       storageMode: options.storageMode(),
@@ -553,6 +607,16 @@ export class CommunityAgentsController {
       for (const key of this.#typingUntil.keys())
         if (!allowed.has(key)) this.#typingUntil.delete(key);
       this.#update({
+        runtime: Object.fromEntries(
+          Object.entries(this.#state.runtime ?? {}).filter(([key]) =>
+            directory.agents.some((agent) => agent.pubkey === key),
+          ),
+        ),
+        runtimeRefresh: Object.fromEntries(
+          Object.entries(this.#state.runtimeRefresh ?? {}).filter(([key]) =>
+            directory.agents.some((agent) => agent.pubkey === key),
+          ),
+        ),
         agents: directory.agents,
         publicAgents: directory.publicAgents ?? [],
         conversationScopes: Object.fromEntries(
@@ -587,6 +651,9 @@ export class CommunityAgentsController {
           ),
         ),
       });
+      this.#runtimeSnapshots.retain(
+        new Set(directory.agents.map((agent) => agent.pubkey)),
+      );
       const pubkeys = [...allowed].sort();
       const key = JSON.stringify([
         directory.relayPubkey,
@@ -676,6 +743,10 @@ export class CommunityAgentsController {
     if (this.#closed) return;
     const event = signedAgentEvent(input);
     if (!event) return;
+    if (event.kind === 30180 || event.kind === 30181) {
+      void this.#runtimeSnapshots.receive(event);
+      return;
+    }
     if (event.kind < 20_000 || event.kind >= 30_000) {
       if (!this.#metadataIds.has(event.id)) {
         this.#metadataIds.add(event.id);
@@ -894,7 +965,7 @@ export class CommunityAgentsController {
             return;
           }
           if (this.#turnControls.accept(event.pubkey, frame)) return;
-          if (this.#applyAdministrationFrame(event.pubkey, frame)) return;
+          if (this.#administration.apply(event.pubkey, frame)) return;
           this.#queueArchiveRecord(record);
           this.#cacheFrame(event.id, frame);
           this.#applyControllerFrame(event.pubkey, frame, undefined, live);
@@ -981,6 +1052,7 @@ export class CommunityAgentsController {
   }
 
   #tick(refresh = true): void {
+    this.#runtimeSnapshots.tick();
     if (this.#closed) return;
     const now = this.#now();
     let changed = false;
@@ -1570,152 +1642,6 @@ export class CommunityAgentsController {
       this.#decodedFrames.delete(this.#decodedFrames.keys().next().value!);
   }
 
-  async #requestAdministration<
-    T extends
-      | CommunityAgentRuntimeState
-      | CommunityAgentMemoryState
-      | CommunityAgentProcessingState,
-  >(
-    agentPubkey: string,
-    control: AgentAdministrationControl,
-    responseKind: AgentAdministrationRequest["responseKind"],
-  ): Promise<T> {
-    const requestId = `community-admin-${++this.#administrationSerial}-${Date.now().toString(36)}`;
-    const result = new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(
-        () => {
-          this.#administrationRequests.delete(requestId);
-          reject(
-            new Error(
-              responseKind === "processing_state"
-                ? "The agent controller did not acknowledge this request within thirty seconds"
-                : "The agent controller did not respond within ten seconds",
-            ),
-          );
-        },
-        responseKind === "processing_state" ? 30_000 : 10_000,
-      );
-      this.#administrationRequests.set(requestId, {
-        agentPubkey,
-        responseKind,
-        resolve: (value) => resolve(value as T),
-        reject,
-        timer,
-      });
-    });
-    try {
-      await this.#sendControl(agentPubkey, {
-        ...control,
-        requestId,
-      } as CommunityAgentControl);
-    } catch (cause) {
-      const request = this.#administrationRequests.get(requestId);
-      if (request) {
-        clearTimeout(request.timer);
-        this.#administrationRequests.delete(requestId);
-        request.reject(
-          cause instanceof Error ? cause : new Error(String(cause)),
-        );
-      }
-    }
-    return result;
-  }
-
-  #applyAdministrationFrame(
-    agentPubkey: string,
-    frame: CommunityAgentObserver,
-  ): boolean {
-    if (
-      frame.kind !== "processing_state" &&
-      frame.kind !== "runtime_state" &&
-      frame.kind !== "memory_state" &&
-      frame.kind !== "administration_error"
-    )
-      return false;
-    const payload = observerRecord(frame.payload);
-    const requestId = observerText(payload?.requestId, 128);
-    const responseKind =
-      frame.kind === "administration_error"
-        ? observerText(payload?.responseKind, 32)
-        : frame.kind;
-    const request = requestId
-      ? this.#administrationRequests.get(requestId)
-      : undefined;
-    if (
-      !request ||
-      request.agentPubkey !== agentPubkey ||
-      request.responseKind !== responseKind
-    ) {
-      const runtime = lateRuntimeState(
-        this.#state.runtime,
-        agentPubkey,
-        frame.kind,
-        payload,
-      );
-      if (runtime) this.#update({ runtime });
-      return true;
-    }
-    clearTimeout(request.timer);
-    this.#administrationRequests.delete(requestId);
-    if (frame.kind === "administration_error") {
-      request.reject(
-        new Error(
-          observerText(payload?.message, 512) ??
-            "The agent controller could not complete this request",
-        ),
-      );
-      return true;
-    }
-    const value =
-      frame.kind === "runtime_state"
-        ? parseRuntimeState(payload)
-        : frame.kind === "processing_state"
-          ? parseProcessingState(payload)
-          : parseMemoryState(payload);
-    if (!value) {
-      request.reject(
-        new Error("The agent controller returned invalid administration data"),
-      );
-      return true;
-    }
-    if (frame.kind === "processing_state") {
-      const processing = value as CommunityAgentProcessingState;
-      const previous = this.#state.processing?.[agentPubkey];
-      if (previous && processing.revision < previous.revision) {
-        request.reject(new Error("The processing acknowledgement is stale"));
-        return true;
-      }
-      this.#update({
-        processing: { ...this.#state.processing, [agentPubkey]: processing },
-      });
-      if (processing.applied === false || processing.status === "error") {
-        request.reject(
-          new Error(
-            processing.error ??
-              "The controller did not apply the processing change",
-          ),
-        );
-        return true;
-      }
-    } else if (frame.kind === "runtime_state") {
-      this.#update({
-        runtime: {
-          ...(this.#state.runtime ?? {}),
-          [agentPubkey]: value as CommunityAgentRuntimeState,
-        },
-      });
-    } else {
-      this.#update({
-        memories: {
-          ...(this.#state.memories ?? {}),
-          [agentPubkey]: value as CommunityAgentMemoryState,
-        },
-      });
-    }
-    request.resolve(value);
-    return true;
-  }
-
   #mergeActivity(
     items: readonly CommunityAgentActivityItem[],
     older = false,
@@ -1781,11 +1707,8 @@ export class CommunityAgentsController {
     this.#subscribedPubkeys.clear();
     if (this.#timer) clearInterval(this.#timer);
     if (this.#refreshTimer) clearTimeout(this.#refreshTimer);
-    for (const request of this.#administrationRequests.values()) {
-      clearTimeout(request.timer);
-      request.reject(new Error("Agent administration was cancelled"));
-    }
-    this.#administrationRequests.clear();
+    this.#administration.dispose();
+    this.#runtimeSnapshots.dispose();
     this.#unknownFrames = [];
     this.#workingUntil.clear();
     this.#frames.sequences.clear();
@@ -1807,6 +1730,7 @@ export class CommunityAgentsController {
       pendingPermissions: {},
       processing: {},
       runtime: {},
+      runtimeRefresh: {},
       memories: {},
     };
     void this.#flushArchive();

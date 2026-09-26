@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { agentProfileRuntimeState } from "../../community/agent-profile-runtime-state.js";
   import { provideApplicationNotifications } from "./application-notifications.svelte.js";
   import { agentRuntimeActions } from "../community-agent-activity/runtime-actions.js";
   import { createMessageReactionAction } from "./message-reaction-action.js";
@@ -8174,15 +8175,11 @@
                       )}
                     onDeletePersona={(slug) =>
                       community.actions.agents!.deletePersona(slug)}
-                    runtime={community.state.agents?.runtime?.[
-                      selectedAgent.pubkey
-                    ]}
-                    memories={community.state.agents?.memories?.[
-                      selectedAgent.pubkey
-                    ]}
-                    processing={community.state.agents?.processing?.[
-                      selectedAgent.pubkey
-                    ]}
+                    {...agentProfileRuntimeState(
+                      community.state.agents,
+                      community.actions.agents,
+                      selectedAgent.pubkey,
+                    )}
                     onLoadProcessing={community.actions.agents?.loadProcessing
                       ? () =>
                           community.actions.agents!.loadProcessing!(

@@ -1,3 +1,4 @@
+import type { RuntimeAgentActions } from "./agent-runtime-actions.js";
 import type { AgentActivityFreshnessState } from "./activity-freshness.js";
 import type { CommunityAgentPermissionRequest } from "./agent-permission-contracts.js";
 import type { AgentPermissionNotice } from "./agent-permission-notices.js";
@@ -129,6 +130,7 @@ export interface CommunityAgentCapabilities {
   directory: boolean;
   presence: boolean;
   activity: boolean;
+  runtimeSnapshots?: boolean;
   managedAgents?: CommunityManagedAgentCapability;
 }
 
@@ -165,6 +167,15 @@ export interface CommunityAgentObserver {
 }
 
 export interface CommunityAgentSession {
+  loadRuntimeHeads?(
+    agent: string,
+    signal?: AbortSignal,
+  ): Promise<readonly NostrEvent[]>;
+  sendRuntimeRequest?(
+    agent: string,
+    request: import("./agent-runtime-snapshot-protocol.js").RuntimeRefreshRequest,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent>;
   loadDirectory(signal?: AbortSignal): Promise<CommunityAgentDirectory>;
   loadPresence(
     pubkeys: readonly string[],
@@ -503,6 +514,12 @@ export interface CommunityAgentsState extends AgentActivityFreshnessState {
     Record<string, readonly CommunityAgentPermissionRequest[]>
   >;
   runtime?: Readonly<Record<string, CommunityAgentRuntimeState>>;
+  runtimeRefresh?: Readonly<
+    Record<
+      string,
+      import("./agent-runtime-snapshot-protocol.js").CommunityRuntimeRefreshState
+    >
+  >;
   processing?: Readonly<Record<string, CommunityAgentProcessingState>>;
   memories?: Readonly<Record<string, CommunityAgentMemoryState>>;
   partial: boolean;
@@ -517,7 +534,9 @@ export interface CommunityAgentsState extends AgentActivityFreshnessState {
   hasOlder: boolean;
 }
 
-export interface CommunityAgentsActions extends AgentTurnActions {
+export interface CommunityAgentsActions
+  extends AgentTurnActions,
+    RuntimeAgentActions {
   takePermissionNotifications?(): readonly AgentPermissionNotice[];
   refresh(): Promise<void>;
   registerAgent(pubkey: string): Promise<void>;
@@ -558,26 +577,4 @@ export interface CommunityAgentsActions extends AgentTurnActions {
     enabled: boolean,
     expectedRevision: number,
   ): Promise<CommunityAgentProcessingState>;
-  loadRuntime(pubkey: string): Promise<CommunityAgentRuntimeState>;
-  saveRuntime(
-    pubkey: string,
-    defaults: import("./agent-runtime-set.js").CommunityAgentRuntimeSettings,
-  ): Promise<CommunityAgentRuntimeState>;
-  loadMemories(
-    pubkey: string,
-    channelId: string,
-    filter?: {
-      status?: "approved" | "review" | "rejected" | "retracted";
-      query?: string;
-    },
-  ): Promise<CommunityAgentMemoryState>;
-  actOnMemory(
-    pubkey: string,
-    input: {
-      channelId: string;
-      action: "approve" | "reject" | "retract";
-      candidateId?: string;
-      memoryId?: string;
-    },
-  ): Promise<CommunityAgentMemoryState>;
 }

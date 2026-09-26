@@ -1239,3 +1239,7 @@ Replay order and duplicate relay deliveries MUST NOT change this chronology.
 A successful awaited composer submission MAY close its owning reply target.
 The composer MUST stop reading or updating component state after it is destroyed;
 any already submitted persistent draft cleanup retains its captured draft key.
+
+Runtime profiles display the last snapshot and its observation time while a
+refresh is pending or timed out. Refresh status is independent of form actions;
+late snapshots update the shared state without clearing existing content.

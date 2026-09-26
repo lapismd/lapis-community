@@ -384,3 +384,7 @@ materialization when they default to a channel-bound repository.
 ## Runtime telemetry isolation
 
 The Community architecture baseline includes runtime telemetry parser and profile modules. These modules do not participate in registry release materialization, quorum evaluation, or publishing.
+
+For LC-NOSTR-042, the architecture manifest records the extracted runtime
+administration and snapshot owners, smaller composition modules, and the bounded
+subscription addition. No registry materialization behavior changes.

@@ -1,3 +1,8 @@
+import {
+  eventTemplate,
+  managedAgentCapability,
+} from "./agent-managed-capability.js";
+import { sendAgentControl } from "./agent-control-send.js";
 import { subscribeAgentEvents } from "./agent-event-subscription.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
@@ -135,6 +140,7 @@ class AgentSession implements CommunityAgentSession {
       self?: unknown;
       supported_nips?: unknown;
       lapis_managed_agents?: unknown;
+      lapis_runtime_snapshots?: unknown;
     };
     signal?.throwIfAborted();
     const nips = Array.isArray(info.supported_nips) ? info.supported_nips : [];
@@ -153,6 +159,9 @@ class AgentSession implements CommunityAgentSession {
       self: validSelf ? (info.self as string) : "",
       capabilities: {
         directory,
+        ...(directory && info.lapis_runtime_snapshots === 1
+          ? { runtimeSnapshots: true }
+          : {}),
         presence: directory,
         activity: directory && (nips.includes("AO") || nips.includes(16)),
         ...(managedAgents ? { managedAgents } : {}),
@@ -1254,80 +1263,75 @@ class AgentSession implements CommunityAgentSession {
     };
   }
 
-  async sendControl(
-    agentPubkey: string,
-    control: CommunityAgentControl,
+  async loadRuntimeHeads(
+    agent: string,
+    signal?: AbortSignal,
+  ): Promise<readonly NostrEvent[]> {
+    const owner = await this.#options.identity.getPublicKey();
+    return this.#query(
+      [
+        {
+          kinds: [30180],
+          authors: [agent],
+          "#d": [owner],
+          "#p": [owner],
+          limit: 1,
+        },
+        {
+          kinds: [30181],
+          authors: [owner],
+          "#d": [agent],
+          "#p": [agent],
+          limit: 1,
+        },
+      ],
+      signal,
+    );
+  }
+  async sendRuntimeRequest(
+    agent: string,
+    request: import("./agent-runtime-snapshot-protocol.js").RuntimeRefreshRequest,
     signal?: AbortSignal,
   ): Promise<NostrEvent> {
-    signal?.throwIfAborted();
-    if (!AGENT_PUBKEY.test(agentPubkey))
-      throw new Error("Agent control requires a valid public key");
-    const owner = await this.#options.identity.getPublicKey();
-    if (owner === agentPubkey)
-      throw new Error("Agent control requires a distinct managed identity");
-    const nip44 = this.#options.identity.nip44;
-    if (!nip44)
-      throw new Error("Agent control requires a signer with NIP-44 support");
-    validateAgentControl(control);
-    const channelId = "channelId" in control ? control.channelId : undefined;
-    const content = await nip44.encrypt(agentPubkey, JSON.stringify(control));
-    signal?.throwIfAborted();
+    if (!AGENT_PUBKEY.test(agent) || !this.#options.identity.nip44)
+      throw new Error("Runtime refresh requires an agent and NIP-44 signer");
+    const content = await this.#options.identity.nip44.encrypt(
+      agent,
+      JSON.stringify(request),
+    );
     const event = await this.#sign(
       {
-        kind: 24_200,
-        created_at: this.#now(),
+        kind: 30181,
+        created_at: Math.floor(request.requestedAt / 1000),
         tags: [
-          ["p", agentPubkey],
-          ["agent", agentPubkey],
-          ["frame", "control"],
-          ...(channelId ? [["h", channelId]] : []),
+          ["p", agent],
+          ["agent", agent],
+          ["d", agent],
         ],
         content,
       },
       signal,
     );
-    await this.#publish(event, "agent control", signal);
+    await this.#publish(event, "runtime refresh", signal);
     return event;
   }
-}
 
-function managedAgentCapability(
-  input: unknown,
-  relayHttpUrl: URL,
-  relayPubkey: string,
-  supportedNips: unknown[],
-): CommunityManagedAgentCapability | undefined {
-  if (!input || typeof input !== "object" || Array.isArray(input)) return;
-  const value = input as Record<string, unknown>;
-  if (
-    value.version !== 1 ||
-    value.authorization_type !== "lapis-managed-v1" ||
-    value.relay_pubkey !== relayPubkey ||
-    !supportedNips.some((nip) => String(nip) === "46") ||
-    typeof value.provisioning_url !== "string" ||
-    typeof value.bunker_url !== "string"
-  )
-    return;
-  try {
-    const provisioning = new URL(value.provisioning_url);
-    const bunker = new URL(value.bunker_url);
-    if (
-      provisioning.origin !== relayHttpUrl.origin ||
-      provisioning.pathname.replace(/\/$/u, "") !== "/api/agents/managed" ||
-      (bunker.protocol !== "wss:" && bunker.protocol !== "ws:") ||
-      bunker.host !== relayHttpUrl.host ||
-      bunker.pathname.replace(/\/$/u, "") !== "/nip46"
-    )
-      return;
-    return {
-      version: 1,
-      provisioningUrl: provisioning.toString().replace(/\/$/u, ""),
-      bunkerUrl: bunker.toString().replace(/\/$/u, ""),
-      relayPubkey,
-      authorizationType: "lapis-managed-v1",
-    };
-  } catch {
-    return;
+  sendControl(
+    agent: string,
+    control: CommunityAgentControl,
+    signal?: AbortSignal,
+  ): Promise<NostrEvent> {
+    return sendAgentControl(
+      {
+        identity: this.#options.identity,
+        now: () => this.#now(),
+        sign: (value, signal) => this.#sign(value, signal),
+        publish: (event, label, signal) => this.#publish(event, label, signal),
+      },
+      agent,
+      control,
+      signal,
+    );
   }
 }
 
@@ -1349,21 +1353,6 @@ function managedAgentRecord(input: unknown): input is ManagedAgentRecord {
     typeof value.created_at === "string" &&
     typeof value.expires_at === "string" &&
     (value.activated_at === undefined || typeof value.activated_at === "string")
-  );
-}
-
-function eventTemplate(input: unknown): input is NostrEventTemplate {
-  if (!input || typeof input !== "object" || Array.isArray(input)) return false;
-  const value = input as Record<string, unknown>;
-  return (
-    value.kind === 0 &&
-    typeof value.created_at === "number" &&
-    typeof value.content === "string" &&
-    Array.isArray(value.tags) &&
-    value.tags.every(
-      (tag) =>
-        Array.isArray(tag) && tag.every((item) => typeof item === "string"),
-    )
   );
 }
 
