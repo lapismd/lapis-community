@@ -216,19 +216,71 @@
     await expect(
       await canvas.findByRole("button", { name: "Collapse Logo" }),
     ).toBeVisible();
-
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Add screenshot" }),
+    const gallery = canvasElement.querySelector<HTMLElement>(
+      '[data-ui-part="registry-release-gallery"]',
     );
+    const galleryBody = gallery?.closest<HTMLElement>(
+      ".registry-release-media-section__body",
+    );
+    const galleryPreview = gallery?.querySelector<HTMLElement>(
+      ".registry-release-gallery__preview",
+    );
+    if (
+      gallery === null ||
+      gallery === undefined ||
+      galleryBody === null ||
+      galleryBody === undefined ||
+      galleryPreview === null ||
+      galleryPreview === undefined
+    ) {
+      throw new Error("Expected screenshot gallery chrome");
+    }
+    await expect(getComputedStyle(galleryBody).borderBlockStartWidth).toBe(
+      "0px",
+    );
+    await expect(getComputedStyle(galleryPreview).borderBlockStartStyle).toBe(
+      "solid",
+    );
+    await expect(
+      canvasElement.querySelectorAll(
+        '[data-ui-part="registry-release-gallery-card"]',
+      ),
+    ).toHaveLength(1);
+    const addScreenshot = canvas.getByRole("button", {
+      name: "Add screenshot",
+    });
+    await expect(getComputedStyle(addScreenshot).borderBlockStartStyle).toBe(
+      "dashed",
+    );
+
+    await userEvent.click(addScreenshot);
     await expect(await canvas.findByText("3 screenshots")).toBeVisible();
+    await expect(
+      canvasElement.querySelectorAll(
+        '[data-ui-part="registry-release-gallery-card"]',
+      ),
+    ).toHaveLength(1);
     const newAlt = canvas.getByLabelText("Screenshot 3 alt text");
     await userEvent.clear(newAlt);
     await userEvent.type(newAlt, "Command palette screenshot");
     await userEvent.click(
-      canvas.getByRole("button", { name: "Move screenshot 3 left" }),
+      canvas.getByRole("tab", { name: /Light/u }),
     );
     await userEvent.click(
-      canvas.getByRole("button", { name: "Remove screenshot 1" }),
+      canvas.getByRole("button", { name: "Add Light image" }),
+    );
+    await userEvent.type(
+      canvas.getByLabelText("Screenshot 3 Light image URL"),
+      "https://example.com/screenshots/light.webp",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Previous screenshot" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Previous screenshot" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Delete screenshot 1" }),
     );
     await expect(await canvas.findByText("2 screenshots")).toBeVisible();
 
@@ -248,9 +300,21 @@
     const saved = lastSavedDraft();
     await expect(saved.plugin.name).toBe("Bases Lab");
     await expect(saved.media.gallery).toHaveLength(2);
-    await expect(saved.media.gallery[0]?.alt).toBe(
-      "Command palette screenshot",
-    );
+    await expect(
+      saved.media.gallery.some(
+        (item) => item.alt === "Command palette screenshot",
+      ),
+    ).toBe(true);
+    await expect(
+      saved.media.gallery.find(
+        (item) => item.alt === "Command palette screenshot",
+      )?.images.light?.url,
+    ).toBe("https://example.com/screenshots/light.webp");
+    await expect(
+      saved.media.gallery.find(
+        (item) => item.alt === "Command palette screenshot",
+      )?.images.full,
+    ).not.toBeNull();
     await expect(saved.evidence.artifactSha256).toBe("0".repeat(64));
 
     await userEvent.click(canvas.getByRole("button", { name: "Cancel" }));

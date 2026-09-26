@@ -24,9 +24,15 @@ export interface RegistryReleaseMediaReferenceDraft {
   height: string;
 }
 
-export interface RegistryReleaseGalleryItemDraft
-  extends RegistryReleaseMediaReferenceDraft {
+export type RegistryReleaseGalleryVariant = "light" | "dark" | "full";
+
+export interface RegistryReleaseGalleryItemDraft {
   id: string;
+  alt: string;
+  images: Record<
+    RegistryReleaseGalleryVariant,
+    RegistryReleaseMediaReferenceDraft | null
+  >;
 }
 
 export interface RegistryReleaseEditDraft {
@@ -200,9 +206,15 @@ export function createBlankMediaReference(
 export function createBlankGalleryItem(
   count: number,
 ): RegistryReleaseGalleryItemDraft {
+  const alt = `Screenshot ${count + 1}`;
   return {
     id: `screenshot-${count + 1}`,
-    ...createBlankMediaReference(`Screenshot ${count + 1}`),
+    alt,
+    images: {
+      light: null,
+      dark: null,
+      full: createBlankMediaReference(alt),
+    },
   };
 }
 
@@ -230,7 +242,12 @@ function galleryDraft(
 ): RegistryReleaseGalleryItemDraft {
   return {
     id: item.id,
-    ...imageDraft(item.images.preview, item.alt),
+    alt: item.alt,
+    images: {
+      light: imageDraft(item.images.light, item.alt),
+      dark: imageDraft(item.images.dark, item.alt),
+      full: imageDraft(item.images.full, item.alt),
+    },
   };
 }
 

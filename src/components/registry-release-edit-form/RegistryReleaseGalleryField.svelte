@@ -8,70 +8,128 @@
 
   import type { RegisteredFormRendererProps } from "@lapismd/design-core/forms";
 
+  import {
+    galleryNumberFieldOptions,
+    galleryTextFieldOptions,
+    galleryVariantFor,
+    galleryVariantLabel,
+    galleryVariantOptions,
+    mapGalleryImages,
+    nextGalleryItemCount,
+    type GalleryImageField,
+  } from "./gallery-field-model.js";
   import type { RegistryReleaseEditDraft } from "./model.js";
   import {
     createBlankGalleryItem,
+    createBlankMediaReference,
     type RegistryReleaseGalleryItemDraft,
+    type RegistryReleaseGalleryVariant,
   } from "./model.js";
   import "./RegistryReleaseGalleryField.css";
 
-  type Props = RegisteredFormRendererProps<
-    "registry-gallery",
-    RegistryReleaseEditDraft
-  > & {
+  type Props = RegisteredFormRendererProps<"registry-gallery", RegistryReleaseEditDraft> & {
     sectioned?: boolean;
   };
 
-  let {
-    value = [],
-    field,
-    readonly = false,
-    update,
-    sectioned = false,
-  }: Props = $props();
-
+  let { value = [], field, readonly = false, update, sectioned = false }: Props =
+    $props();
+  let activeIndex = $state(0);
+  let activeVariants = $state<Record<string, RegistryReleaseGalleryVariant>>({});
   const items = $derived(Array.isArray(value) ? value : []);
   const addLabel = $derived(field.addLabel ?? "Add screenshot");
+  const activeItem = $derived(items[activeIndex] ?? null);
+  const activeVariant = $derived(
+    activeItem === null
+      ? "full"
+      : galleryVariantFor(activeItem, activeVariants[activeItem.id]),
+  );
+  const activeImage = $derived(activeItem?.images[activeVariant] ?? null);
+  const activeVariantLabel = $derived(galleryVariantLabel(activeVariant));
+
+  $effect(() => {
+    if (items.length === 0) activeIndex = 0;
+    else if (activeIndex >= items.length) activeIndex = items.length - 1;
+  });
 
   function commit(next: RegistryReleaseGalleryItemDraft[]): void {
-    if (readonly) return;
-    void update(next);
+    if (!readonly) void update(next);
   }
 
-  function updateItem(
+  function selectVariant(variant: RegistryReleaseGalleryVariant): void {
+    if (!activeItem) return;
+    activeVariants = { ...activeVariants, [activeItem.id]: variant };
+  }
+
+  function updateItem(index: number, nextItem: RegistryReleaseGalleryItemDraft): void {
+    const next = [...items];
+    if (!next[index]) return;
+    next[index] = nextItem;
+    commit(next);
+  }
+
+  function updateAlt(index: number, alt: string): void {
+    const item = items[index];
+    if (!item) return;
+    updateItem(index, {
+      ...item,
+      alt,
+      images: mapGalleryImages(item, (image) => ({ ...image, alt })),
+    });
+  }
+
+  function updateImageField(
     index: number,
-    key: keyof RegistryReleaseGalleryItemDraft,
+    variant: RegistryReleaseGalleryVariant,
+    key: GalleryImageField,
     nextValue: string,
   ): void {
-    const next = [...items];
-    const item = next[index];
-    if (!item) return;
-    next[index] = { ...item, [key]: nextValue };
-    commit(next);
+    const item = items[index];
+    const image = item?.images[variant];
+    if (!item || !image) return;
+    updateItem(index, {
+      ...item,
+      images: { ...item.images, [variant]: { ...image, [key]: nextValue } },
+    });
   }
 
   function addItem(): void {
-    commit([...items, createBlankGalleryItem(items.length)]);
+    const item = createBlankGalleryItem(nextGalleryItemCount(items));
+    commit([...items, item]);
+    activeIndex = items.length;
+    activeVariants = { ...activeVariants, [item.id]: "full" };
   }
 
-  function moveItem(index: number, direction: -1 | 1): void {
-    const target = index + direction;
-    if (target < 0 || target >= items.length) return;
-    const next = [...items];
-    [next[index], next[target]] = [next[target]!, next[index]!];
-    commit(next);
+  function cycleItem(direction: -1 | 1): void {
+    if (items.length > 1)
+      activeIndex = (activeIndex + direction + items.length) % items.length;
   }
 
   function removeItem(index: number): void {
+    const item = items[index];
+    if (!item) return;
     commit(items.filter((_, itemIndex) => itemIndex !== index));
+    const { [item.id]: _removed, ...remainingVariants } = activeVariants;
+    activeVariants = remainingVariants;
+    activeIndex = Math.max(0, Math.min(index, items.length - 2));
+  }
+
+  function addVariant(index: number, variant: RegistryReleaseGalleryVariant): void {
+    const item = items[index];
+    if (!item) return;
+    updateItem(index, {
+      ...item,
+      images: {
+        ...item.images,
+        [variant]: createBlankMediaReference(
+          item.alt || `Screenshot ${index + 1}`,
+        ),
+      },
+    });
+    selectVariant(variant);
   }
 </script>
 
-<section
-  class="registry-release-gallery"
-  data-ui-part="registry-release-gallery"
-  aria-label={field.label}
->
+<section class="registry-release-gallery" data-ui-part="registry-release-gallery" aria-label={field.label}>
   <div class="registry-release-gallery__header">
     <div>
       {#if !sectioned}
@@ -81,8 +139,9 @@
     </div>
     <Button
       type="button"
-      variant="outline"
+      variant="ghost"
       size="sm"
+      class="registry-release-gallery__add"
       disabled={readonly}
       onclick={addItem}
     >
@@ -91,132 +150,142 @@
     </Button>
   </div>
 
-  {#if items.length}
-    <ul class="registry-release-gallery__rail">
-      {#each items as item, index (item.id)}
-        <li class="registry-release-gallery__item">
-          <div class="registry-release-gallery__preview">
-            {#if item.url}
-              <img src={item.url} alt="" loading="lazy" />
-            {:else}
+  {#if activeItem}
+    <article class="registry-release-gallery__card" data-ui-part="registry-release-gallery-card">
+      <div class="registry-release-gallery__card-header">
+        <div class="registry-release-gallery__pager">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Previous screenshot"
+            disabled={items.length <= 1}
+            onclick={() => cycleItem(-1)}
+          >
+            <ArrowLeftIcon aria-hidden="true" />
+          </Button>
+          <span>{activeIndex + 1} of {items.length}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Next screenshot"
+            disabled={items.length <= 1}
+            onclick={() => cycleItem(1)}
+          >
+            <ArrowRightIcon aria-hidden="true" />
+          </Button>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Delete screenshot ${activeIndex + 1}`}
+          disabled={readonly}
+          onclick={() => removeItem(activeIndex)}
+        >
+          <TrashIcon aria-hidden="true" />
+        </Button>
+      </div>
+
+      <div class="registry-release-gallery__content">
+        <div class="registry-release-gallery__preview">
+          {#if activeImage?.url}
+            <img src={activeImage.url} alt="" loading="lazy" />
+          {:else}
+            <ImagePlusIcon aria-hidden="true" />
+          {/if}
+        </div>
+
+        <div class="registry-release-gallery__editor">
+          <label class="registry-release-gallery__field">
+            <span>Alt text</span>
+            <Input
+              value={activeItem.alt}
+              disabled={readonly}
+              aria-label={`Screenshot ${activeIndex + 1} alt text`}
+              oninput={(event) => updateAlt(activeIndex, event.currentTarget.value)}
+            />
+          </label>
+
+          <div
+            class="registry-release-gallery__variant-tabs"
+            role="tablist"
+            aria-label={`Screenshot ${activeIndex + 1} image types`}
+          >
+            {#each galleryVariantOptions as option (option.key)}
+              <button
+                type="button"
+                role="tab"
+                class:active={activeVariant === option.key}
+                aria-selected={activeVariant === option.key}
+                onclick={() => selectVariant(option.key)}
+              >
+                {option.label}
+                {#if activeItem.images[option.key] === null}
+                  <span>Missing</span>
+                {/if}
+              </button>
+            {/each}
+          </div>
+
+          {#if activeImage}
+            <div class="registry-release-gallery__fields" role="tabpanel" aria-label={`${activeVariantLabel} screenshot fields`}>
+              {#each galleryTextFieldOptions as option (option.key)}
+                <label class="registry-release-gallery__field">
+                  <span>{option.label}</span>
+                  <Input
+                    value={activeImage[option.key]}
+                    disabled={readonly}
+                    aria-label={`Screenshot ${activeIndex + 1} ${activeVariantLabel} ${option.ariaLabel}`}
+                    oninput={(event) => updateImageField(
+                      activeIndex,
+                      activeVariant,
+                      option.key,
+                      event.currentTarget.value,
+                    )}
+                  />
+                </label>
+              {/each}
+              <div class="registry-release-gallery__numbers">
+                {#each galleryNumberFieldOptions as option (option.key)}
+                  <label class="registry-release-gallery__field">
+                    <span>{option.label}</span>
+                    <Input
+                      value={activeImage[option.key]}
+                      inputmode="numeric"
+                      disabled={readonly}
+                      aria-label={`Screenshot ${activeIndex + 1} ${activeVariantLabel} ${option.ariaLabel}`}
+                      oninput={(event) => updateImageField(
+                        activeIndex,
+                        activeVariant,
+                        option.key,
+                        event.currentTarget.value,
+                      )}
+                    />
+                  </label>
+                {/each}
+              </div>
+            </div>
+          {:else}
+            <div class="registry-release-gallery__missing">
               <ImagePlusIcon aria-hidden="true" />
-            {/if}
-          </div>
-          <div class="registry-release-gallery__item-header">
-            <strong>{item.alt || `Screenshot ${index + 1}`}</strong>
-            <div>
+              <span>{activeVariantLabel} image missing</span>
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-sm"
-                aria-label={`Move screenshot ${index + 1} left`}
-                disabled={readonly || index === 0}
-                onclick={() => moveItem(index, -1)}
-              >
-                <ArrowLeftIcon aria-hidden="true" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Move screenshot ${index + 1} right`}
-                disabled={readonly || index === items.length - 1}
-                onclick={() => moveItem(index, 1)}
-              >
-                <ArrowRightIcon aria-hidden="true" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Remove screenshot ${index + 1}`}
+                size="sm"
+                class="registry-release-gallery__add"
                 disabled={readonly}
-                onclick={() => removeItem(index)}
+                onclick={() => addVariant(activeIndex, activeVariant)}
               >
-                <TrashIcon aria-hidden="true" />
+                Add {activeVariantLabel} image
               </Button>
             </div>
-          </div>
-          <div class="registry-release-gallery__fields">
-            <label>
-              <span>Alt text</span>
-              <Input
-                value={item.alt}
-                disabled={readonly}
-                aria-label={`Screenshot ${index + 1} alt text`}
-                oninput={(event) =>
-                  updateItem(index, "alt", event.currentTarget.value)}
-              />
-            </label>
-            <label>
-              <span>Image URL</span>
-              <Input
-                value={item.url}
-                disabled={readonly}
-                aria-label={`Screenshot ${index + 1} image URL`}
-                oninput={(event) =>
-                  updateItem(index, "url", event.currentTarget.value)}
-              />
-            </label>
-            <label>
-              <span>Source URL</span>
-              <Input
-                value={item.sourceUrl}
-                disabled={readonly}
-                aria-label={`Screenshot ${index + 1} source URL`}
-                oninput={(event) =>
-                  updateItem(index, "sourceUrl", event.currentTarget.value)}
-              />
-            </label>
-            <label>
-              <span>SHA-256</span>
-              <Input
-                value={item.sha256}
-                disabled={readonly}
-                aria-label={`Screenshot ${index + 1} SHA-256`}
-                oninput={(event) =>
-                  updateItem(index, "sha256", event.currentTarget.value)}
-              />
-            </label>
-            <div class="registry-release-gallery__numbers">
-              <label>
-                <span>Size</span>
-                <Input
-                  value={item.size}
-                  inputmode="numeric"
-                  disabled={readonly}
-                  aria-label={`Screenshot ${index + 1} size bytes`}
-                  oninput={(event) =>
-                    updateItem(index, "size", event.currentTarget.value)}
-                />
-              </label>
-              <label>
-                <span>Width</span>
-                <Input
-                  value={item.width}
-                  inputmode="numeric"
-                  disabled={readonly}
-                  aria-label={`Screenshot ${index + 1} width`}
-                  oninput={(event) =>
-                    updateItem(index, "width", event.currentTarget.value)}
-                />
-              </label>
-              <label>
-                <span>Height</span>
-                <Input
-                  value={item.height}
-                  inputmode="numeric"
-                  disabled={readonly}
-                  aria-label={`Screenshot ${index + 1} height`}
-                  oninput={(event) =>
-                    updateItem(index, "height", event.currentTarget.value)}
-                />
-              </label>
-            </div>
-          </div>
-        </li>
-      {/each}
-    </ul>
+          {/if}
+        </div>
+      </div>
+    </article>
   {:else}
     <div class="registry-release-gallery__empty">
       <ImagePlusIcon aria-hidden="true" />

@@ -185,7 +185,9 @@
       onToggle={() => toggleSection("gallery")}
     />
     {#if sectionOpen("gallery")}
-      <div class="registry-release-media-section__body">
+      <div
+        class="registry-release-media-section__body registry-release-media-section__body--gallery"
+      >
         <RegistryReleaseGalleryField
           {root}
           value={value.gallery}

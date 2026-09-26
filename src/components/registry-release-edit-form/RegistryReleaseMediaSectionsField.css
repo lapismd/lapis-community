@@ -36,9 +36,20 @@
   background: var(--background);
 }
 
+.registry-release-media-section__body--gallery {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .registry-release-media-section__body
   > :where(.registry-release-media-reference, .registry-release-gallery) {
   padding: 1rem;
+}
+
+.registry-release-media-section__body--gallery > .registry-release-gallery {
+  padding: 0;
 }
 
 .registry-release-media-section .registry-release-media-section__title-row {
