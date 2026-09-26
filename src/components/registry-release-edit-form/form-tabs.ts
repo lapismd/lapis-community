@@ -9,10 +9,16 @@ import type { RegistryReleaseEditDraft } from "./model.js";
 
 export const registryReleaseEditTabs = [
   {
-    value: "listing",
-    label: "Listing",
-    groupIds: ["identity", "highlights"],
-    collapsibleGroupIds: ["identity", "highlights"],
+    value: "details",
+    label: "Details",
+    groupIds: ["identity"],
+    collapsibleGroupIds: [],
+  },
+  {
+    value: "highlights",
+    label: "Highlights",
+    groupIds: ["highlights"],
+    collapsibleGroupIds: [],
   },
   {
     value: "release",
@@ -30,7 +36,7 @@ export const registryReleaseEditTabs = [
     value: "media",
     label: "Media",
     groupIds: ["media"],
-    collapsibleGroupIds: ["media"],
+    collapsibleGroupIds: [],
   },
   {
     value: "evidence",
@@ -96,7 +102,7 @@ export function registryReleaseTabForPath(
       (tab) =>
         typeof field?.group === "string" &&
         (tab.groupIds as readonly string[]).includes(field.group),
-    )?.value ?? "listing"
+    )?.value ?? "details"
   );
 }
 

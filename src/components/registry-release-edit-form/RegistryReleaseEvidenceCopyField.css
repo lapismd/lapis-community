@@ -1,0 +1,47 @@
+.registry-release-evidence-copy {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  height: 1.4rem;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) * 0.7);
+  padding: 0 0.4rem;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.registry-release-evidence-copy code {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--community-text-secondary);
+  font-weight: 500;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.registry-release-evidence-copy [data-ui-part="copy-icon"] {
+  width: 0.625rem;
+  height: 0.625rem;
+  flex: 0 0 auto;
+}
+
+@media (hover: hover) {
+  .registry-release-evidence-copy:hover {
+    border-color: var(--border);
+    background: var(--muted);
+    box-shadow: none;
+  }
+}
+
+.registry-release-evidence-copy:focus-visible {
+  border-color: var(--ring);
+  background: var(--muted);
+  outline: none;
+}

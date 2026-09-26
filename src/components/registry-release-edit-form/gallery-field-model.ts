@@ -1,6 +1,7 @@
 import type {
   RegistryReleaseGalleryItemDraft,
   RegistryReleaseGalleryVariant,
+  RegistryReleaseImageSetDraft,
   RegistryReleaseMediaReferenceDraft,
 } from "./model.js";
 
@@ -42,7 +43,7 @@ export const galleryNumberFieldOptions: {
 ];
 
 export function galleryVariantFor(
-  item: RegistryReleaseGalleryItemDraft,
+  item: RegistryReleaseImageSetDraft,
   selected: RegistryReleaseGalleryVariant | undefined,
 ): RegistryReleaseGalleryVariant {
   if (selected) return selected;
@@ -64,11 +65,11 @@ export function galleryVariantLabel(
 }
 
 export function mapGalleryImages(
-  item: RegistryReleaseGalleryItemDraft,
+  item: RegistryReleaseImageSetDraft,
   map: (
     image: RegistryReleaseMediaReferenceDraft,
   ) => RegistryReleaseMediaReferenceDraft,
-): RegistryReleaseGalleryItemDraft["images"] {
+): RegistryReleaseImageSetDraft["images"] {
   return {
     light: item.images.light === null ? null : map(item.images.light),
     dark: item.images.dark === null ? null : map(item.images.dark),

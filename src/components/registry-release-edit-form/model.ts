@@ -26,13 +26,19 @@ export interface RegistryReleaseMediaReferenceDraft {
 
 export type RegistryReleaseGalleryVariant = "light" | "dark" | "full";
 
-export interface RegistryReleaseGalleryItemDraft {
-  id: string;
+export type RegistryReleaseImageVariantDrafts = Record<
+  RegistryReleaseGalleryVariant,
+  RegistryReleaseMediaReferenceDraft | null
+>;
+
+export interface RegistryReleaseImageSetDraft {
   alt: string;
-  images: Record<
-    RegistryReleaseGalleryVariant,
-    RegistryReleaseMediaReferenceDraft | null
-  >;
+  images: RegistryReleaseImageVariantDrafts;
+}
+
+export interface RegistryReleaseGalleryItemDraft
+  extends RegistryReleaseImageSetDraft {
+  id: string;
 }
 
 export interface RegistryReleaseEditDraft {
@@ -67,9 +73,9 @@ export interface RegistryReleaseEditDraft {
     changelog: RegistryMarkdownReferenceDraft;
   };
   media: {
-    logo: RegistryReleaseMediaReferenceDraft | null;
-    banner: RegistryReleaseMediaReferenceDraft | null;
-    overview: RegistryReleaseMediaReferenceDraft | null;
+    logo: RegistryReleaseImageSetDraft | null;
+    banner: RegistryReleaseImageSetDraft | null;
+    overview: RegistryReleaseImageSetDraft | null;
     gallery: RegistryReleaseGalleryItemDraft[];
   };
   evidence: {
@@ -165,10 +171,12 @@ export function draftFromResolvedDetail(
     },
     media: {
       logo: detail.appearance?.logo
-        ? imageDraft(detail.appearance.logo, detail.appearance.logo.alt)
+        ? imageSetDraft(detail.appearance.logo.alt, {
+            full: detail.appearance.logo,
+          })
         : null,
-      banner: mediaDraft(detail.media?.banner, "dark"),
-      overview: mediaDraft(detail.media?.overview, "preview"),
+      banner: mediaDraft(detail.media?.banner),
+      overview: mediaDraft(detail.media?.overview),
       gallery: (detail.gallery ?? []).map(galleryDraft),
     },
     evidence: {
@@ -209,12 +217,23 @@ export function createBlankGalleryItem(
   const alt = `Screenshot ${count + 1}`;
   return {
     id: `screenshot-${count + 1}`,
+    ...createBlankImageSet(alt, "full"),
+  };
+}
+
+export function createBlankImageSet(
+  alt: string,
+  initialVariant: RegistryReleaseGalleryVariant = "full",
+): RegistryReleaseImageSetDraft {
+  const images: RegistryReleaseImageVariantDrafts = {
+    light: null,
+    dark: null,
+    full: null,
+  };
+  images[initialVariant] = createBlankMediaReference(alt);
+  return {
     alt,
-    images: {
-      light: null,
-      dark: null,
-      full: createBlankMediaReference(alt),
-    },
+    images,
   };
 }
 
@@ -231,10 +250,13 @@ function markdownDraft(
 
 function mediaDraft(
   media: RegistryMediaItem | undefined,
-  mode: keyof RegistryMediaItem["images"],
-): RegistryReleaseMediaReferenceDraft | null {
+): RegistryReleaseImageSetDraft | null {
   if (!media) return null;
-  return imageDraft(media.images[mode], media.alt);
+  return imageSetDraft(media.alt, {
+    light: media.images.light,
+    dark: media.images.dark,
+    full: media.images.full,
+  });
 }
 
 function galleryDraft(
@@ -243,10 +265,26 @@ function galleryDraft(
   return {
     id: item.id,
     alt: item.alt,
+    images: imageSetDraft(item.alt, {
+      light: item.images.light,
+      dark: item.images.dark,
+      full: item.images.full,
+    }).images,
+  };
+}
+
+function imageSetDraft(
+  alt: string,
+  images: Partial<
+    Record<RegistryReleaseGalleryVariant, RegistryImageReference>
+  >,
+): RegistryReleaseImageSetDraft {
+  return {
+    alt,
     images: {
-      light: imageDraft(item.images.light, item.alt),
-      dark: imageDraft(item.images.dark, item.alt),
-      full: imageDraft(item.images.full, item.alt),
+      light: images.light ? imageDraft(images.light, alt) : null,
+      dark: images.dark ? imageDraft(images.dark, alt) : null,
+      full: images.full ? imageDraft(images.full, alt) : null,
     },
   };
 }

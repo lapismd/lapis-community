@@ -1,49 +1,82 @@
-.registry-release-media-sections {
+.registry-release-media-tabs {
   display: grid;
-  gap: 0.85rem;
   min-width: 0;
-  padding: 0;
 }
 
-.registry-release-media-section {
+.registry-release-media-tabs__surface {
   display: grid;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.registry-release-media-section > .cv-form-section-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.registry-release-media-section
-  > .cv-form-section-header
-  .cv-form-section-toggle {
-  position: static;
-  flex: none;
-  order: 2;
-  translate: none;
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.registry-release-media-section__body {
+  gap: 1rem;
   overflow: hidden;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--background);
-}
-
-.registry-release-media-section__body
-  > :where(.registry-release-media-reference, .registry-release-gallery) {
   padding: 1rem;
 }
 
-.registry-release-media-section .registry-release-media-section__title-row {
-  flex: 1 1 auto;
+.registry-release-media-tabs__list[data-slot="tabs-list"] {
+  justify-self: end;
+  max-width: calc(100% + 1rem);
+  height: auto;
+  margin-block-start: -1rem;
+  margin-inline-end: -1rem;
+  overflow-x: auto;
+  border-inline-start: 1px solid var(--border);
+  border-block-end: 1px solid var(--border);
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.registry-release-media-tabs__trigger[data-slot="tabs-trigger"] {
+  min-height: 1.55rem;
+  padding: 0.18rem 0.65rem;
+  font-family: inherit;
+  font-size: var(--community-text-secondary);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.registry-release-media-tabs__content {
   min-width: 0;
-  border-bottom: 0;
-  padding: 0;
+}
+
+.registry-release-media-tabs__panel {
+  min-width: 0;
+  outline: none;
+}
+
+.registry-release-media-tabs__empty {
+  display: grid;
+  min-height: 8rem;
+  place-items: center;
+  gap: 0.45rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: color-mix(in srgb, var(--muted) 24%, transparent);
+  color: var(--muted-foreground);
+  font-size: var(--community-text-secondary);
+}
+
+.registry-release-media-tabs__empty svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.registry-release-media-tabs__add[data-ui-component="button"] {
+  width: fit-content;
+  min-height: 2.25rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.75rem;
+  color: var(--muted-foreground);
+  font-size: var(--community-text-secondary);
+  font-weight: 500;
+}
+
+.registry-release-media-tabs__add[data-ui-component="button"]:hover,
+.registry-release-media-tabs__add[data-ui-component="button"]:focus-visible {
+  background: color-mix(in srgb, var(--muted) 40%, transparent);
+  color: var(--foreground);
 }

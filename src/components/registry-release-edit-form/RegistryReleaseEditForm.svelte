@@ -6,6 +6,7 @@
   } from "@lapismd/design-core/forms";
   import { createFormController } from "@lapismd/design-core/forms/core";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as ScrollArea from "@lapismd/design-core/shadcn/scroll-area";
   import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import SaveIcon from "@lucide/svelte/icons/save";
@@ -13,8 +14,14 @@
   import { tick, untrack } from "svelte";
 
   import type { RegistryResolvedDetail } from "../../registry/model.js";
+  import RegistryReleaseDateTimeField from "./RegistryReleaseDateTimeField.svelte";
+  import RegistryReleaseDescriptionField from "./RegistryReleaseDescriptionField.svelte";
+  import RegistryReleaseEditableShaField from "./RegistryReleaseEditableShaField.svelte";
+  import RegistryReleaseEvidenceCopyField from "./RegistryReleaseEvidenceCopyField.svelte";
   import RegistryReleaseGalleryField from "./RegistryReleaseGalleryField.svelte";
+  import RegistryReleaseHighlightsField from "./RegistryReleaseHighlightsField.svelte";
   import RegistryReleaseMediaSectionsField from "./RegistryReleaseMediaSectionsField.svelte";
+  import RegistryReleasePublisherIdentityField from "./RegistryReleasePublisherIdentityField.svelte";
   import "./RegistryReleaseEditForm.css";
   import {
     registryReleaseEditTabConfigs,
@@ -60,16 +67,44 @@
 
   let draft = $state<RegistryReleaseEditDraft>(untrack(createDraft));
   let saving = $state(false);
-  let activeTab = $state<RegistryReleaseEditTab>("listing");
+  let activeTab = $state<RegistryReleaseEditTab>("details");
   const controller = createFormController<RegistryReleaseEditDraft>({
     defaultValues: untrack(createDraft),
     validationMode: "onTouched",
   });
   const registry = createFormRendererRegistry();
+  registry.register("registry-description-composer", {
+    component: RegistryReleaseDescriptionField,
+    align: "start",
+    as: "div",
+  });
+  registry.register("registry-highlight-list", {
+    component: RegistryReleaseHighlightsField,
+    wrapper: "none",
+  });
+  registry.register("registry-copy-id", {
+    component: RegistryReleaseEvidenceCopyField,
+    align: "middle",
+    as: "div",
+  });
+  registry.register("registry-date-time", {
+    component: RegistryReleaseDateTimeField,
+    align: "center",
+    as: "div",
+  });
+  registry.register("registry-editable-sha", {
+    component: RegistryReleaseEditableShaField,
+    align: "center",
+    as: "div",
+  });
+  registry.register("registry-publisher-identity", {
+    component: RegistryReleasePublisherIdentityField,
+    align: "middle",
+    as: "div",
+  });
   registry.register("registry-media-sections", {
     component: RegistryReleaseMediaSectionsField,
     wrapper: "none",
-    props: { controller, disclosureGroup: "media" },
   });
   registry.register("registry-gallery", {
     component: RegistryReleaseGalleryField,
@@ -190,15 +225,24 @@
           class="registry-release-edit-form__tab-content"
         >
           {#if activeTab === tab.value}
-            <StructuredForm
-              value={draft}
-              config={activeTabConfig}
-              {controller}
-              {registry}
-              onChange={(next) => {
-                draft = next;
-              }}
-            />
+            <ScrollArea.Root
+              class="registry-release-edit-form__tab-scroll"
+              data-release-edit-tab={tab.value}
+              orientation="vertical"
+              type="always"
+            >
+              <div class="registry-release-edit-form__tab-scroll-content">
+                <StructuredForm
+                  value={draft}
+                  config={activeTabConfig}
+                  {controller}
+                  {registry}
+                  onChange={(next) => {
+                    draft = next;
+                  }}
+                />
+              </div>
+            </ScrollArea.Root>
           {/if}
         </Tabs.Content>
       {/each}

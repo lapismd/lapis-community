@@ -1,9 +1,12 @@
 .registry-release-edit-form {
   display: grid;
   min-width: 0;
+  max-height: calc(100dvh - 2rem);
   gap: 1.5rem;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   width: min(100%, 52rem);
   margin-inline: auto;
+  overflow: hidden;
   color: var(--foreground);
 }
 
@@ -21,22 +24,26 @@
   display: grid;
   gap: 1rem;
   min-width: 0;
+  min-height: 0;
 }
 
 .registry-release-edit-form__tabs {
   display: grid;
   min-width: 0;
+  min-height: 0;
   gap: 0.9rem;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .registry-release-edit-form__tab-list[data-slot="tabs-list"] {
   display: flex;
-  width: max-content;
+  width: 100%;
   max-width: 100%;
   height: auto;
+  flex-wrap: wrap;
   justify-content: flex-start;
   gap: 0.4rem;
-  overflow-x: auto;
+  overflow: visible;
   border-radius: 0;
   background: transparent;
   padding: 0;
@@ -71,10 +78,54 @@
 
 .registry-release-edit-form__tab-content {
   min-width: 0;
+  min-height: 0;
   outline: none;
 }
 
-.registry-release-edit-form__tab-content > .cv-structured-form {
+.registry-release-edit-form__tab-scroll {
+  --registry-release-edit-form-scroll-frame-radius: calc(
+    var(--radius) + 0.25rem
+  );
+
+  height: 100%;
+  min-height: 0;
+  overflow: visible !important;
+  border: 1px solid var(--border);
+  border-radius: var(--registry-release-edit-form-scroll-frame-radius);
+  background: var(--background);
+}
+
+.registry-release-edit-form__tab-scroll[data-release-edit-tab="highlights"] {
+  --registry-release-edit-form-scroll-frame-radius: 0px;
+
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.registry-release-edit-form__tab-scroll [data-ui-part="scroll-area-viewport"] {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden auto !important;
+  border-radius: inherit;
+}
+
+.registry-release-edit-form__tab-scroll
+  [data-ui-part="scroll-area-scrollbar"][data-orientation="vertical"] {
+  position: absolute;
+  top: var(--registry-release-edit-form-scroll-frame-radius) !important;
+  bottom: var(--registry-release-edit-form-scroll-frame-radius) !important;
+  inset-inline-end: 0;
+  height: auto !important;
+}
+
+.registry-release-edit-form__tab-scroll-content {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+
+.registry-release-edit-form__tab-scroll-content > .cv-structured-form {
   row-gap: 1rem;
 }
 
@@ -129,9 +180,9 @@
 
 .registry-release-edit-form__body .ui-configured-form-group__body {
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) + 0.25rem);
-  background: var(--background);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   row-gap: 0;
 }
 

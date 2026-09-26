@@ -1,0 +1,125 @@
+.registry-release-prose-composer {
+  --registry-release-prose-composer-min-height: 1.55em;
+
+  display: grid;
+  min-width: 0;
+  gap: 0.35rem;
+}
+
+.registry-release-prose-composer [data-ui-component="community-chat-composer"] {
+  --ui-ai-chat-composer-padding: 0;
+}
+
+.registry-release-prose-composer
+  [data-ui-component="ai-chat-composer"]
+  [data-ui-part="body"] {
+  gap: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.registry-release-prose-composer
+  [data-ui-component="ai-chat-composer"]
+  [data-ui-part="body"]:hover,
+.registry-release-prose-composer
+  [data-ui-component="ai-chat-composer"]
+  [data-ui-part="body"]:focus-within {
+  box-shadow: none;
+}
+
+.registry-release-prose-composer
+  [data-ui-component="ai-chat-composer"]
+  [data-ui-part="footer"] {
+  justify-content: flex-start;
+  overflow: hidden;
+  height: 0;
+  min-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.registry-release-prose-composer:focus-within
+  [data-ui-component="ai-chat-composer"]
+  [data-ui-part="footer"],
+.registry-release-prose-composer
+  [data-ui-component="community-chat-composer"][data-formatting-open]
+  [data-ui-component="ai-chat-composer"]
+  [data-ui-part="footer"],
+.registry-release-prose-composer
+  [data-ui-component="ai-chat-composer"]
+  [data-ui-part="footer"]:hover,
+.registry-release-prose-composer
+  [data-ui-component="ai-chat-composer"]
+  [data-ui-part="footer"]:focus-within,
+.registry-release-prose-composer
+  [data-ui-component="ai-chat-composer"]
+  [data-ui-part="footer"]:active {
+  overflow: visible;
+  height: auto;
+  min-height: 2rem;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.registry-release-prose-composer
+  [data-ui-component="ai-chat-composer"]
+  [data-ui-part="send-actions"] {
+  display: none;
+}
+
+.registry-release-prose-composer .community-chat-composer__toolbar-main {
+  margin-inline-start: -0.5rem;
+}
+
+.registry-release-prose-composer .community-chat-composer__editor-wrap {
+  padding-block-start: 0;
+}
+
+.registry-release-prose-composer
+  .community-chat-composer__editor-scroll-area[data-ui-component="scroll-area"],
+.registry-release-prose-composer
+  .community-chat-composer__editor-scroll-area
+  > [data-ui-part="scroll-area-viewport"] {
+  min-height: var(--registry-release-prose-composer-min-height);
+}
+
+.registry-release-prose-composer .community-chat-composer__mira.mira,
+.registry-release-prose-composer .community-chat-composer__mira.mira .cm-editor,
+.registry-release-prose-composer
+  .community-chat-composer__mira.mira
+  .mira__body,
+.registry-release-prose-composer
+  .community-chat-composer__mira.mira
+  .mira__pane,
+.registry-release-prose-composer
+  .community-chat-composer__mira.mira
+  .mira__editor-scroll,
+.registry-release-prose-composer
+  .community-chat-composer__mira.mira
+  .mira-code-editor {
+  min-height: var(--registry-release-prose-composer-min-height);
+  color: var(--ui-form-foreground) !important;
+}
+
+.registry-release-prose-composer
+  .community-chat-composer__mira.mira
+  .cm-content,
+.registry-release-prose-composer .community-chat-composer__mira.mira .cm-line,
+.registry-release-prose-composer
+  .community-chat-composer__mira.mira
+  .cm-placeholder {
+  padding: 0;
+}
+
+.registry-release-prose-composer
+  .community-chat-composer__mira.mira
+  .cm-content,
+.registry-release-prose-composer .community-chat-composer__mira.mira .cm-line {
+  color: var(--ui-form-foreground) !important;
+}
+
+.registry-release-prose-composer
+  .community-chat-composer__mira.mira
+  .cm-placeholder {
+  color: var(--ui-form-muted) !important;
+}

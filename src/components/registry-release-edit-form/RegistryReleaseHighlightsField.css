@@ -1,0 +1,116 @@
+.registry-release-highlights {
+  --registry-release-highlight-row-min-height: 1.625rem;
+
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.registry-release-highlights [data-ui-part="list-editor-items"] {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.25rem);
+  background: var(--background);
+}
+
+.registry-release-highlights
+  [data-ui-component="sortable-array-item"][data-ui-part="sortable-array-item"] {
+  --ui-sortable-array-item-focus-background: transparent;
+
+  min-height: var(--registry-release-highlight-row-min-height);
+  padding-block: 0;
+  padding-right: 2.15rem;
+}
+
+.registry-release-highlights
+  [data-ui-component="sortable-array-item"][data-ui-part="sortable-array-item"]:focus-within {
+  background: transparent;
+}
+
+.registry-release-highlights
+  [data-ui-component="sortable-array-item"][data-ui-part="sortable-array-item"]
+  [data-ui-component="button"].ui-sortable-array-item__remove {
+  right: 0.55rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 48%, var(--background));
+  color: var(--muted-foreground);
+}
+
+.registry-release-highlights
+  [data-ui-component="sortable-array-item"][data-ui-part="sortable-array-item"]
+  [data-ui-component="button"].ui-sortable-array-item__remove:hover,
+.registry-release-highlights
+  [data-ui-component="sortable-array-item"][data-ui-part="sortable-array-item"]
+  [data-ui-component="button"].ui-sortable-array-item__remove:focus-visible {
+  background: color-mix(in srgb, var(--foreground) 10%, var(--background));
+  color: var(--foreground);
+}
+
+.registry-release-highlights [data-ui-part="list-editor-header"] {
+  display: flex;
+  order: 2;
+  box-sizing: border-box;
+  width: 100%;
+  justify-content: flex-end;
+  min-height: auto;
+  border: 0;
+  padding: 0;
+}
+
+.registry-release-highlights .cv-control-action-row__label {
+  display: none;
+}
+
+.registry-release-highlights .cv-control-action-row__control {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.registry-release-highlights [data-ui-component="button"].ui-list-editor__add {
+  width: fit-content;
+  min-height: 2.25rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.75rem;
+  color: var(--muted-foreground);
+  font-size: var(--community-text-secondary);
+  font-weight: 500;
+}
+
+.registry-release-highlights
+  [data-ui-component="button"].ui-list-editor__add:hover,
+.registry-release-highlights
+  [data-ui-component="button"].ui-list-editor__add:focus-visible {
+  background: color-mix(in srgb, var(--muted) 40%, transparent);
+  color: var(--foreground);
+}
+
+.registry-release-highlights [data-ui-part="sortable-array-item-body"] {
+  display: grid;
+  min-width: 0;
+  min-height: var(--registry-release-highlight-row-min-height);
+  align-items: center;
+}
+
+.registry-release-highlights
+  [data-ui-part="sortable-array-item-body"]
+  > [data-ui-part="list-editor-item-body"] {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+}
+
+.registry-release-highlights .registry-release-prose-composer {
+  padding-block: 0;
+}
+
+.registry-release-highlights
+  .registry-release-prose-composer
+  [data-ui-component="ai-chat-composer"] {
+  --ui-ai-chat-composer-radius: calc(var(--radius) * 0.7);
+}

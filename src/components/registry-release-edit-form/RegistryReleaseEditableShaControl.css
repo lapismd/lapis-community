@@ -1,0 +1,101 @@
+.registry-release-editable-sha__split {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 1.4rem;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) * 0.7);
+  background: var(--muted);
+}
+
+.registry-release-editable-sha__preview,
+.registry-release-editable-sha__copy {
+  display: inline-flex;
+  min-height: 1.4rem;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ui-form-foreground);
+  cursor: pointer;
+  font: inherit;
+}
+
+.registry-release-editable-sha__preview {
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 0.45rem;
+}
+
+.registry-release-editable-sha__copy {
+  flex: 0 0 auto;
+  justify-content: center;
+  width: 1.45rem;
+  border-inline-start: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  padding: 0;
+  color: var(--muted-foreground);
+}
+
+.registry-release-editable-sha__preview code {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--community-text-secondary);
+  font-weight: 500;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .registry-release-editable-sha__preview:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--muted) 82%, var(--foreground) 6%);
+  }
+
+  .registry-release-editable-sha__copy:hover {
+    background: color-mix(in srgb, var(--muted) 74%, var(--foreground) 10%);
+    color: var(--foreground);
+  }
+}
+
+.registry-release-editable-sha__split:focus-within {
+  border-color: var(--ring);
+}
+
+.registry-release-editable-sha__preview:focus-visible,
+.registry-release-editable-sha__copy:focus-visible {
+  background: var(--muted);
+  outline: none;
+}
+
+.registry-release-editable-sha__preview:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.registry-release-editable-sha__copy [data-ui-part="copy-icon"] {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex: 0 0 auto;
+}
+
+.registry-release-editable-sha__input {
+  width: 100%;
+  min-width: 0;
+  min-height: 1.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--ui-form-foreground);
+  font: inherit;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--community-text-secondary);
+  line-height: 1.25rem;
+  padding: 0;
+}
+
+.registry-release-editable-sha__input:focus,
+.registry-release-editable-sha__input:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}

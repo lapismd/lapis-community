@@ -27,8 +27,8 @@ export const registryReleaseEditConfig =
     id: "registry-release-edit",
     validationMode: "onTouched",
     groups: {
-      identity: { title: "Listing", collapsible: true },
-      highlights: { title: "Highlights", collapsible: true },
+      identity: { title: "Details", collapsible: true },
+      highlights: { title: "Highlights", collapsible: false },
       release: { title: "Release", collapsible: true },
       content: { title: "Content references", collapsible: true },
       media: { title: "Media references", collapsible: true },
@@ -42,10 +42,10 @@ export const registryReleaseEditConfig =
         validate: required("Plugin name"),
       },
       "plugin.description": {
-        kind: "textarea",
+        kind: "registry-description-composer",
         group: "identity",
         label: "Description",
-        rows: 3,
+        placeholder: "Describe what the plugin does.",
         validate: required("Description"),
       },
       "plugin.author": {
@@ -84,12 +84,14 @@ export const registryReleaseEditConfig =
         kind: "tag-list",
         group: "identity",
         label: "Categories",
+        align: "center",
         suggestions: registryReleaseCategorySuggestions,
       },
       "plugin.platforms": {
         kind: "tag-list",
         group: "identity",
         label: "Listing platforms",
+        align: "center",
         suggestions: registryReleasePlatformSuggestions,
       },
       "plugin.license": {
@@ -126,7 +128,7 @@ export const registryReleaseEditConfig =
         validate: optionalUrl("Issues"),
       },
       "plugin.highlights": {
-        kind: "ordered-string-list",
+        kind: "registry-highlight-list",
         group: "highlights",
         label: "Highlights",
         addLabel: "Add highlight",
@@ -144,7 +146,7 @@ export const registryReleaseEditConfig =
         validate: required("Minimum app version"),
       },
       "release.releasedAt": {
-        kind: "text",
+        kind: "registry-date-time",
         group: "release",
         label: "Released at",
       },
@@ -152,6 +154,7 @@ export const registryReleaseEditConfig =
         kind: "tag-list",
         group: "release",
         label: "Release platforms",
+        align: "center",
         suggestions: registryReleasePlatformSuggestions,
       },
       "content.overview.url": {
@@ -167,7 +170,7 @@ export const registryReleaseEditConfig =
         validate: optionalUrl("Overview source URL"),
       },
       "content.overview.sha256": {
-        kind: "text",
+        kind: "registry-editable-sha",
         group: "content",
         label: "Overview SHA-256",
       },
@@ -189,7 +192,7 @@ export const registryReleaseEditConfig =
         validate: optionalUrl("Changelog source URL"),
       },
       "content.changelog.sha256": {
-        kind: "text",
+        kind: "registry-editable-sha",
         group: "content",
         label: "Changelog SHA-256",
       },
@@ -205,22 +208,21 @@ export const registryReleaseEditConfig =
         addLabel: "Add media reference",
       },
       "evidence.publisherIdentity": {
-        kind: "readonly",
+        kind: "registry-publisher-identity",
         group: "evidence",
         label: "Publisher identity",
-        readonly: true,
       },
       "evidence.releaseEventId": {
-        kind: "readonly",
+        kind: "registry-copy-id",
         group: "evidence",
         label: "Release event ID",
-        readonly: true,
+        copyLabel: "Release event ID",
       },
       "evidence.manifestSha256": {
-        kind: "readonly",
+        kind: "registry-copy-id",
         group: "evidence",
         label: "Manifest SHA-256",
-        readonly: true,
+        copyLabel: "Manifest SHA-256",
       },
       "evidence.artifactUrl": {
         kind: "readonly",
@@ -229,10 +231,10 @@ export const registryReleaseEditConfig =
         readonly: true,
       },
       "evidence.artifactSha256": {
-        kind: "readonly",
+        kind: "registry-copy-id",
         group: "evidence",
         label: "Artifact SHA-256",
-        readonly: true,
+        copyLabel: "Artifact SHA-256",
       },
       "evidence.bundleSize": {
         kind: "readonly",

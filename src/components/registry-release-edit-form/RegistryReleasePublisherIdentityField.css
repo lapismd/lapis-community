@@ -1,0 +1,17 @@
+.registry-release-publisher-identity {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--foreground);
+}
+
+.registry-release-publisher-identity span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--community-text-secondary);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

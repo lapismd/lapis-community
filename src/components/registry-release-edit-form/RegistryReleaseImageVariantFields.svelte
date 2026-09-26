@@ -9,9 +9,10 @@
     type GalleryImageField,
   } from "./gallery-field-model.js";
   import type { RegistryReleaseMediaReferenceDraft } from "./model.js";
+  import RegistryReleaseEditableShaControl from "./RegistryReleaseEditableShaControl.svelte";
 
   type Props = {
-    activeIndex: number;
+    itemLabel: string;
     activeVariantLabel: string;
     image: RegistryReleaseMediaReferenceDraft;
     readonly?: boolean;
@@ -20,7 +21,7 @@
   };
 
   let {
-    activeIndex,
+    itemLabel,
     activeVariantLabel,
     image,
     readonly = false,
@@ -30,17 +31,17 @@
 </script>
 
 <div
-  class="registry-release-gallery__fields"
+  class="registry-release-image-set__fields"
   role="tabpanel"
-  aria-label={`${activeVariantLabel} screenshot fields`}
+  aria-label={`${itemLabel} ${activeVariantLabel} image fields`}
 >
-  <div class="registry-release-gallery__variant-actions">
+  <div class="registry-release-image-set__variant-actions">
     <span>{activeVariantLabel} image</span>
     <Button
       type="button"
       variant="ghost"
       size="icon-sm"
-      aria-label={`Delete ${activeVariantLabel} image`}
+      aria-label={`Delete ${itemLabel} ${activeVariantLabel} image`}
       disabled={readonly}
       onclick={onDelete}
     >
@@ -48,26 +49,35 @@
     </Button>
   </div>
   {#each galleryTextFieldOptions as option (option.key)}
-    <label class="registry-release-gallery__field">
+    <label class="registry-release-image-set__field">
       <span>{option.label}</span>
-      <Input
-        value={image[option.key]}
-        disabled={readonly}
-        aria-label={`Screenshot ${activeIndex + 1} ${activeVariantLabel} ${option.ariaLabel}`}
-        oninput={(event) =>
-          onFieldChange(option.key, event.currentTarget.value)}
-      />
+      {#if option.key === "sha256"}
+        <RegistryReleaseEditableShaControl
+          value={image.sha256}
+          label={`${itemLabel} ${activeVariantLabel} ${option.ariaLabel}`}
+          {readonly}
+          update={(next) => onFieldChange(option.key, next)}
+        />
+      {:else}
+        <Input
+          value={image[option.key]}
+          disabled={readonly}
+          aria-label={`${itemLabel} ${activeVariantLabel} ${option.ariaLabel}`}
+          oninput={(event) =>
+            onFieldChange(option.key, event.currentTarget.value)}
+        />
+      {/if}
     </label>
   {/each}
-  <div class="registry-release-gallery__numbers">
+  <div class="registry-release-image-set__numbers">
     {#each galleryNumberFieldOptions as option (option.key)}
-      <label class="registry-release-gallery__field">
+      <label class="registry-release-image-set__field">
         <span>{option.label}</span>
         <Input
           value={image[option.key]}
           inputmode="numeric"
           disabled={readonly}
-          aria-label={`Screenshot ${activeIndex + 1} ${activeVariantLabel} ${option.ariaLabel}`}
+          aria-label={`${itemLabel} ${activeVariantLabel} ${option.ariaLabel}`}
           oninput={(event) =>
             onFieldChange(option.key, event.currentTarget.value)}
         />
