@@ -142,9 +142,8 @@
     const editTabList = canvas.getByRole("tablist", {
       name: "Release edit areas",
     });
-    const detailsTab = canvas.getByRole("tab", { name: "Details" });
     await expect(editTabList).toBeVisible();
-    await expect(detailsTab).toBeVisible();
+    await expect(canvas.getByRole("tab", { name: "Details" })).toBeVisible();
     await expect(canvas.getByRole("tab", { name: "Highlights" })).toBeVisible();
     await expect(
       canvas.queryByRole("tab", { name: "Content" }),

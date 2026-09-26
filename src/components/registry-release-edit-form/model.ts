@@ -52,7 +52,6 @@ export interface RegistryReleaseEditDraft {
     channel: "official" | "community";
     status: RegistryCatalogStatus;
     categories: string[];
-    platforms: string[];
     license: string;
     links: {
       homepage: string;
@@ -145,7 +144,6 @@ export function draftFromResolvedDetail(
       channel: detail.channel,
       status: detail.status,
       categories: [...entry.categories],
-      platforms: [...entry.platforms],
       license: detail.license ?? "",
       links: {
         homepage: detail.links?.homepage ?? "",

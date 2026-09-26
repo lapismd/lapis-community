@@ -51,7 +51,7 @@ function entryFromDraft(
     status: draft.plugin.status,
     latestVersion: release.version,
     minAppVersion: release.minAppVersion,
-    platforms: nonEmptyList(draft.plugin.platforms, entry.platforms),
+    platforms: nonEmptyList(release.platforms, entry.platforms),
     categories: [...draft.plugin.categories],
     latestRelease: {
       releasedAt: release.releasedAt,

@@ -10,9 +10,10 @@ type Canvas = ReturnType<typeof within>;
 export async function expectDetailsControlChrome(
   host: HTMLElement,
 ): Promise<void> {
-  await expectCenteredFieldLabelByPath(host, "plugin.platforms");
+  await expect(
+    host.querySelector('[data-field-path="plugin.platforms"]'),
+  ).toBeNull();
   await expectFlatTagFieldByPath(host, "plugin.categories");
-  await expectFlatTagFieldByPath(host, "plugin.platforms");
   await expectStatusPickerChrome(host);
 }
 
@@ -107,6 +108,9 @@ async function expectStatusPickerChrome(host: HTMLElement): Promise<void> {
   await expect(
     must(trigger.querySelector("svg"), "Expected status trigger icon"),
   ).toBeVisible();
+  await expect(
+    must(trigger.querySelector(".lucide-clock"), "Expected Pending clock icon"),
+  ).toBeVisible();
   await expect(getComputedStyle(trigger).color).not.toBe(
     getComputedStyle(host).color,
   );
@@ -122,6 +126,14 @@ async function expectStatusPickerChrome(host: HTMLElement): Promise<void> {
   ]) {
     const option = within(statusField).getByRole("button", { name: label });
     await expect(option.querySelector("svg")).toBeVisible();
+    if (label === "Pending") {
+      await expect(
+        must(
+          option.querySelector(".lucide-clock"),
+          "Expected Pending clock option",
+        ),
+      ).toBeVisible();
+    }
     optionStyles.add(getComputedStyle(option).color);
   }
   await expect(optionStyles.size).toBeGreaterThanOrEqual(4);

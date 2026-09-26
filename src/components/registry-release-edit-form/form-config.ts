@@ -99,13 +99,6 @@ export const registryReleaseEditConfig: RuntimePathFormConfig<RegistryReleaseEdi
         align: "center",
         suggestions: registryReleaseCategorySuggestions,
       },
-      "plugin.platforms": {
-        kind: "tag-list",
-        group: "identity",
-        label: "Listing platforms",
-        align: "center",
-        suggestions: registryReleasePlatformSuggestions,
-      },
       "plugin.license": {
         kind: "text",
         group: "identity",
