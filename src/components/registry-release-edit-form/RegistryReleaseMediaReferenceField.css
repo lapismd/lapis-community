@@ -6,6 +6,10 @@
   width: 100%;
 }
 
+.registry-release-media-reference--sectioned {
+  grid-template-columns: minmax(5rem, 8rem) minmax(0, 1fr);
+}
+
 .registry-release-media-reference__preview {
   display: grid;
   aspect-ratio: 1;
@@ -31,14 +35,20 @@
 .registry-release-media-reference__fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
+  gap: 0 0.65rem;
   min-width: 0;
 }
 
 .registry-release-media-reference__fields label {
   display: grid;
-  gap: 0.3rem;
   min-width: 0;
+  gap: 0.3rem;
+  padding-block: 0.65rem;
+  border-block-start: 1px solid var(--border);
+}
+
+.registry-release-media-reference__fields label:first-child {
+  border-block-start: 0;
 }
 
 .registry-release-media-reference__fields span {

@@ -3,13 +3,12 @@ import type { FormFieldKindDefinition } from "@lapismd/design-core/forms/core";
 import type {
   RegistryReleaseEditDraft,
   RegistryReleaseGalleryItemDraft,
-  RegistryReleaseMediaReferenceDraft,
 } from "./model.js";
 
 declare module "@lapismd/design-core/forms/core" {
   interface FormFieldKindMap {
-    "registry-media-reference": FormFieldKindDefinition<
-      RegistryReleaseMediaReferenceDraft | null,
+    "registry-media-sections": FormFieldKindDefinition<
+      RegistryReleaseEditDraft["media"],
       { addLabel?: string }
     >;
     "registry-gallery": FormFieldKindDefinition<

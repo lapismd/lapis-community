@@ -197,29 +197,11 @@ export const registryReleaseEditConfig =
         group: "content",
         label: "Changelog size bytes",
       },
-      "media.logo": {
-        kind: "registry-media-reference",
+      media: {
+        kind: "registry-media-sections",
         group: "media",
-        label: "Logo",
-        addLabel: "Add logo reference",
-      },
-      "media.banner": {
-        kind: "registry-media-reference",
-        group: "media",
-        label: "Banner",
-        addLabel: "Add banner reference",
-      },
-      "media.overview": {
-        kind: "registry-media-reference",
-        group: "media",
-        label: "Overview image",
-        addLabel: "Add overview image",
-      },
-      "media.gallery": {
-        kind: "registry-gallery",
-        group: "media",
-        label: "Screenshot carousel",
-        addLabel: "Add screenshot",
+        label: "Media references",
+        addLabel: "Add media reference",
       },
       "evidence.publisherIdentity": {
         kind: "readonly",

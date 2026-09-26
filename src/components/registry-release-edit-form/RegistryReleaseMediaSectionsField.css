@@ -1,0 +1,31 @@
+.registry-release-media-sections {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.registry-release-media-section {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.registry-release-media-section__body {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--background);
+}
+
+.registry-release-media-section__body
+  > :where(.registry-release-media-reference, .registry-release-gallery) {
+  padding: 0.75rem;
+}
+
+.registry-release-media-section
+  :global(.registry-release-media-section__title-row) {
+  min-width: 0;
+  border-bottom: 0;
+  padding: 0;
+}

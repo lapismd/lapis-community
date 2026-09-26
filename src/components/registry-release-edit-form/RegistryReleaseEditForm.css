@@ -19,8 +19,34 @@
 
 .registry-release-edit-form__body {
   display: grid;
-  gap: 1.35rem;
+  gap: 1rem;
   min-width: 0;
+}
+
+.registry-release-edit-form__tabs {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+
+.registry-release-edit-form__tabs > [role="tablist"] {
+  justify-content: flex-start;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.registry-release-edit-form__tabs > [role="tablist"] [role="tab"] {
+  flex: 0 0 auto;
+  border-radius: 0;
+  padding-inline: 0.75rem;
+}
+
+.registry-release-edit-form__tab-content {
+  min-width: 0;
+  outline: none;
 }
 
 .registry-release-edit-form__body .cv-structured-form {
@@ -122,13 +148,6 @@
   .cv-form-field-control
   textarea {
   font-size: var(--community-text-secondary);
-}
-
-.registry-release-edit-form__body
-  .ui-configured-form-group__body
-  > .cv-form-field-renderer
-  > .registry-release-gallery {
-  padding: 1rem;
 }
 
 .registry-release-edit-form__body .cv-form-field-control {

@@ -18,9 +18,17 @@
   type Props = RegisteredFormRendererProps<
     "registry-gallery",
     RegistryReleaseEditDraft
-  >;
+  > & {
+    sectioned?: boolean;
+  };
 
-  let { value = [], field, readonly = false, update }: Props = $props();
+  let {
+    value = [],
+    field,
+    readonly = false,
+    update,
+    sectioned = false,
+  }: Props = $props();
 
   const items = $derived(Array.isArray(value) ? value : []);
   const addLabel = $derived(field.addLabel ?? "Add screenshot");
@@ -66,7 +74,9 @@
 >
   <div class="registry-release-gallery__header">
     <div>
-      <p>{field.label}</p>
+      {#if !sectioned}
+        <p>{field.label}</p>
+      {/if}
       <span>{items.length} screenshot{items.length === 1 ? "" : "s"}</span>
     </div>
     <Button

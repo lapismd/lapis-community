@@ -4,21 +4,32 @@
   import ImagePlusIcon from "@lucide/svelte/icons/image-plus";
   import TrashIcon from "@lucide/svelte/icons/trash-2";
 
-  import type { RegisteredFormRendererProps } from "@lapismd/design-core/forms";
-
-  import type { RegistryReleaseEditDraft } from "./model.js";
   import {
     createBlankMediaReference,
     type RegistryReleaseMediaReferenceDraft,
   } from "./model.js";
   import "./RegistryReleaseMediaReferenceField.css";
 
-  type Props = RegisteredFormRendererProps<
-    "registry-media-reference",
-    RegistryReleaseEditDraft
-  >;
+  type Props = {
+    value: RegistryReleaseMediaReferenceDraft | null;
+    field: {
+      label: string;
+      addLabel?: string;
+    };
+    readonly?: boolean;
+    update: (
+      value: RegistryReleaseMediaReferenceDraft | null,
+    ) => void | Promise<void>;
+    sectioned?: boolean;
+  };
 
-  let { value, field, readonly = false, update }: Props = $props();
+  let {
+    value,
+    field,
+    readonly = false,
+    update,
+    sectioned = false,
+  }: Props = $props();
 
   const addLabel = $derived(field.addLabel ?? `Add ${field.label}`);
 
@@ -42,7 +53,8 @@
 </script>
 
 <div
-  class="registry-release-media-reference"
+  class:registry-release-media-reference={true}
+  class:registry-release-media-reference--sectioned={sectioned}
   data-ui-part="registry-release-media-reference"
 >
   {#if value}
@@ -130,7 +142,7 @@
         />
       </label>
     </div>
-    {#if !readonly}
+    {#if !readonly && !sectioned}
       <Button
         type="button"
         variant="ghost"

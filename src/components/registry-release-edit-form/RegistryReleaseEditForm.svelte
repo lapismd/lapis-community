@@ -6,16 +6,23 @@
   } from "@lapismd/design-core/forms";
   import { createFormController } from "@lapismd/design-core/forms/core";
   import { Button } from "@lapismd/design-core/shadcn/button";
+  import * as Tabs from "@lapismd/design-core/shadcn/tabs";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import SaveIcon from "@lucide/svelte/icons/save";
   import XIcon from "@lucide/svelte/icons/x";
-  import { untrack } from "svelte";
+  import { tick, untrack } from "svelte";
 
   import type { RegistryResolvedDetail } from "../../registry/model.js";
   import RegistryReleaseGalleryField from "./RegistryReleaseGalleryField.svelte";
-  import RegistryReleaseMediaReferenceField from "./RegistryReleaseMediaReferenceField.svelte";
+  import RegistryReleaseMediaSectionsField from "./RegistryReleaseMediaSectionsField.svelte";
   import "./RegistryReleaseEditForm.css";
-  import { registryReleaseEditConfig } from "./form-config.js";
+  import {
+    registryReleaseEditTabConfigs,
+    registryReleaseEditTabs,
+    registryReleaseTabForPath,
+    validateRegistryReleaseEditDraft,
+    type RegistryReleaseEditTab,
+  } from "./form-tabs.js";
   import {
     draftFromResolvedDetail,
     type RegistryReleaseEditDraftOptions,
@@ -53,22 +60,29 @@
 
   let draft = $state<RegistryReleaseEditDraft>(untrack(createDraft));
   let saving = $state(false);
+  let activeTab = $state<RegistryReleaseEditTab>("listing");
   const controller = createFormController<RegistryReleaseEditDraft>({
     defaultValues: untrack(createDraft),
     validationMode: "onTouched",
   });
   const registry = createFormRendererRegistry();
-  registry.register("registry-media-reference", {
-    component: RegistryReleaseMediaReferenceField,
-    wrapper: "field",
-    align: "start",
-    as: "div",
+  registry.register("registry-media-sections", {
+    component: RegistryReleaseMediaSectionsField,
+    wrapper: "none",
+    props: { controller, disclosureGroup: "media" },
   });
   registry.register("registry-gallery", {
     component: RegistryReleaseGalleryField,
     wrapper: "none",
   });
-  const collapsedAll = $derived(controller.allDisclosuresCollapsed());
+  const activeTabConfig = $derived(registryReleaseEditTabConfigs[activeTab]);
+  const activeTabDefinition = $derived(
+    registryReleaseEditTabs.find((tab) => tab.value === activeTab) ??
+      registryReleaseEditTabs[0],
+  );
+  const collapsedAll = $derived(
+    controller.allDisclosuresCollapsed(activeTabDefinition.groupId),
+  );
   const blockingIssues = $derived(
     controller.issues.filter(
       (issue) => (issue.severity ?? "error") === "error",
@@ -84,11 +98,16 @@
   });
 
   async function save(): Promise<void> {
-    if (!(await controller.validate())) {
+    controller.issues = await validateRegistryReleaseEditDraft(draft);
+    if (!controller.isValid) {
       const firstPath = controller.issues.find(
         (issue) => (issue.severity ?? "error") === "error" && issue.path,
       )?.path;
-      if (firstPath) controller.focus(firstPath as never, { select: true });
+      if (firstPath) {
+        activeTab = registryReleaseTabForPath(firstPath);
+        await tick();
+        controller.focus(firstPath as never, { select: true });
+      }
       return;
     }
     saving = true;
@@ -118,10 +137,12 @@
 >
   <FormToolbar
     {collapsedAll}
-    collapseLabel="Collapse all release edit sections"
-    expandLabel="Expand all release edit sections"
+    collapseLabel={`Collapse all ${activeTabDefinition.label} sections`}
+    expandLabel={`Expand all ${activeTabDefinition.label} sections`}
     onToggleCollapse={() =>
-      collapsedAll ? controller.expandAll() : controller.collapseAll()}
+      collapsedAll
+        ? controller.expandAll(activeTabDefinition.groupId)
+        : controller.collapseAll(activeTabDefinition.groupId)}
   >
     {#snippet leading()}
       <span class="registry-release-edit-form__title"
@@ -137,15 +158,32 @@
   </FormToolbar>
 
   <div class="registry-release-edit-form__body">
-    <StructuredForm
-      value={draft}
-      config={registryReleaseEditConfig}
-      {controller}
-      {registry}
-      onChange={(next) => {
-        draft = next;
-      }}
-    />
+    <Tabs.Root bind:value={activeTab} class="registry-release-edit-form__tabs">
+      <Tabs.List variant="line" aria-label="Release edit areas">
+        {#each registryReleaseEditTabs as tab (tab.value)}
+          <Tabs.Trigger value={tab.value}>{tab.label}</Tabs.Trigger>
+        {/each}
+      </Tabs.List>
+
+      {#each registryReleaseEditTabs as tab (tab.value)}
+        <Tabs.Content
+          value={tab.value}
+          class="registry-release-edit-form__tab-content"
+        >
+          {#if activeTab === tab.value}
+            <StructuredForm
+              value={draft}
+              config={activeTabConfig}
+              {controller}
+              {registry}
+              onChange={(next) => {
+                draft = next;
+              }}
+            />
+          {/if}
+        </Tabs.Content>
+      {/each}
+    </Tabs.Root>
     {#if blockingIssues.length}
       <div class="registry-release-edit-form__errors" role="alert">
         <strong>Review required release fields</strong>

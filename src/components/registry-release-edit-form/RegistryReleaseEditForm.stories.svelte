@@ -71,6 +71,27 @@
     await expect(saveDraft).not.toHaveBeenCalled();
 
     await userEvent.type(name, "Bases Lab");
+    await expect(
+      canvas.getByRole("tablist", { name: "Release edit areas" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: "Media" }));
+    await expect(
+      await canvas.findByRole("button", { name: "Collapse Logo" }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Remove Logo reference" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Add media reference" }),
+    );
+    await expect(
+      await canvas.findByLabelText("Media reference title"),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Logo" }));
+    await expect(
+      await canvas.findByRole("button", { name: "Collapse Logo" }),
+    ).toBeVisible();
+
     await userEvent.click(
       canvas.getByRole("button", { name: "Add screenshot" }),
     );
@@ -86,6 +107,7 @@
     );
     await expect(await canvas.findByText("2 screenshots")).toBeVisible();
 
+    await userEvent.click(canvas.getByRole("tab", { name: "Evidence" }));
     const artifactHash = canvas
       .getByText("Artifact SHA-256")
       .closest<HTMLElement>('[data-ui-part="form-field"]');
