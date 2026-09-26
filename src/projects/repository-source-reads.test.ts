@@ -119,6 +119,7 @@ describe("repository source reads", () => {
       "repo",
       undefined,
       undefined,
+      {},
     );
   });
 
@@ -147,7 +148,7 @@ describe("repository source reads", () => {
     await expect(
       readRepositoryDefaultCommits(session, "repo", signal),
     ).resolves.toEqual([{ sha, subject: "checkpoint" }]);
-    expect(session.loadCommits).toHaveBeenCalledWith("repo", sha, signal);
+    expect(session.loadCommits).toHaveBeenCalledWith("repo", sha, signal, {});
     session.loadCommits.mockRejectedValueOnce(new Error("unavailable"));
     await expect(
       readRepositoryDefaultCommits(session, "repo", signal),
