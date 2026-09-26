@@ -7,7 +7,7 @@ import type {
   AgentTurnControlState,
   ContinueTurnControl,
 } from "./agent-turn-control-contracts.js";
-import type { CommunityAgentControllerScope } from "./agent-controller-scope.js";
+import type { CommunityAgentControllerScope } from "./agent-controller-turn.js";
 import type { NostrEvent } from "../protocol/index.js";
 import type { CommunityStorageMode } from "./contracts.js";
 
@@ -486,7 +486,7 @@ export type CommunityAgentActivityContext = { focusTurnId?: string } & (
   | { kind: "dm"; agentPubkey?: string; conversationId?: string }
 );
 
-export type { CommunityAgentControllerScope } from "./agent-controller-scope.js";
+export type { CommunityAgentControllerScope } from "./agent-controller-turn.js";
 
 export interface CommunityAgentsState extends AgentActivityFreshnessState {
   publicAgents?: readonly CommunityAgentIdentity[];

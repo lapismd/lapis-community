@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectActivityScope } from "./activity-scope-projection.js";
+import { projectActivityScope } from "./activity-scope-state.js";
 import type {
   CommunityAgentObserver,
   CommunityAgentPermissionRequest,

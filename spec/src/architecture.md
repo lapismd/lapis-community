@@ -591,7 +591,15 @@ the owner-signed instance required to revalidate reciprocal custody. The JSON
 identity payload evolves additively so existing external-agent rows need no
 database migration and no decrypted telemetry enters identity storage.
 Refresh snapshots replace pending permission cards from `permission_requested`
-frames so a live sequence cannot wipe the approval UI.
+frames so a live sequence cannot wipe the approval UI. Version-3 owner progress
+batch decoding and atomic projection live outside the protocol and controller
+hotspots. The archive retains each original encrypted event once; decoded
+records receive event-qualified in-memory identities. State ordering uses the
+outer journal cursor before a record's logical sequence so delayed progress
+cannot supersede a later version-2 terminal frame.
+Reply-delivery and checkpoint-sync frames enrich that settled scope without
+changing its execution state. A dedicated Activity status owner renders those
+independent terminal follow-up states.
 
 UI composition ownership is additive: Design Core owns shared dialog and confirmation recipes; Community exports its avatar picker, reactions, and skeleton compositions and an optional composer form mode. The public catalog uses compiled examples with source imports during Storybook acceptance, while packaged consumer validation checks the actual dependency artifact. These changes do not grant agent-management capabilities or alter relay protocols.
 

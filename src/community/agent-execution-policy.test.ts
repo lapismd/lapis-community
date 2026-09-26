@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { projectActivityScope } from "./activity-scope-projection.js";
+import { projectActivityScope } from "./activity-scope-state.js";
 import { parseExecutionPolicy } from "./agent-execution-policy.js";
 import type { CommunityAgentObserver } from "./agent-contracts.js";
 

@@ -777,6 +777,18 @@ and activity replay stay encrypted ephemeral kind `24200`; JJ durability is
 unchanged. Clients subscribe before reading heads, refresh on entry/manual
 action, preserve cached content and derive pending state from both heads.
 
+For LC-NOSTR-043, an encrypted kind `24200` owner-telemetry payload is either a
+version-2 single frame or a version-3 `batch` containing one to twenty bounded
+progress records for one stream and conversation. Batch records inherit the
+outer channel, session and turn when omitted. Their stable IDs and logical
+sequences order in-memory transcript projection, while the outer sequence alone
+advances catch-up. The original signed ciphertext remains the archive and replay
+unit. Version-3 batches cannot carry permission or terminal frames.
+Version-2 `reply_delivery_pending`, `reply_delivered`,
+`checkpoint_sync_pending`, and `checkpoint_sync_completed` frames update only
+their corresponding delivery or background-sync status on the correlated turn;
+they cannot reopen or replace its terminal execution outcome.
+
 | ID           | Requirement                                                                                                                                                                                                                        |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | LC-NOSTR-042 | Runtime inspection MUST consume encrypted replaceable snapshot and request heads, retain cached data during asynchronous refresh, use thirty-second deadlines, reject stale updates, and refresh only on entry or explicit action. |

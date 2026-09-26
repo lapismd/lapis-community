@@ -1029,6 +1029,10 @@ repeated for another thread's run. The Activity tab MUST show the saved
 history. Both panels MUST scroll inside the activity pane: the history keeps
 its own scroll viewport, and the Turns list scrolls when it is taller than
 that pane.
+Reply delivery and checkpoint synchronization MUST remain distinct from
+terminal execution. Their pending and completed statuses MUST render as
+separate chips beneath the turn row, and MUST NOT animate, reopen, or otherwise
+change a terminal execution state.
 Agent cards and profiles MUST use
 the same working presentation for a turn that is actually running. Completed reasoning and tools with terminal
 results MUST stop animating; replay or later metadata MUST NOT restart completed

@@ -32,6 +32,22 @@ export function projectActivityScope(
     frame.turnId;
   const same = previous?.requestId === requestId;
   const terminal = turnFrameIsTerminal(frame.kind);
+  const replyDelivery =
+    frame.kind === "reply_delivery_pending"
+      ? "pending"
+      : frame.kind === "reply_delivered"
+        ? "delivered"
+        : same
+          ? previous?.replyDelivery
+          : undefined;
+  const checkpointSync =
+    frame.kind === "checkpoint_sync_pending"
+      ? "pending"
+      : frame.kind === "checkpoint_sync_completed"
+        ? "completed"
+        : same
+          ? previous?.checkpointSync
+          : undefined;
   let state = activityPayloadState(
     frame.kind,
     terminal,
@@ -43,7 +59,13 @@ export function projectActivityScope(
     (same ? previous?.executionPolicy : undefined);
   // A later tool/policy/permission frame cannot resurrect a settled attempt.
   if (same && turnIsTerminal(previous?.state) && !terminal)
-    return executionPolicy ? { ...previous!, executionPolicy } : previous;
+    return {
+      ...previous!,
+      ...(executionPolicy ? { executionPolicy } : {}),
+      ...(replyDelivery ? { replyDelivery } : {}),
+      ...(checkpointSync ? { checkpointSync } : {}),
+      updatedAt: observedAt,
+    };
   const waiting = permissions.some(
     (permission) =>
       permission.scopeKey === scopeKey &&
@@ -68,6 +90,8 @@ export function projectActivityScope(
     active: !["completed", "failed", "cancelled"].includes(state),
     state,
     ...(executionPolicy ? { executionPolicy } : {}),
+    ...(replyDelivery ? { replyDelivery } : {}),
+    ...(checkpointSync ? { checkpointSync } : {}),
     preview:
       observerText(payload.preview, 240) ||
       observerText(payload.message, 240) ||

@@ -11,13 +11,14 @@ import {
   controllerScopeId,
 } from "./agent-activity-context.js";
 import { activityScopeStorageKey } from "./activity-frame-state.js";
-import { projectActivityScope } from "./activity-scope-projection.js";
+import { projectActivityScope } from "./activity-scope-state.js";
 import { turnFrameIsTerminal, turnIsTerminal } from "./agent-turn-state.js";
+import { rejectsFrameOrder, type FrameOrder } from "./agent-frame-order.js";
 
 /** One sequence-checked projection for live frames, archive replay and signed snapshots. */
 export class AgentFrameProjection {
   readonly permissions = new ActivityPermissionLedger();
-  readonly sequences = new Map<string, number>();
+  readonly sequences = new Map<string, FrameOrder>();
   readonly notices = new AgentPermissionNotices();
   apply(
     state: CommunityAgentsState,
@@ -27,6 +28,7 @@ export class AgentFrameProjection {
     observedAt?: number,
     live = false,
     snapshot = false,
+    order = { cursorSeq: frame.seq, recordSeq: frame.seq },
   ): Partial<CommunityAgentsState> | undefined {
     const payload = observerRecord(frame.payload);
     const scopeKey = observerText(payload.scopeKey, 4096);
@@ -34,14 +36,9 @@ export class AgentFrameProjection {
       controllerScopeId(agentPubkey, scopeKey),
       frame.streamId ?? "legacy",
     ]);
-    const previousSequence = this.sequences.get(sequenceKey);
-    if (
-      previousSequence !== undefined &&
-      (frame.seq < previousSequence ||
-        (frame.seq === previousSequence && !snapshot))
-    )
-      return;
-    this.sequences.set(sequenceKey, frame.seq);
+    const previous = this.sequences.get(sequenceKey);
+    if (previous && rejectsFrameOrder(previous, order, snapshot)) return;
+    this.sequences.set(sequenceKey, order);
     const pending = this.permissions.apply(
       state.pendingPermissions,
       agentPubkey,

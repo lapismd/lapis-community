@@ -3,7 +3,7 @@
   import type { AgentRuntimeActions } from "./runtime-actions.js";
   import { turnControlKey } from "../../community/agent-turn-controls.js";
   import type { AgentTurnControlState } from "../../community/agent-turn-control-contracts.js";
-  import ActivityExecutionPolicy from "./ActivityExecutionPolicy.svelte";
+  import ActivityTurnMetadata from "./ActivityTurnMetadata.svelte";
   import CircleStopIcon from "@lucide/svelte/icons/circle-stop";
   import PlayIcon from "@lucide/svelte/icons/play";
   import { Reasoning } from "@lapismd/design-core/ai/experimental";
@@ -117,9 +117,7 @@
                 </Tooltip.Root></span
               >{/each}
           </div>
-          {#if controllerScope.executionPolicy}<ActivityExecutionPolicy
-              policy={controllerScope.executionPolicy}
-            />{/if}
+          <ActivityTurnMetadata scope={controllerScope} />
         </li>
       {/each}
     </ul>

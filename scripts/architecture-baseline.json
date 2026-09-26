@@ -392,9 +392,9 @@
       "physicalLines": 90,
       "forbiddenImportCount": 0
     },
-    "src/community/activity-scope-projection.ts": {
-      "countedLines": 80,
-      "physicalLines": 84,
+    "src/community/activity-scope-state.ts": {
+      "countedLines": 104,
+      "physicalLines": 108,
       "forbiddenImportCount": 0
     },
     "src/community/activity-sync-permissions.test.ts": {
@@ -476,9 +476,9 @@
       "physicalLines": 186,
       "forbiddenImportCount": 0
     },
-    "src/community/agent-controller-scope.ts": {
+    "src/community/agent-controller-turn.ts": {
       "countedLines": 19,
-      "physicalLines": 20,
+      "physicalLines": 19,
       "forbiddenImportCount": 0
     },
     "src/community/agent-controller.test.ts": {
@@ -489,8 +489,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/agent-controller.ts": {
-      "countedLines": 1822,
-      "physicalLines": 1870,
+      "countedLines": 1794,
+      "physicalLines": 1841,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Agent controller factory; runtime and memory parsers extracted"

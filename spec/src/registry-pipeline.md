@@ -388,3 +388,10 @@ The Community architecture baseline includes runtime telemetry parser and profil
 For LC-NOSTR-042, the architecture manifest records the extracted runtime
 administration and snapshot owners, smaller composition modules, and the bounded
 subscription addition. No registry materialization behavior changes.
+
+For LC-NOSTR-043, the architecture manifest records extracted encrypted-envelope,
+atomic frame, and working-state projections together with the reduced controller
+budget. Decoded progress remains owner-local and does not enter registry
+materialization, search, or public event projections.
+Reply-delivery and checkpoint-sync presentation is likewise an owner-local
+Activity projection with no registry effect.

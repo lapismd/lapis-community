@@ -1,13 +1,12 @@
-import type { AgentTurnState } from "./agent-turn-state.js";
-import type { AgentExecutionPolicy } from "./agent-execution-policy.js";
-
 export interface CommunityAgentControllerScope {
   conversationId?: string;
   requestId?: string;
   threadRootId?: string;
   conversationKind?: "channel" | "thread" | "forum-topic" | "dm";
-  state?: AgentTurnState;
-  executionPolicy?: AgentExecutionPolicy;
+  state?: import("./agent-turn-state.js").AgentTurnState;
+  executionPolicy?: import("./agent-execution-policy.js").AgentExecutionPolicy;
+  replyDelivery?: "pending" | "delivered";
+  checkpointSync?: "pending" | "completed";
   preview?: string;
   severity?: string;
   updatedAt?: number;

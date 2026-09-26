@@ -5,7 +5,13 @@ import {
   createActivitySyncSelection,
   type AgentActivitySyncSelection,
 } from "./activity-freshness.js";
-import { AgentFrameProjection } from "./agent-frame-projection.js";
+import { AgentObserverProjection } from "./agent-observer-projection.js";
+import {
+  observerEnvelopeActivityItems,
+  parseAgentObserverEnvelope,
+  type AgentObserverEnvelope,
+  type AgentObserverEnvelopeRecord,
+} from "./agent-observer-envelope.js";
 import { AgentTurnControls } from "./agent-turn-controls.js";
 import { sessionControl } from "./agent-session-controls.js";
 import type {
@@ -13,8 +19,6 @@ import type {
   AgentAdministrationControl,
 } from "./agent-administration-contracts.js";
 import { confirmedRuntimeSettings } from "./agent-runtime-confirmation.js";
-import { activityPayloadState } from "./activity-frame-state.js";
-import { turnFrameIsTerminal, turnIsTerminal } from "./agent-turn-state.js";
 import {
   activityMatches,
   observerScope,
@@ -49,7 +53,6 @@ import {
   agentChannelMemberships,
   agentTag,
   materializeAgentInstances,
-  parseAgentObserver,
   signedAgentEvent,
   validateAgentTelemetry,
 } from "./agent-protocol.js";
@@ -109,13 +112,8 @@ export class CommunityAgentsController {
     event: NostrEvent;
     origin: "live" | "replay" | undefined;
   }> = [];
-  #workingUntil = new Map<
-    string,
-    Map<string, { until: number; timestamp: number; seq: number }>
-  >();
-  #frames = new AgentFrameProjection();
-  #typingUntil = new Map<string, number>();
-  #decodedFrames = new Map<string, CommunityAgentActivityItem["frame"]>();
+  #observer = new AgentObserverProjection();
+  #decodedFrames = new Map<string, AgentObserverEnvelope>();
   #refreshRun: Promise<void> | undefined;
   #refreshTimer: ReturnType<typeof setTimeout> | undefined;
   #timer: ReturnType<typeof setInterval> | undefined;
@@ -154,7 +152,7 @@ export class CommunityAgentsController {
 
   readonly actions: CommunityAgentsActions = {
     takePermissionNotifications: () =>
-      this.#frames.notices.take(this.#state, this.#now() * 1000),
+      this.#observer.frames.notices.take(this.#state, this.#now() * 1000),
     refresh: async () => {
       this.#archivePaused = false;
       this.#decodePaused = false;
@@ -327,7 +325,7 @@ export class CommunityAgentsController {
       await archive.clear(this.#archiveScope(), pubkey);
       if (this.#closed) return;
       this.#decodedFrames.clear();
-      this.#frames.sequences.clear();
+      this.#observer.frames.sequences.clear();
       this.#archivePaused = false;
       this.#update({
         archiveError: undefined,
@@ -602,10 +600,7 @@ export class CommunityAgentsController {
           this.#options.scope.ownerPubkey,
         ).map((instance) => instance.personaId),
       );
-      for (const key of this.#workingUntil.keys())
-        if (!allowed.has(key)) this.#workingUntil.delete(key);
-      for (const key of this.#typingUntil.keys())
-        if (!allowed.has(key)) this.#typingUntil.delete(key);
+      this.#observer.working.retainAgents(allowed);
       this.#update({
         runtime: Object.fromEntries(
           Object.entries(this.#state.runtime ?? {}).filter(([key]) =>
@@ -672,8 +667,7 @@ export class CommunityAgentsController {
               this.#cancelActivitySync(true);
               this.#subscriptionKey = "";
               this.#subscribedPubkeys.clear();
-              this.#workingUntil.clear();
-              this.#typingUntil.clear();
+              this.#observer.working.clear();
               this.#update({
                 status: "offline",
                 working: {},
@@ -833,7 +827,7 @@ export class CommunityAgentsController {
             },
           ],
         });
-        this.#typingUntil.set(
+        this.#observer.working.markTyping(
           agent.pubkey,
           Math.min(now + AGENT_TYPING_TTL, event.created_at + AGENT_TYPING_TTL),
         );
@@ -948,50 +942,70 @@ export class CommunityAgentsController {
             event.content,
           );
           if (this.#closed) return;
-          const frame = parseAgentObserver(plaintext);
-          if (!frame) {
+          const envelope = parseAgentObserverEnvelope(plaintext);
+          if (!envelope) {
             this.#queueArchiveRecord(record);
             return;
           }
           const channel = agentTag(event, "h");
-          if (channel && frame.channelId && channel !== frame.channelId) {
+          if (
+            channel &&
+            envelope.records.some(
+              ({ frame }) => frame.channelId && channel !== frame.channelId,
+            )
+          ) {
             this.#queueArchiveRecord(record);
             return;
           }
+          const frame = envelope.records[0]?.frame;
+          if (!frame) return;
           if (frame.kind === "activity_sync_page") {
+            if (envelope.batched || envelope.records.length !== 1) return;
             if (new TextEncoder().encode(plaintext).byteLength > 48 * 1_024)
               return;
             await this.#applyActivitySyncPage(event, record, frame);
             return;
           }
-          if (this.#turnControls.accept(event.pubkey, frame)) return;
-          if (this.#administration.apply(event.pubkey, frame)) return;
+          if (
+            !envelope.batched &&
+            (this.#turnControls.accept(event.pubkey, frame) ||
+              this.#administration.apply(event.pubkey, frame))
+          )
+            return;
           this.#queueArchiveRecord(record);
-          this.#cacheFrame(event.id, frame);
-          this.#applyControllerFrame(event.pubkey, frame, undefined, live);
-          this.#applyWorkingFrame(event.pubkey, frame, event.created_at);
-          this.#tick(false);
+          this.#cacheFrame(event.id, envelope);
+          this.#applyObserverRecords(
+            event.pubkey,
+            envelope.records,
+            undefined,
+            event.created_at,
+            live,
+          );
+          const items = observerEnvelopeActivityItems(
+            event.id,
+            event.pubkey,
+            event.created_at,
+            envelope,
+            channel,
+          );
           if (
             !this.#browsingHistory &&
             this.#state.activityAgent === event.pubkey &&
-            activityMatches(this.#state.activityContext, {
-              agentPubkey: event.pubkey,
-              ...observerScope({
-                ...frame,
-                ...((frame.channelId ?? channel)
-                  ? { channelId: (frame.channelId ?? channel)! }
-                  : {}),
-              }),
-            })
-          )
-            this.#mergeActivity([
-              {
-                id: event.id,
+            items.some(({ frame }) =>
+              activityMatches(this.#state.activityContext, {
                 agentPubkey: event.pubkey,
-                createdAt: event.created_at,
-                frame,
-              },
-            ]);
+                ...observerScope(frame),
+              }),
+            )
+          )
+            this.#mergeActivity(
+              items.filter(({ frame }) =>
+                activityMatches(this.#state.activityContext, {
+                  agentPubkey: event.pubkey,
+                  ...observerScope(frame),
+                }),
+              ),
+            );
         } catch {
           if (!this.#closed) {
             this.#queueArchiveRecord(record);
@@ -1008,47 +1022,27 @@ export class CommunityAgentsController {
       });
   }
 
-  #applyWorkingFrame(
+  #applyObserverRecords(
     agentPubkey: string,
-    frame: CommunityAgentObserver,
+    records: readonly AgentObserverEnvelopeRecord[],
+    observedAt: number | undefined,
     freshnessTimestamp: number,
+    live = false,
+    snapshot = false,
   ): void {
-    const turns =
-      this.#workingUntil.get(agentPubkey) ??
-      new Map<string, { until: number; timestamp: number; seq: number }>();
-    const turnKey = JSON.stringify([
-      observerRecord(frame.payload).lifecycleRequestId ?? frame.turnId,
-      observerRecord(frame.payload).scopeKey ?? frame.channelId,
-    ]);
-    const timestamp = Date.parse(frame.timestamp);
-    const previous = turns.get(turnKey);
-    if (
-      previous &&
-      (timestamp < previous.timestamp ||
-        (timestamp === previous.timestamp && frame.seq <= previous.seq))
-    )
-      return;
-    const payload = observerRecord(frame.payload);
-    const state = activityPayloadState(
-      frame.kind,
-      turnFrameIsTerminal(frame.kind),
-      observerText(payload.state, 40),
-      observerText(payload.preview, 240),
+    const patch = this.#observer.apply(
+      this.#state,
+      agentPubkey,
+      records,
+      this.#now(),
+      observedAt,
+      freshnessTimestamp,
+      live,
+      snapshot,
     );
-    const terminal = turnIsTerminal(state) || frame.kind === "agent_stopped";
-    if (frame.kind === "agent_stopped") turns.clear();
-    const statusFrame =
-      ["request_status", "turn_started"].includes(frame.kind) ||
-      frame.kind.startsWith("permission_");
-    const until =
-      !terminal &&
-      (statusFrame ? state === "running" : (previous?.until ?? 0) > this.#now())
-        ? Math.min(this.#now() + 180, freshnessTimestamp + 180)
-        : 0;
-    turns.set(turnKey, { until, timestamp, seq: frame.seq });
-    if (turns.size > 512) turns.delete(turns.keys().next().value!);
-    this.#workingUntil.set(agentPubkey, turns);
-    if (terminal) this.#typingUntil.delete(agentPubkey);
+    if (patch) this.#update(patch);
+    this.#runtimeSnapshots.tick();
+    this.#sweepExpiredPermissions();
   }
 
   #tick(refresh = true): void {
@@ -1062,17 +1056,7 @@ export class CommunityAgentsController {
         presence[key] = { ...value, status: "unknown" };
         changed = true;
       }
-    const working = Object.fromEntries(
-      this.#state.agents.map((agent) => [
-        agent.pubkey,
-        Math.max(
-          ...[...(this.#workingUntil.get(agent.pubkey)?.values() ?? [])].map(
-            (turn) => turn.until,
-          ),
-          this.#typingUntil.get(agent.pubkey) ?? 0,
-        ) > now,
-      ]),
-    );
+    const working = this.#observer.working.state(this.#state.agents, now);
     if (
       changed ||
       JSON.stringify(working) !== JSON.stringify(this.#state.working)
@@ -1330,12 +1314,15 @@ export class CommunityAgentsController {
         request.generation !== this.#syncGeneration
       )
         return;
-      const snapshotScopeKeys = snapshots.map(({ frame: snapshot }) =>
+      const snapshotRecords = snapshots.flatMap(
+        ({ envelope }) => envelope.records,
+      );
+      const snapshotScopeKeys = snapshotRecords.map(({ frame: snapshot }) =>
         observerText(observerRecord(snapshot.payload).scopeKey, 4_096),
       );
       if (snapshotScopeKeys.some((scopeKey) => !scopeKey))
         throw new Error("activity snapshots do not identify one scope");
-      if (events.some(({ frame }) => frame.seq > nextOffset))
+      if (events.some(({ envelope }) => envelope.cursorSeq > nextOffset))
         throw new Error("activity page cursor precedes an event");
       const archive = this.#options.archive;
       if (!archive) throw new Error("activity archive unavailable");
@@ -1364,10 +1351,10 @@ export class CommunityAgentsController {
       const snapshotScopeKey = snapshotScopeKeys[0];
       const snapshotSequence = Math.max(
         0,
-        ...snapshots.map(({ frame: snapshot }) => snapshot.seq),
+        ...snapshots.map(({ envelope }) => envelope.cursorSeq),
       );
       const currentSequence = snapshotScopeKey
-        ? this.#frames.sequences.get(
+        ? this.#observer.frames.sequences.get(
             JSON.stringify([
               controllerScopeId(request.agentPubkey, snapshotScopeKey),
               streamId,
@@ -1376,16 +1363,17 @@ export class CommunityAgentsController {
         : undefined;
       if (
         snapshotScopeKey &&
-        (currentSequence === undefined || currentSequence <= snapshotSequence)
+        (currentSequence === undefined ||
+          currentSequence.cursorSeq <= snapshotSequence)
       )
         this.#update({
           pendingPermissions: replaceScopePendingPermissions(
             this.#state.pendingPermissions,
             request.agentPubkey,
             snapshotScopeKey,
-            this.#frames.permissions.snapshot(
+            this.#observer.frames.permissions.snapshot(
               request.agentPubkey,
-              snapshots.map(({ frame }) => frame),
+              snapshotRecords.map(({ frame }) => frame),
               this.#now() * 1_000,
             ),
           ),
@@ -1393,7 +1381,7 @@ export class CommunityAgentsController {
       this.#sweepExpiredPermissions();
       for (const item of events) {
         this.#seen.add(item.event.id);
-        this.#cacheFrame(item.event.id, item.frame);
+        this.#cacheFrame(item.event.id, item.envelope);
       }
       if (
         this.#state.activityAgent === request.agentPubkey &&
@@ -1407,30 +1395,29 @@ export class CommunityAgentsController {
         )
       )
         this.#mergeActivity(
-          events.map(({ event, frame }) => ({
-            id: event.id,
-            agentPubkey: request.agentPubkey,
-            createdAt: event.created_at,
-            frame,
-          })),
+          events.flatMap(({ event, envelope }) =>
+            observerEnvelopeActivityItems(
+              event.id,
+              request.agentPubkey,
+              event.created_at,
+              envelope,
+              agentTag(event, "h"),
+            ),
+          ),
         );
-      for (const snapshot of snapshots.toSorted(
-        (left, right) => left.frame.seq - right.frame.seq,
-      )) {
-        this.#applyControllerFrame(
-          request.agentPubkey,
-          snapshot.frame,
-          outer.created_at * 1_000,
-          false,
-          true,
-        );
-        this.#applyWorkingFrame(
-          request.agentPubkey,
-          snapshot.frame,
-          outer.created_at,
-        );
-      }
-      this.#tick(false);
+      this.#applyObserverRecords(
+        request.agentPubkey,
+        snapshotRecords.toSorted(
+          (left, right) =>
+            left.cursorSeq - right.cursorSeq ||
+            left.frame.seq - right.frame.seq ||
+            (left.id ?? "").localeCompare(right.id ?? ""),
+        ),
+        outer.created_at * 1_000,
+        outer.created_at,
+        false,
+        true,
+      );
       const gap = Boolean(payload.migrationGap || payload.replayGap);
       if (complete) {
         clearTimeout(request.timer);
@@ -1475,11 +1462,13 @@ export class CommunityAgentsController {
     afterOffset: number,
     maximumOffset: number | undefined,
     requireIncreasing: boolean,
-  ): Promise<Array<{ event: NostrEvent; frame: CommunityAgentObserver }>> {
+  ): Promise<Array<{ event: NostrEvent; envelope: AgentObserverEnvelope }>> {
     const nip44 = this.#options.identity.nip44;
     if (!nip44) throw new Error("activity decryption unavailable");
-    const decoded: Array<{ event: NostrEvent; frame: CommunityAgentObserver }> =
-      [];
+    const decoded: Array<{
+      event: NostrEvent;
+      envelope: AgentObserverEnvelope;
+    }> = [];
     let previousOffset = afterOffset;
     for (const value of values) {
       const event = signedAgentEvent(value as NostrEvent);
@@ -1496,21 +1485,24 @@ export class CommunityAgentsController {
         )
       )
         throw new Error("invalid nested activity event");
-      const nested = parseAgentObserver(
+      const envelope = parseAgentObserverEnvelope(
         await nip44.decrypt(event.pubkey, event.content),
       );
       if (
-        !nested ||
-        nested.kind === "activity_sync_page" ||
-        nested.streamId !== streamId ||
-        (maximumOffset !== undefined && nested.seq > maximumOffset) ||
-        (requireIncreasing && nested.seq <= previousOffset) ||
-        !frameMatchesActivitySyncContext(nested, request.context) ||
+        !envelope ||
+        envelope.records.some(
+          ({ frame }) =>
+            frame.kind === "activity_sync_page" ||
+            !frameMatchesActivitySyncContext(frame, request.context),
+        ) ||
+        envelope.streamId !== streamId ||
+        (maximumOffset !== undefined && envelope.cursorSeq > maximumOffset) ||
+        (requireIncreasing && envelope.cursorSeq <= previousOffset) ||
         !eventMatchesActivitySyncContext(event, request.context)
       )
         throw new Error("nested activity does not match its page");
-      previousOffset = nested.seq;
-      decoded.push({ event, frame: nested });
+      previousOffset = envelope.cursorSeq;
+      decoded.push({ event, envelope });
     }
     return decoded;
   }
@@ -1572,9 +1564,9 @@ export class CommunityAgentsController {
           )
             continue;
           const cached = this.#decodedFrames.get(record.event.id);
-          const frame =
+          const envelope =
             cached ??
-            parseAgentObserver(
+            parseAgentObserverEnvelope(
               await historyDeadline(
                 nip44.decrypt(record.event.pubkey, record.event.content),
                 deadline,
@@ -1583,37 +1575,35 @@ export class CommunityAgentsController {
           if (this.#closed || generation !== this.#activityGeneration) return;
           const outerChannel = agentTag(record.event, "h");
           if (
-            !frame ||
-            (outerChannel &&
-              frame.channelId &&
-              outerChannel !== frame.channelId) ||
-            ((frame.channelId ?? outerChannel) &&
-              !this.#ownerChannels.has((frame.channelId ?? outerChannel)!)) ||
-            (channel && (frame.channelId ?? outerChannel) !== channel) ||
-            !activityMatches(context, {
-              agentPubkey: agent,
-              ...observerScope({
-                ...frame,
-                ...((frame.channelId ?? outerChannel)
-                  ? { channelId: (frame.channelId ?? outerChannel)! }
-                  : {}),
-              }),
-            })
+            !envelope ||
+            envelope.records.some(
+              ({ frame }) =>
+                (outerChannel &&
+                  frame.channelId &&
+                  outerChannel !== frame.channelId) ||
+                ((frame.channelId ?? outerChannel) &&
+                  !this.#ownerChannels.has((frame.channelId ?? outerChannel)!)),
+            )
           )
             continue;
-          this.#cacheFrame(record.event.id, frame);
-          items.push({
-            id: record.event.id,
-            agentPubkey: agent,
-            createdAt: record.event.created_at,
-            frame: {
-              ...frame,
-              ...((frame.channelId ?? outerChannel)
-                ? { channelId: (frame.channelId ?? outerChannel)! }
-                : {}),
-            },
-          });
-          if (items.length === 1) this.#mergeActivity(items, !reset);
+          this.#cacheFrame(record.event.id, envelope);
+          const decoded = observerEnvelopeActivityItems(
+            record.event.id,
+            agent,
+            record.event.created_at,
+            envelope,
+            outerChannel,
+          ).filter(
+            ({ frame }) =>
+              (!channel || frame.channelId === channel) &&
+              activityMatches(context, {
+                agentPubkey: agent,
+                ...observerScope(frame),
+              }),
+          );
+          items.push(...decoded);
+          if (items.length === decoded.length && decoded.length > 0)
+            this.#mergeActivity(items, !reset);
         }
         if (this.#closed || generation !== this.#activityGeneration) return;
         this.#mergeActivity(items, !reset);
@@ -1636,8 +1626,8 @@ export class CommunityAgentsController {
     }
   }
 
-  #cacheFrame(id: string, frame: CommunityAgentActivityItem["frame"]): void {
-    this.#decodedFrames.set(id, frame);
+  #cacheFrame(id: string, envelope: AgentObserverEnvelope): void {
+    this.#decodedFrames.set(id, envelope);
     if (this.#decodedFrames.size > 500)
       this.#decodedFrames.delete(this.#decodedFrames.keys().next().value!);
   }
@@ -1677,26 +1667,6 @@ export class CommunityAgentsController {
     );
   }
 
-  #applyControllerFrame(
-    agentPubkey: string,
-    frame: CommunityAgentActivityItem["frame"],
-    observedAt?: number,
-    live = false,
-    snapshot = false,
-  ): void {
-    const patch = this.#frames.apply(
-      this.#state,
-      agentPubkey,
-      frame,
-      this.#now() * 1000,
-      observedAt,
-      live,
-      snapshot,
-    );
-    if (patch) this.#update(patch);
-    this.#sweepExpiredPermissions();
-  }
-
   dispose(): void {
     this.#closed = true;
     this.#turnControls.dispose();
@@ -1710,9 +1680,7 @@ export class CommunityAgentsController {
     this.#administration.dispose();
     this.#runtimeSnapshots.dispose();
     this.#unknownFrames = [];
-    this.#workingUntil.clear();
-    this.#frames.sequences.clear();
-    this.#typingUntil.clear();
+    this.#observer.clear();
     this.#decodedFrames.clear();
     this.#state = {
       ...this.#state,
