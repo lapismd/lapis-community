@@ -74,8 +74,8 @@
   outline: none;
 }
 
-.registry-release-edit-form__body .cv-structured-form {
-  gap: 1rem;
+.registry-release-edit-form__tab-content > .cv-structured-form {
+  row-gap: 1rem;
 }
 
 .registry-release-edit-form__body .ui-configured-form-group {
@@ -132,6 +132,7 @@
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) + 0.25rem);
   background: var(--background);
+  row-gap: 0;
 }
 
 .registry-release-edit-form__body

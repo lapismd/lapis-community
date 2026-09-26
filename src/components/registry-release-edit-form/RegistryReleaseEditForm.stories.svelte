@@ -105,6 +105,12 @@
       Number.parseFloat(descriptionRowStyle.borderBlockStartWidth),
     ).toBeGreaterThanOrEqual(0.75);
     await expect(
+      Math.abs(
+        descriptionRow.getBoundingClientRect().top -
+          nameRow.getBoundingClientRect().bottom,
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect(
       canvas.getByRole("button", { name: "Collapse Highlights" }),
     ).toBeVisible();
     const highlightsField = canvasElement.querySelector<HTMLElement>(
