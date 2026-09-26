@@ -1,4 +1,5 @@
 import { defineFormConfig } from "@lapismd/design-core/forms/core";
+import type { RuntimePathFormConfig } from "@lapismd/design-core/forms/core";
 
 import "./form-kinds.js";
 import type { RegistryReleaseEditDraft } from "./model.js";
@@ -22,7 +23,7 @@ const optionalUrl = (label: string) => (value: string) => {
   }
 };
 
-export const registryReleaseEditConfig =
+export const registryReleaseEditConfig: RuntimePathFormConfig<RegistryReleaseEditDraft> =
   defineFormConfig<RegistryReleaseEditDraft>()({
     id: "registry-release-edit",
     validationMode: "onTouched",
