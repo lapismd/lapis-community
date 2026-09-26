@@ -13,6 +13,7 @@
   } from "../../registry/index.js";
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import { registryFilterIcon } from "../registry-filter-icons.js";
+  import RegistryPluginChangelog from "./RegistryPluginChangelog.svelte";
   import RegistryMediaGallery from "../registry-media-gallery/RegistryMediaGallery.svelte";
   import RegistryMediaViewer from "../registry-media-viewer/RegistryMediaViewer.svelte";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
@@ -206,6 +207,7 @@
           >Releases <CommunityChip
             class="registry-plugin-preview__tab-count"
             variant="muted"
+            tone="accent"
             size="compact">{releases.length}</CommunityChip
           ></Tabs.Trigger
         >
@@ -252,13 +254,11 @@
         </div>
       </Tabs.Content>
       <Tabs.Content value="changelog">
-        <div class="registry-plugin-preview__prose">
-          {#if resolved.changelogHtml}
-            {@html resolved.changelogHtml}
-          {:else}
-            <p>No structured changelog is available for this release yet.</p>
-          {/if}
-        </div>
+        <RegistryPluginChangelog
+          changelogHtml={resolved.changelogHtml}
+          latestVersion={detail.latestVersion}
+          {release}
+        />
       </Tabs.Content>
       <Tabs.Content value="releases">
         <div class="registry-plugin-preview__releases">

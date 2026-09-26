@@ -267,7 +267,7 @@
     await expect(canvas.getByText("Current version")).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: "Changelog" }));
     await expect(
-      await canvas.findByRole("heading", { name: "Changelog" }),
+      await canvas.findByRole("heading", { name: /Better defaults/u }),
     ).toBeVisible();
   }}
 />

@@ -43,6 +43,16 @@
   gap: 0.5rem;
 }
 
+.registry-release-edit-form__tabs:has(.registry-release-edit-form__preview-scroll)
+  .registry-release-edit-form__tab-bar {
+  justify-content: flex-end;
+}
+
+.registry-release-edit-form__tabs:has(.registry-release-edit-form__preview-scroll)
+  .registry-release-edit-form__tab-list {
+  display: none;
+}
+
 .registry-release-edit-form__tab-list[data-slot="tabs-list"] {
   display: flex;
   width: auto;

@@ -36,6 +36,37 @@ export async function expectPreviewModeToggle(
   return toggle;
 }
 
+export async function expectPreviewCardChrome(
+  canvas: Canvas,
+  previewArticle: HTMLElement,
+): Promise<void> {
+  await expect(
+    canvas.queryByRole("tablist", { name: "Release edit areas" }),
+  ).not.toBeInTheDocument();
+  const preview = within(previewArticle);
+  await expect(preview.getAllByText(/for teams/u).length).toBeGreaterThan(0);
+
+  const releasesTab = preview.getByRole("tab", { name: /Releases\s+2/u });
+  const countChip = must(
+    within(releasesTab)
+      .getByText("2")
+      .closest<HTMLElement>('[data-ui-part="community-chip"]'),
+    "Expected releases count chip",
+  );
+  const countStyle = getComputedStyle(countChip);
+  await expect(countStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  await expect(countStyle.borderBlockStartStyle).toBe("solid");
+
+  await userEvent.click(preview.getByRole("tab", { name: "Changelog" }));
+  await expect(
+    await preview.findByRole("article", { name: /0\.8\.0-beta\.2 changelog/u }),
+  ).toBeVisible();
+  await expect(
+    preview.getByRole("heading", { name: "Better defaults, smoother DX" }),
+  ).toBeVisible();
+  await expect(preview.getByText("--watch")).toBeVisible();
+}
+
 async function expectFlatTagFieldByPath(
   host: HTMLElement,
   path: string,

@@ -15,6 +15,7 @@
   } from "../registry-browser/story-fixtures.js";
   import {
     expectDetailsControlChrome,
+    expectPreviewCardChrome,
     expectPreviewModeToggle,
     expectReleasePlatformTagChrome,
   } from "./RegistryReleaseEditForm.control-helper.test.js";
@@ -165,8 +166,10 @@
     const previewArticle = canvas.getByRole("article", {
       name: "Bases Lab preview",
     });
-    await expect(canvas.queryByLabelText("Plugin name")).not.toBeInTheDocument();
-    await expect(within(previewArticle).getAllByText(/for teams/u).length).toBeGreaterThan(0);
+    await expect(
+      canvas.queryByLabelText("Plugin name"),
+    ).not.toBeInTheDocument();
+    await expectPreviewCardChrome(canvas, previewArticle);
     await userEvent.click(
       canvas.getByRole("button", { name: "Edit release form" }),
     );

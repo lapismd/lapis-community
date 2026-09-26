@@ -361,7 +361,7 @@ export function registryStoryResolvedDetail(
       `# ${entry.name}\n\n${entry.description}\n\n## Built for your notes\n\n- Stay in context while you work\n- Keep host controls explicit\n- Browse community discussion below`,
     ),
     changelogHtml: renderRegistryMarkdown(
-      "# Changelog\n\n## 1.4.0\n\nImproved editor integration and accessibility.\n\n## 1.3.0\n\nAdded configurable shortcuts.",
+      "# Better defaults, smoother DX\n\nThis release focuses on improving the developer experience with saner defaults, better error messages, and a few quality-of-life improvements.\n\n## ✨ Features\n\n- Add automatic configuration detection\n- Introduce `--watch` mode for faster feedback\n\n## 🐞 Bug Fixes\n\n- Fix incorrect paths on Windows\n- Resolve occasional crashes when config is missing\n\n## 🔧 Improved\n\n- Clearer error messages\n- Faster startup time",
     ),
   };
 }
@@ -398,7 +398,7 @@ export function createRegistryStoryDataSource(
     },
     async loadMarkdown(reference) {
       return reference.url.includes("changelog")
-        ? "# Changelog\n\n## 1.4.0\n\nImproved editor integration and accessibility."
+        ? "# Better defaults, smoother DX\n\nThis release focuses on improving the developer experience with saner defaults, better error messages, and a few quality-of-life improvements.\n\n## ✨ Features\n\n- Add automatic configuration detection\n- Introduce `--watch` mode for faster feedback\n\n## 🐞 Bug Fixes\n\n- Fix incorrect paths on Windows\n- Resolve occasional crashes when config is missing\n\n## 🔧 Improved\n\n- Clearer error messages\n- Faster startup time"
         : "# Work with your notes\n\nKeep your ideas flowing with a plugin designed for the Lapis workspace.\n\n- Fast, focused commands\n- Theme-aware presentation\n- Community support";
     },
     async loadReleaseInspection(eventId) {
