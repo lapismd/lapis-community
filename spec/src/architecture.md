@@ -3,6 +3,11 @@ file validation stays beside the avatar picker, authenticated result forwarding
 stays beside the application shell, and relay media upload actions stay under
 `src/community` so settings and application hotspots do not grow.
 
+For LC-NOSTR-001, Blossom server-list discovery and upload authorization live
+in dedicated `src/community` owners. Settings actions compose those owners and
+retain only the verified returned URL; NIP-94 descriptor parsing does not move
+relay transport or signed profile and emoji publication into UI components.
+
 For LC-UI-035, the CommunityRelativeTime component, formatter, unit regression,
 and focused Storybook story budgets are recorded in
 `scripts/architecture-baseline.json`.

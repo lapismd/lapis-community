@@ -2,6 +2,14 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 
 import { encodeNostrHttpAuthorization } from "../nostr/http-authorization.js";
+import {
+  blossomUploadTags,
+  verifiedBlossomImageUrl,
+} from "./blossom-upload-contract.js";
+import type {
+  BlossomUploadDescriptor,
+  BlossomUploadLabels,
+} from "./blossom-upload-contract.js";
 import type { CommunityIdentity } from "./contracts.js";
 
 export const COMMUNITY_PROFILE_IMAGE_TYPES = [
@@ -11,19 +19,14 @@ export const COMMUNITY_PROFILE_IMAGE_TYPES = [
   "image/webp",
 ] as const;
 
-export interface CommunityProfileImageUploadOptions {
+export interface CommunityProfileImageUploadOptions
+  extends BlossomUploadLabels {
   relayUrl: string;
+  serverUrls?: readonly string[];
   identity: CommunityIdentity;
   fetch?: typeof globalThis.fetch;
   now?: () => number;
   content?: string;
-}
-
-interface BlossomUploadDescriptor {
-  url?: unknown;
-  sha256?: unknown;
-  size?: unknown;
-  type?: unknown;
 }
 
 export async function uploadCommunityProfileImage(
@@ -39,18 +42,13 @@ export async function uploadCommunityProfileImage(
   if (fetcher === undefined) throw new Error("Image upload is unavailable.");
   const body = new Uint8Array(await file.arrayBuffer());
   const digest = bytesToHex(sha256(body));
-  const base = relayHttpBaseUrl(options.relayUrl);
+  const base = relayHttpBaseUrl(options.serverUrls?.[0] ?? options.relayUrl);
   const now = options.now?.() ?? Math.floor(Date.now() / 1_000);
   const auth = await options.identity.signEvent({
     kind: 24_242,
     created_at: now,
     content: options.content ?? "Upload Lapis profile image",
-    tags: [
-      ["t", "upload"],
-      ["x", digest],
-      ["expiration", String(now + 300)],
-      ["server", base.host],
-    ],
+    tags: blossomUploadTags(digest, base.host, now, options),
   });
   const response = await fetcher(new URL("/upload", base), {
     method: "PUT",
@@ -65,18 +63,7 @@ export async function uploadCommunityProfileImage(
     throw new Error(await uploadErrorMessage(response));
   }
   const descriptor = (await response.json()) as BlossomUploadDescriptor;
-  const url = typeof descriptor.url === "string" ? descriptor.url : "";
-  if (
-    typeof descriptor.sha256 !== "string" ||
-    descriptor.sha256.toLowerCase() !== digest ||
-    descriptor.size !== body.byteLength ||
-    typeof descriptor.type !== "string" ||
-    !descriptor.type.startsWith("image/") ||
-    url.trim() === ""
-  ) {
-    throw new Error("Uploaded profile image descriptor failed verification.");
-  }
-  return url;
+  return verifiedBlossomImageUrl(descriptor, digest, body.byteLength);
 }
 
 export function relayHttpBaseUrl(relayUrl: string): URL {

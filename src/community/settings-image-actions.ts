@@ -1,4 +1,5 @@
 import type { CommunityIdentity } from "./contracts.js";
+import { discoverBlossomServers } from "./blossom-server-list.js";
 import { uploadCommunityProfileImage } from "./profile-image-upload.js";
 
 interface CommunitySettingsImageActionsDeps {
@@ -12,36 +13,35 @@ interface CommunitySettingsImageActionsDeps {
 export function createCommunitySettingsImageActions(
   deps: CommunitySettingsImageActionsDeps,
 ) {
-  const upload = (operation: string, content: string, file: File) =>
-    uploadSettingsImage(deps, operation, content, file);
   return {
     uploadSettingsImage: (file: File, usage: "profile" | "emoji") =>
-      usage === "profile"
-        ? upload("settings:profile-image", "Upload Lapis profile image", file)
-        : upload(
-            "settings:emoji-image",
-            "Upload Lapis custom emoji image",
-            file,
-          ),
+      uploadSettingsImage(deps, file, usage),
   };
 }
 
 async function uploadSettingsImage(
   deps: CommunitySettingsImageActionsDeps,
-  operation: string,
-  content: string,
   file: File,
+  usage: "profile" | "emoji",
 ): Promise<string> {
+  const isProfile = usage === "profile";
+  const operation = `settings:${isProfile ? "profile" : "emoji"}-image`;
   let uploadedUrl = "";
   await deps.runOperation(operation, async () => {
     await deps.ensureIdentity(operation);
     const identity = deps.getIdentity();
     if (identity === undefined)
       throw new Error("Connect an identity to continue");
+    const relayUrl = deps.getRelayUrl();
+    const serverUrls = await discoverBlossomServers(relayUrl, identity).catch(
+      () => [],
+    );
     uploadedUrl = await uploadCommunityProfileImage(file, {
-      relayUrl: deps.getRelayUrl(),
+      relayUrl,
+      serverUrls,
       identity,
-      content,
+      content: `Upload Lapis ${isProfile ? "profile" : "custom emoji"} image`,
+      purpose: isProfile ? "avatar" : "emoji",
       now: deps.now,
     });
   });

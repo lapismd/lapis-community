@@ -18,6 +18,9 @@ function imageFile(bytes = [137, 80, 78, 71]): File {
   });
 }
 
+const IMAGE_HASH =
+  "0f4636c78f65d3639ece5a064b5ae753e3408614a14fb18ab4d7540d2c248543";
+
 describe("Community profile image upload", () => {
   it("uploads image bytes to the relay Blossom endpoint", async () => {
     const signed: NostrEventTemplate[] = [];
@@ -26,9 +29,8 @@ describe("Community profile image upload", () => {
       async (input: URL | RequestInfo, init?: RequestInit) => {
         request = new Request(input, init);
         return Response.json({
-          url: "https://relay.example/media/avatar.png",
-          sha256:
-            "0f4636c78f65d3639ece5a064b5ae753e3408614a14fb18ab4d7540d2c248543",
+          url: `https://relay.example/${IMAGE_HASH}.png`,
+          sha256: IMAGE_HASH,
           size: 4,
           type: "image/png",
         });
@@ -48,13 +50,11 @@ describe("Community profile image upload", () => {
       },
     });
 
-    expect(url).toBe("https://relay.example/media/avatar.png");
+    expect(url).toBe(`https://relay.example/${IMAGE_HASH}.png`);
     expect(request?.url).toBe("https://relay.example/upload");
     expect(request?.method).toBe("PUT");
     expect(request?.headers.get("Content-Type")).toBe("image/png");
-    expect(request?.headers.get("X-SHA-256")).toBe(
-      "0f4636c78f65d3639ece5a064b5ae753e3408614a14fb18ab4d7540d2c248543",
-    );
+    expect(request?.headers.get("X-SHA-256")).toBe(IMAGE_HASH);
     expect(request?.headers.get("Authorization")).toMatch(/^Nostr /u);
     expect(signed).toEqual([
       {
@@ -63,10 +63,7 @@ describe("Community profile image upload", () => {
         content: "Upload Lapis profile image",
         tags: [
           ["t", "upload"],
-          [
-            "x",
-            "0f4636c78f65d3639ece5a064b5ae753e3408614a14fb18ab4d7540d2c248543",
-          ],
+          ["x", IMAGE_HASH],
           ["expiration", "1700000300"],
           ["server", "relay.example"],
         ],
