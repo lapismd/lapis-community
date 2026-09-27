@@ -50,6 +50,25 @@ export function ownerThreadActivity(
   });
 }
 
+const turnIndexes = new WeakMap<
+  readonly RepositoryAgentCheckpoint[],
+  ReturnType<typeof repositoryContextTurns>
+>();
+const eventIndexes = new WeakMap<
+  readonly NostrEvent[],
+  {
+    byId: Map<string, NostrEvent>;
+    messageByRecordId: Map<string, string>;
+  }
+>();
+const segmentCache = new WeakMap<
+  readonly RepositoryAgentCheckpoint[],
+  WeakMap<
+    readonly NostrEvent[],
+    Map<string, ReturnType<typeof projectSegments>>
+  >
+>();
+
 /** Checkpoint data supplements real messages; it never creates duplicate channel posts. */
 export function threadContextSegments(
   checkpoints: readonly RepositoryAgentCheckpoint[],
@@ -57,26 +76,68 @@ export function threadContextSegments(
   rootId: string,
   messageId: string,
 ) {
-  const byId = new Map(events.map((event) => [event.id, event]));
-  return repositoryContextTurns(checkpoints).flatMap((turn) => {
+  let byEvents = segmentCache.get(checkpoints);
+  if (!byEvents) {
+    byEvents = new WeakMap();
+    segmentCache.set(checkpoints, byEvents);
+  }
+  let entries = byEvents.get(events);
+  if (!entries) {
+    entries = new Map();
+    byEvents.set(events, entries);
+  }
+  const key = `${rootId}:${messageId}`;
+  const cached = entries.get(key);
+  if (cached) return cached;
+
+  let turns = turnIndexes.get(checkpoints);
+  if (!turns) {
+    turns = repositoryContextTurns(checkpoints);
+    turnIndexes.set(checkpoints, turns);
+  }
+  let eventIndex = eventIndexes.get(events);
+  if (!eventIndex) {
+    eventIndex = {
+      byId: new Map(events.map((event) => [event.id, event])),
+      messageByRecordId: new Map(
+        events.flatMap((event) => {
+          const id = eventTag(event, "d");
+          return [9, 1111].includes(event.kind) && id ? [[id, event.id]] : [];
+        }),
+      ),
+    };
+    eventIndexes.set(events, eventIndex);
+  }
+  const result = projectSegments(turns, eventIndex, rootId, messageId);
+  entries.set(key, result);
+  return result;
+}
+
+function projectSegments(
+  turns: ReturnType<typeof repositoryContextTurns>,
+  eventIndex: {
+    byId: Map<string, NostrEvent>;
+    messageByRecordId: Map<string, string>;
+  },
+  rootId: string,
+  messageId: string,
+) {
+  return turns.flatMap((turn) => {
     const records = turn.segments
       .flatMap((segment) => segment.checkpoint.records)
       .sort((a, b) => a.sequence - b.sequence);
     const requestId = records.find(
       (record) => agentContextMessageRole(record) === "user",
     )?.sourceEventId;
-    const source = byId.get(requestId ?? "") ?? byId.get(turn.latest.eventId);
+    const source =
+      eventIndex.byId.get(requestId ?? "") ??
+      eventIndex.byId.get(turn.latest.eventId);
     if (!source || eventRoot(source) !== rootId) return [];
     let anchor = requestId ?? rootId;
     const anchors = new Map<string, string>();
     for (const record of records) {
       const canonical =
-        record.sourceEventId ??
-        events.find(
-          (event) =>
-            [9, 1111].includes(event.kind) &&
-            eventTag(event, "d") === record.id,
-        )?.id;
+        record.sourceEventId ?? eventIndex.messageByRecordId.get(record.id);
       if (canonical && record.kind !== "tool") anchor = canonical;
       anchors.set(record.id, anchor);
     }
@@ -91,7 +152,7 @@ export function threadContextSegments(
           (!agentContextMessageRole(record) ||
             (segment.checkpoint.live &&
               !record.sourceEventId &&
-              !events.some((event) => eventTag(event, "d") === record.id)))
+              !eventIndex.messageByRecordId.has(record.id)))
         );
       });
       const last = segment.checkpoint.records.at(-1);

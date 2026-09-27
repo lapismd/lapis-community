@@ -775,10 +775,14 @@ Inbox candidate and context queries MUST be constrained to the scope's known
 channels, so newer events in another community cannot displace that scope's
 first page or leak into its history.
 
-Community opts into Design Core history mode without production
-virtualization; existing Design Core consumers retain their streaming,
-snippet, and optional virtualize defaults. Lists start with 50 rows, with
-guarded earlier-history controls at the relevant edge.
+Community opts into Design Core history mode with bounded production
+virtualization, Community-owned estimates, and measured row heights. Existing
+Design Core consumers retain their streaming, snippet, and optional virtualize
+defaults. Lists start with 50 rows, with guarded earlier-history controls at
+the relevant edge.
+Opening a connected thread restores its persisted head before relay
+reconciliation. That cached head remains interactive and does not enter the
+older-page loading state while the relay refresh is pending.
 Controller-owned selection, reading positions and drafts survive list filters
 and refreshes. A selected Inbox conversation remains available independently of
 its currently visible summary row.
@@ -912,8 +916,8 @@ The pane viewport overrides Design Core's inline
 conversation and composer scrollports keep content height so the
 message list can wheel without a second pane scroller.
 Inbox keeps channel overflow anchoring. Production conversations render
-the current history window in normal flow. The Conversation
-scrollport story records that selector scope and updates the Inbox
+the current history window through bounded Design Core virtualization. The
+Conversation scrollport story records that selector scope and updates the Inbox
 stories path budget.
 
 For LC-UI-049, checkpoint projection retains repository, channel, and native
@@ -958,6 +962,11 @@ For LC-UI-044, application-owned immutable event snapshots and a checkpoint
 conversation index MUST be reused across transcript records and draft updates.
 Typing a comment MUST NOT reverify the entire conversation. Transcript drafts
 and stream subscriptions retain separate owners outside the rendering component.
+Conversation history and subscription replay MUST suppress stable event IDs before
+signature verification, verify large pages in bounded batches with task yields,
+and publish one reactive collection per completed page. Subscription replay MUST
+remain buffered until EOSE; subsequent live bursts are coalesced before
+projection. Stale or aborted delivery work MUST NOT replace current state.
 
 Channel watch reference counts and asynchronous commit descriptions are owned by
 the conversation stream and review-reference model, keeping their UI facades bounded.

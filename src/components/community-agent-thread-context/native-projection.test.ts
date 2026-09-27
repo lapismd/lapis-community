@@ -29,4 +29,19 @@ it("keeps native plan, settled permission and usage beside their original reques
       ],
     },
   });
+  expect(
+    threadContextSegments(
+      checkpoints,
+      fixture.events,
+      fixture.root.id,
+      fixture.root.id,
+    ),
+  ).toBe(
+    threadContextSegments(
+      checkpoints,
+      fixture.events,
+      fixture.root.id,
+      fixture.root.id,
+    ),
+  );
 });

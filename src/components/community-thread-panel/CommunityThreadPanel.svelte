@@ -89,6 +89,7 @@
   const draft = createThreadDraft({
     key: () => conversationKey,
     presentation: () => presentation,
+    persist: () => typeof window !== "undefined",
     changed: (key, value) => onPresentationChange?.(key, { draft: value }),
     switched: () => {
       editingMessageId = undefined;
@@ -201,7 +202,8 @@
   <Layout
     bind:scrollRef={viewport}
     density="compact"
-    scrollMode={history ? "history" : "stream"} scrollAreaStrategy={virtualize ? "native" : "auto"}
+    scrollMode={history ? "history" : "stream"}
+    scrollAreaStrategy={virtualize ? "native" : "auto"}
     {conversationKey}
     {...history?.unreadEventIds
       ? { hasNewMessages: history.unreadEventIds.length > 0 }

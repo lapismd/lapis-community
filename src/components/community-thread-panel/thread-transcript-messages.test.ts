@@ -57,6 +57,11 @@ it("merges feedback once in causal order and projects edits, deletions and valid
   const incoming = [f.root, reply, forged, comment].map((event) =>
     conversationMessage(event, events),
   );
+  expect(
+    threadTranscriptMessages(incoming, undefined, f.root.id, "general").map(
+      (item) => item.id,
+    ),
+  ).toEqual([f.root.id]);
   const rows = threadTranscriptMessages(
     incoming,
     project(events),

@@ -10,7 +10,20 @@ export function threadTranscriptMessages(
   rootId: string,
   channelId?: string,
 ) {
-  if (!conversation) return messages;
+  // Raw transcript comments can arrive through the room subscription before
+  // their verified conversation projection is ready. Hide them immediately so
+  // they cannot flash as ordinary messages and then disappear after hydration.
+  const ordinaryMessages = messages.filter(
+    (message) =>
+      !(
+        message.sourceEvent?.kind === 1111 &&
+        message.sourceEvent.tags.some(
+          ([key, value]) =>
+            key === "record" || (key === "t" && value === "transcript-comment"),
+        )
+      ),
+  );
+  if (!conversation) return ordinaryMessages;
   const additions = conversation.transcriptComments.filter(
     ({ target }) =>
       target.rootId === rootId && target.checkpoint.channelId === channelId,
@@ -18,19 +31,7 @@ export function threadTranscriptMessages(
   // Kind-1111 transcript candidates must come through the verified, visible
   // projection even if a room subscription also supplied them as messages.
   const byId = new Map(
-    messages
-      .filter(
-        (message) =>
-          !(
-            message.sourceEvent?.kind === 1111 &&
-            message.sourceEvent.tags.some(
-              ([key, value]) =>
-                key === "record" ||
-                (key === "t" && value === "transcript-comment"),
-            )
-          ),
-      )
-      .map((message) => [message.id, message]),
+    ordinaryMessages.map((message) => [message.id, message]),
   );
   for (const { event } of additions) {
     const message = conversation.message(event.id);

@@ -1,13 +1,12 @@
-import {
-  verifiedCheckpointSnapshot,
-  CheckpointConversationIndex,
-} from "../../projects/checkpoint-conversation.js";
+import { CheckpointConversationIndex } from "../../projects/checkpoint-conversation.js";
 import { resolveTranscriptComment } from "../../projects/transcript-comments.js";
 import type { ProjectForgeSession } from "../../projects/data-source.js";
 import type { NostrEvent } from "../../protocol/index.js";
-import { buildRepositoryAgentContexts } from "../../projects/repository-agent-context.js";
-import { retainLiveContext } from "../../projects/repository-live-context.js";
 import { visibleEvents } from "./model.js";
+import {
+  mergeConversationEventPage,
+  mergeConversationEvents,
+} from "./conversation-event-merge.js";
 /** Subscription, signature checks and cached read models share application ownership. */
 export function createConversationEvents(
   sessionOwner: () => ProjectForgeSession | undefined,
@@ -31,20 +30,29 @@ export function createConversationEvents(
   let events = $state.raw<NostrEvent[]>([]);
   let loading = $state(false);
   let error = $state("");
+  let deliveryQueue = Promise.resolve();
   function receive(event: NostrEvent) {
-    const signed = verifiedCheckpointSnapshot(event);
-    if (!signed) return;
-    event = signed;
-    events =
-      event.kind === 23908
-        ? [
-            ...events.filter((item) => item.kind !== 23908),
-            ...retainLiveContext(
-              events.filter((item) => item.kind === 23908),
-              event,
-            ),
-          ]
-        : [...events.filter((item) => item.id !== event.id), event];
+    const next = mergeConversationEvents(events, [event]);
+    if (next !== events) events = [...next];
+  }
+  function receiveMany(items: readonly NostrEvent[], signal: AbortSignal) {
+    const work = deliveryQueue.then(async () => {
+      if (signal.aborted || items.length === 0) return;
+      const base = events;
+      const next = await mergeConversationEventPage(base, items, {
+        cancelled: () => signal.aborted,
+      });
+      if (signal.aborted || next === base) return;
+      if (events === base) events = [...next];
+      else {
+        const prior = new Set(base.map(({ id }) => id));
+        const additions = next.filter(({ id }) => !prior.has(id));
+        const merged = mergeConversationEvents(events, additions);
+        if (merged !== events) events = [...merged];
+      }
+    });
+    deliveryQueue = work.catch(() => undefined);
+    return work;
   }
   $effect(() => {
     const session = sessionOwner(),
@@ -66,21 +74,37 @@ export function createConversationEvents(
     loading = true;
     void session
       .queryHttp(filters, abort.signal)
-      .then((items) => {
-        if (!abort.signal.aborted) items.forEach(receive);
-      })
+      .then((items) => receiveMany(items, abort.signal))
       .catch((cause) => {
         if (!abort.signal.aborted) error = String(cause);
       })
       .finally(() => {
         if (!abort.signal.aborted) loading = false;
       });
-    let stop: (() => void) | undefined;
+    let stop: (() => void) | undefined,
+      replaying = true,
+      flushScheduled = false;
+    const buffered: NostrEvent[] = [];
+    const flush = () => {
+      flushScheduled = false;
+      const items = buffered.splice(0);
+      if (!abort.signal.aborted) void receiveMany(items, abort.signal);
+    };
+    const scheduleFlush = () => {
+      if (flushScheduled) return;
+      flushScheduled = true;
+      queueMicrotask(flush);
+    };
     void session
       .subscribe(
         [...filters, { kinds: [23908], "#h": ids }],
         (item) => {
-          if (!abort.signal.aborted && item.event) receive(item.event);
+          if (abort.signal.aborted) return;
+          if (item.event) buffered.push(item.event);
+          if (item.type === "eose") {
+            replaying = false;
+            flush();
+          } else if (!replaying && item.event) scheduleFlush();
         },
         abort.signal,
       )
@@ -95,8 +119,8 @@ export function createConversationEvents(
     };
   });
   const visible = $derived(visibleEvents(events));
-  const checkpoints = $derived(buildRepositoryAgentContexts(events));
   const reviewIndex = $derived(new CheckpointConversationIndex(events));
+  const checkpoints = $derived(reviewIndex.checkpoints);
   const transcriptComments = $derived(
     visible.flatMap((event) => {
       const target = resolveTranscriptComment(event, reviewIndex);

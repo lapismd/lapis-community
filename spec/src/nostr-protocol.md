@@ -623,6 +623,11 @@ Native cache acceptance MUST cover configured private access without a cached ki
 
 Legacy cache rows and old synchronization checkpoints MUST NOT justify newer-only relay queries. A missing persisted history page uses bounded indexed candidates for immediate display, then an ordinary bounded head query when connected. Cache-only offline pagination MUST keep read position separate from synchronization coverage and preserve incomplete unread status.
 
+Selecting a connected thread MUST restore its saved thread head before starting
+the bounded relay reconciliation. Cached replies remain visible and interactive
+while that head query is pending; only an explicit earlier-page request enters
+the older-history loading state.
+
 A relay snapshot refresh MUST remain bound to the session and controller generation that requested it. After sign-out or session replacement, its events, private rumors, capabilities and follow-up synchronization MUST be ignored. Queued mailbox and Inbox paging MUST NOT issue queries against a closed session; live subscription lifetime remains independent of visible-page scheduling.
 
 Project work-item live subscriptions use ordinary Nostr filters with `limit: 0`

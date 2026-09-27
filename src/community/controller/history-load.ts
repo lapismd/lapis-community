@@ -68,11 +68,12 @@ export async function loadScheduledHistoryWindow(
     currentGeneration,
   } = input;
   const previous = input.getWindow(key);
+  const refreshingCachedHead = direction === "head" && previous !== undefined;
   input.setHistoryState(key, {
     key,
-    loading: true,
+    loading: !refreshingCachedHead,
     hasOlder: previous?.window.hasOlder ?? true,
-    hasNewer: false,
+    hasNewer: refreshingCachedHead,
     complete: false,
   });
   const request = buildHistoryRequest(

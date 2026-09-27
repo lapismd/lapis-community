@@ -61,6 +61,11 @@ async function setup(
     forum?: boolean;
     legacy?: boolean;
     load?: CommunitySession["loadContentWindow"];
+    threadPage?: {
+      rootId: string;
+      eventIds: readonly string[];
+      hasOlder: boolean;
+    };
   } = {},
 ) {
   const store = createMemoryCommunityEventStore();
@@ -72,6 +77,32 @@ async function setup(
       relayUrl: scope.relayUrl,
       audience: { type: "public" },
     })),
+    ...(options.threadPage
+      ? {
+          historyPages: [
+            {
+              key: historyPageKey(scope, { type: "public" }, "nip29", {
+                collection: "thread",
+                groupId: "a",
+                rootEventId: options.threadPage.rootId,
+                limit: 50,
+              }),
+              audience: { type: "public" as const },
+              relayUrls: [scope.relayUrl],
+              request: {
+                collection: "thread" as const,
+                groupId: "a",
+                rootEventId: options.threadPage.rootId,
+                limit: 50,
+              },
+              eventIds: [...options.threadPage.eventIds],
+              primaryEventIds: [...options.threadPage.eventIds],
+              hasOlder: options.threadPage.hasOlder,
+              synchronizedAt: 100,
+            },
+          ],
+        }
+      : {}),
   });
   const source: CommunityDataSource = {
     ...(!options.legacy ? { historyPaging: true } : {}),
@@ -137,7 +168,9 @@ it("shows fifty legacy cached messages while the bounded relay head is pending",
     hasOlder: false,
     olderCursor: { createdAt: 76, eventId: latest.id },
   });
-  await vi.waitFor(() => expect(controller.state.history?.loading).toBe(false));
+  await vi.waitFor(() =>
+    expect(controller.state.history?.hasNewer).toBe(false),
+  );
   expect(controller.state.workspace.messages.map((event) => event.id)).toEqual(
     [...events, latest].slice(-50).map((event) => event.id),
   );
@@ -213,6 +246,38 @@ it("hydrates a selected cached thread without displaying replies from its neighb
       .filter((event) => event.id !== root.id)
       .map((event) => event.id),
   ).toEqual(replies.map((event) => event.id));
+});
+it("keeps a cached thread interactive while its connected head refreshes", async () => {
+  const root = message(1),
+    reply = message(2, "a", root.id),
+    pending = deferred<CommunityContentWindow>();
+  const load = vi.fn((request: { collection: string }) =>
+    request.collection === "thread"
+      ? pending.promise
+      : Promise.resolve({ events: [], primaryEventIds: [], hasOlder: false }),
+  );
+  const { controller } = await setup([root, reply], {
+    load,
+    threadPage: { rootId: root.id, eventIds: [reply.id], hasOlder: false },
+  });
+  await vi.waitFor(() => expect(controller.state.history?.loading).toBe(false));
+  controller.actions.openThread(root.id);
+  await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+  expect(
+    controller.state.workspace.thread?.messages.map(({ id }) => id),
+  ).toEqual([root.id, reply.id]);
+  expect(controller.state.threadHistory).toMatchObject({
+    loading: false,
+    hasOlder: false,
+  });
+  pending.resolve({
+    events: [reply],
+    primaryEventIds: [reply.id],
+    hasOlder: false,
+  });
+  await vi.waitFor(() =>
+    expect(controller.state.threadHistory?.hasNewer).toBe(false),
+  );
 });
 it("preserves unpaged source restoration without opting it into history windows", async () => {
   const events = Array.from({ length: 75 }, (_, i) => message(i + 1));

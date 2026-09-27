@@ -12,6 +12,7 @@ import { createHistoryScheduler } from "../history-scheduler.js";
 import { isAbort } from "./abort.js";
 import { loadScheduledHistoryWindow } from "./history-load.js";
 import { restoreCachedHead as restoreCachedHeadWindow } from "./history-restore.js";
+import { createHistoryTargetVisibility } from "./history-target-visibility.js";
 import {
   historyResourceKey,
   type HistoryRoom,
@@ -53,6 +54,7 @@ export function createControllerHistory(deps: ControllerHistoryDeps) {
   const historyWindows = new Map<string, HistoryWindowEntry>();
   let historyStates = $state<Record<string, CommunityHistoryState>>({});
   const historyIntents = new Map<string, number>();
+  const isVisibleTarget = createHistoryTargetVisibility(deps);
   let progressiveRun = 0;
 
   function resourceKey(
@@ -140,20 +142,7 @@ export function createControllerHistory(deps: ControllerHistoryDeps) {
           signal,
           now: deps.now,
         }),
-      () =>
-        key ===
-          resourceKey(
-            deps.getActiveCommunityId(),
-            deps.getActiveRoomId(),
-            deps.getActiveTopicId(),
-          ) ||
-        (deps.getActiveThreadId() !== undefined &&
-          key ===
-            resourceKey(
-              deps.getActiveCommunityId(),
-              deps.getActiveRoomId(),
-              deps.getActiveThreadId(),
-            )),
+      () => isVisibleTarget(scopeId, roomId, rootEventId),
       group,
     );
   }
@@ -248,10 +237,24 @@ export function createControllerHistory(deps: ControllerHistoryDeps) {
     }
     deps.patchContentSync({ phase: "background" });
     deps.patchCache({ freshness: "synchronizing" });
-    void runProgressiveSynchronization(deps.getGeneration(), signal, {
-      scopeId,
-      roomId,
-      rootEventId,
+    const generation = deps.getGeneration();
+    const priority = { scopeId, roomId, rootEventId };
+    const restored = historyWindows.has(
+      resourceKey(scopeId, roomId, rootEventId),
+    )
+      ? Promise.resolve()
+      : restoreCachedHead(scopeId, roomId, rootEventId, generation).catch(
+          () => undefined,
+        );
+    void restored.then(async () => {
+      if (
+        deps.getGeneration() !== generation ||
+        signal.aborted ||
+        !isVisibleTarget(scopeId, roomId, rootEventId)
+      )
+        return;
+      await deps.refreshProjection(generation);
+      await runProgressiveSynchronization(generation, signal, priority);
     });
   }
 

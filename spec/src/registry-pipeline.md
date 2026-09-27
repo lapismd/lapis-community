@@ -127,7 +127,10 @@ same non-scrolling flex fill as channel workspace content, a pane
 viewport that computes overflow hidden over Design Core inline overflow,
 a conversation that stretches to the full Body.Content width,
 channel-matching overflow anchoring, and production conversations that
-render history windows in normal flow without TanStack virtualization.
+render bounded history windows through Design Core virtualization.
+Thread-panel coverage also records cached-head reconciliation, local persisted
+draft typing, and pre-hydration transcript filtering without changing relay
+ingestion or registry materialization.
 P4 factory parser splits are extracted: agent runtime and memory parsers,
 agent-control validation, NIP-29 command templates and content-window loaders,
 registry hydration, catalog subscriptions, and portable release proofs, and
