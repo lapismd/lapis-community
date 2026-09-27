@@ -90,8 +90,10 @@ Message-body Mira `--file-line-width` suppression stays in the markdown and
 message-column owners so `CommunityMessage.svelte` does not grow.
 
 For LC-UI-011, thread-panel projection matching lives in
-`thread-panel-projection` so `CommunityApplication.svelte` does not grow
-while replacing an already-open thread.
+`thread-panel-projection`, and controller selection for restored or navigated
+locations lives in `application-location-activation`, so
+`CommunityApplication.svelte` does not grow while replacing an already-open
+thread or restoring one from a cold browser load.
 
 For LC-UI-040, Inbox selection pending lives in `inbox-conversation-pending`
 so the host can hide stale messages without growing `CommunityInbox.svelte`.

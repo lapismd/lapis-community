@@ -322,6 +322,7 @@
     communityApplicationThreadProjectionMatches,
     communityApplicationThreadProjectionSettled,
   } from "./thread-panel-projection.js";
+  import { activateCommunityApplicationLocation } from "./application-location-activation.js";
   import { provideCommunityApplicationComposer } from "./composer-context.js";
   import { useCommunityApplicationAuthentication } from "./authentication-context.js";
   import CommunityApplicationAgentsHost from "./CommunityApplicationAgentsHost.svelte";
@@ -2537,9 +2538,14 @@
       });
       return;
     }
-    if (room && workspace.activeRoomId !== room.id) {
-      community.actions.selectRoom(room.id);
-    }
+    if (room)
+      activateCommunityApplicationLocation(applicationLocation, {
+        roomId: room.id,
+        activeRoomId: workspace.activeRoomId,
+        inboxRoomId: inbox.room.id,
+        rooms: allRooms,
+        actions: community.actions,
+      });
   });
 
   $effect(() => {
@@ -3353,25 +3359,13 @@
                 next.destination !== "new-direct-message"
               ? next.destination
               : undefined;
-      if (roomId !== undefined && workspace.activeRoomId !== roomId) {
-        community.actions.selectRoom(roomId);
-      }
-
-      if (next.panel.kind === "thread") {
-        community.actions.clearReplyTarget();
-        const forum =
-          allRooms.find((room) => room.id === roomId)?.kind === "forum";
-        if (forum) community.actions.openTopic(next.panel.rootMessageId);
-        else community.actions.openThread(next.panel.rootMessageId);
-      } else if (
-        next.panel.kind === "details" &&
-        next.panel.roomId !== inbox.room.id
-      ) {
-        community.actions.clearReplyTarget();
-        community.actions.openDetails();
-      } else {
-        community.actions.closeSidePanel();
-      }
+      activateCommunityApplicationLocation(next, {
+        roomId,
+        activeRoomId: workspace.activeRoomId,
+        inboxRoomId: inbox.room.id,
+        rooms: allRooms,
+        actions: community.actions,
+      });
     }
 
     if (next.panel.kind === "none")
