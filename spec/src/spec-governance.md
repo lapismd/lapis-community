@@ -52,6 +52,9 @@ The Storybook Vitest plugin owns project annotation registration. The shared
 Vitest setup file MUST remain limited to package-specific runtime diagnostic
 guards and deterministic portal teardown so annotations are not registered a
 second time outside the plugin lifecycle.
+Storybook-only helper modules that retain a `.test.ts` suffix for browser-side
+assertion imports MUST be excluded from the unit project explicitly so Vitest
+does not collect assertion libraries as empty Node test suites.
 
 For LC-SPEC-002, portable application stories MUST use the regular Storybook
 root identifier and full-viewport body marker, so their percentage-height

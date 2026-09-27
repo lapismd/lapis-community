@@ -64,6 +64,9 @@ export default defineConfig(({ command }) => ({
             "scripts/**/*.test.mjs",
             ".storybook/**/*.test.ts",
           ],
+          exclude: [
+            "src/components/registry-release-edit-form/*-helper.test.ts",
+          ],
         },
       },
       {

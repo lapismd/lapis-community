@@ -42,6 +42,11 @@ For LC-ARCH-028, project-bound channel inline sheet routing records the updated
 CommunityApplication, application-navigation, and focused Storybook interaction
 budgets in `scripts/architecture-baseline.json`.
 
+For LC-SPEC-002, the Vitest unit project owns only executable Node test suites.
+Browser assertion helpers for the Registry release Storybook form remain in the
+Storybook module graph but are excluded from unit discovery so they cannot be
+reported as empty suites.
+
 For LC-UI-036, embedded project sheets pass a non-main body element through
 `CommunityProjects` so project workspace content keeps AppShell body scrolling
 without nesting a `main` landmark inside the channel surface. Project-bound
