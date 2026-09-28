@@ -691,7 +691,10 @@ history-mode prepend can stabilize the wheel. Production conversations MUST rend
 through bounded Design Core virtualization with Community-owned estimates and
 measured row heights; older windows MUST load from the guarded top-edge control. A persisted thread head MUST render while
 its connected reconciliation runs, without presenting that background refresh
-as an older-page load. Main channel and
+as an older-page load. Selecting a thread MUST reveal its sidebar immediately
+and paint the padded message skeleton before controller projection begins.
+Thread activation MUST wait until after that paint, and a navigation change
+MUST cancel any superseded activation. Main channel and
 forum-index rows MUST keep reply bodies lazy, mounting full reply rows only in
 the open thread or selected forum-thread view. The thread pane viewport MUST use the same non-scrolling flex fill
 as channel workspace content (`overflow: hidden`, `min-height: 0`,

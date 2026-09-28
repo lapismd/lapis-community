@@ -322,7 +322,7 @@
     communityApplicationThreadProjectionMatches,
     communityApplicationThreadProjectionSettled,
   } from "./thread-panel-projection.js";
-  import { activateCommunityApplicationLocation } from "./application-location-activation.js";
+  import { createCommunityApplicationLocationActivation } from "./thread-panel-activation.js";
   import { provideCommunityApplicationComposer } from "./composer-context.js";
   import { useCommunityApplicationAuthentication } from "./authentication-context.js";
   import CommunityApplicationAgentsHost from "./CommunityApplicationAgentsHost.svelte";
@@ -338,6 +338,7 @@
     PROJECT_REPOSITORY_READ_GC_TIME_MS,
     PROJECT_REPOSITORY_READ_STALE_TIME_MS,
   } from "./project-query-client.js";
+  import type { ProjectSessionLifecycle } from "./project-session-lifecycle.js";
   import {
     communityProjectQueryKeys,
     communityQueryRelayUrls,
@@ -523,6 +524,8 @@
   let navigationHistory = $state<CommunityApplicationHistory>(
     createCommunityApplicationHistory(initialApplicationLocation),
   );
+  const locationActivation = createCommunityApplicationLocationActivation();
+  onDestroy(locationActivation.cancel);
   let registryRoute = $state<RegistryRoute>(
     registryRouteFromDestination(initialApplicationLocation.destination) ?? {
       page: "landing",
@@ -597,10 +600,6 @@
       projectCatalog.repositories.map((repository) => repository.event),
     );
   });
-  type ProjectSessionLifecycle = {
-    key: readonly unknown[];
-    dispose: () => void;
-  };
   let activeProjectSessionLifecycle: ProjectSessionLifecycle | undefined;
   const projectSessionKeysMatch = (
     current: readonly unknown[],
@@ -1265,8 +1264,7 @@
     const visit = inboxVisit;
     readyInboxVisit = undefined;
     if (visit === undefined) return;
-    // Effects and promise continuations run before paint. Leave one frame for
-    // the Inbox regions before mounting the editor or starting projections.
+    // Leave one frame for Inbox regions before editor/projection work.
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => {
         readyInboxVisit = visit;
@@ -2539,7 +2537,7 @@
       return;
     }
     if (room)
-      activateCommunityApplicationLocation(applicationLocation, {
+      locationActivation.activate(applicationLocation, {
         roomId: room.id,
         activeRoomId: workspace.activeRoomId,
         inboxRoomId: inbox.room.id,
@@ -3342,8 +3340,7 @@
       projectFilesRepositoryCoordinate = "";
     }
 
-    // Inbox activates its selected conversation after its shell has painted.
-    // Selecting the room here would start a duplicate projection/history load.
+    // Inbox selection waits for its shell and avoids duplicate projection work.
     const enteringInbox =
       next.destination === "inbox" && previous.destination !== "inbox";
     if (!enteringInbox) {
@@ -3359,7 +3356,7 @@
                 next.destination !== "new-direct-message"
               ? next.destination
               : undefined;
-      activateCommunityApplicationLocation(next, {
+      locationActivation.activate(next, {
         roomId,
         activeRoomId: workspace.activeRoomId,
         inboxRoomId: inbox.room.id,

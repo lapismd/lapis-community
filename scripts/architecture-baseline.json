@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "f42fe321ca9f4c40ae18813bdd9c2b20e921a0c7",
+  "sourceCommit": "30d3d9b5434434c2c32d1533cf09cd7b77f11ac2",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -2535,8 +2535,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-application/CommunityApplication.svelte": {
-      "countedLines": 9276,
-      "physicalLines": 9641,
+      "countedLines": 9275,
+      "physicalLines": 9638,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Application composition root; extract destination hosts before adding behaviour"
@@ -2879,6 +2879,11 @@
       "physicalLines": 220,
       "forbiddenImportCount": 0
     },
+    "src/components/community-application/project-session-lifecycle.ts": {
+      "countedLines": 4,
+      "physicalLines": 4,
+      "forbiddenImportCount": 0
+    },
     "src/components/community-application/project-task-route.test.ts": {
       "countedLines": 20,
       "physicalLines": 23,
@@ -2892,6 +2897,16 @@
     "src/components/community-application/repository-browsing.ts": {
       "countedLines": 22,
       "physicalLines": 24,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/thread-panel-activation.test.ts": {
+      "countedLines": 116,
+      "physicalLines": 129,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-application/thread-panel-activation.ts": {
+      "countedLines": 42,
+      "physicalLines": 47,
       "forbiddenImportCount": 0
     },
     "src/components/community-application/thread-panel-projection.test.ts": {

@@ -93,7 +93,11 @@ For LC-UI-011, thread-panel projection matching lives in
 `thread-panel-projection`, and controller selection for restored or navigated
 locations lives in `application-location-activation`, so
 `CommunityApplication.svelte` does not grow while replacing an already-open
-thread or restoring one from a cold browser load.
+thread or restoring one from a cold browser load. The
+`thread-panel-activation` owner schedules and cancels projection work across
+the panel's first loading-skeleton paint. The project-session lifecycle shape
+moves to `project-session-lifecycle` so this interaction change lowers the
+application composition root's counted-line budget.
 
 For LC-UI-040, Inbox selection pending lives in `inbox-conversation-pending`
 so the host can hide stale messages without growing `CommunityInbox.svelte`.

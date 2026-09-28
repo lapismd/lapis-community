@@ -129,7 +129,8 @@ a conversation that stretches to the full Body.Content width,
 channel-matching overflow anchoring, and production conversations that
 render bounded history windows through Design Core virtualization.
 Thread-panel coverage also records cached-head reconciliation, local persisted
-draft typing, and pre-hydration transcript filtering without changing relay
+draft typing, pre-hydration transcript filtering, and deferred cancellable
+projection after the sidebar loading skeleton paints without changing relay
 ingestion or registry materialization.
 P4 factory parser splits are extracted: agent runtime and memory parsers,
 agent-control validation, NIP-29 command templates and content-window loaders,
