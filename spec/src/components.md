@@ -1183,7 +1183,9 @@ with the thread root, while a reply to another reply follows its parent subtree
 and moves one avatar column inward for each visible depth. Nested branches MUST
 retain their immediate parent relationship and render a subtle continuous rail
 with a curved connector into each child. Deep branches MAY cap their visual
-indent while retaining their full logical depth. Changed stories remain
+indent while retaining their full logical depth. Branch geometry MUST load with
+the rendered tree row in live application consumers, without relying on a
+Storybook-only or separately mounted parent stylesheet. Changed stories remain
 `visual-pending`.
 
 LC-UI-049 agent replies and commit discussions MUST compose the ordinary message
