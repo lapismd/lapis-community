@@ -21,13 +21,17 @@
   import CommunityChip from "../community-chip/CommunityChip.svelte";
   import type { CommunityComposerAgentModel } from "../community-chat-composer/composer-agent-model.js";
   import CommunityConversationComposer from "./CommunityConversationComposer.svelte";
+  import { resolveDirectMember } from "./direct-member.js";
   import {
     communityMessageDayLabel,
     communityMessageStartsDay,
   } from "./conversation-day.js";
   import CommunityMemberAvatar from "../community-member-avatar/CommunityMemberAvatar.svelte";
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
-  import { isMessageContinuation } from "../community-message/grouping.js";
+  import {
+    firstUnreadMessageId,
+    isMessageContinuation,
+  } from "../community-message/grouping.js";
   import { estimateCommunityMessageRow } from "./message-row-estimate.js";
   import {
     memberById,
@@ -184,28 +188,24 @@
 
   const density = $derived(room.kind === "forum" ? "spacious" : "compact");
   const composerRooms = $derived(rooms.length > 0 ? rooms : [room]);
+  const firstUnreadId = $derived(
+    firstUnreadMessageId(messages, history?.unreadEventIds),
+  );
+  function messageIsContinuation(index: number): boolean {
+    return isMessageContinuation(messages, index, {
+      startsNewGroup:
+        communityMessageStartsDay(messages, index) ||
+        messages[index]?.id === firstUnreadId,
+    });
+  }
   function estimateMessageRow(message: CommunityMessageModel, index: number) {
     return estimateCommunityMessageRow(message, {
       density,
-      continuation: isMessageContinuation(messages, index),
+      continuation: messageIsContinuation(index),
       supplementHeight: communityMessageStartsDay(messages, index) ? 54 : 0,
     });
   }
-  const displayedDirectMember = $derived(
-    directMember ?? {
-      id: room.id,
-      name: room.name,
-      handle: room.id,
-      initials:
-        room.name
-          .split(/\s+/u)
-          .filter(Boolean)
-          .slice(0, 2)
-          .map((part) => part[0]?.toLocaleUpperCase() ?? "")
-          .join("") || "?",
-      presence: "offline" as const,
-    },
-  );
+  const displayedMember = $derived(resolveDirectMember(room, directMember));
 </script>
 
 <div
@@ -227,7 +227,7 @@
     {/snippet}
     <CommunityMessage
       {message}
-      isContinuation={isMessageContinuation(messages, index)}
+      isContinuation={messageIsContinuation(index)}
       author={memberById(members, message.authorId)}
       {members}
       rooms={composerRooms}
@@ -319,11 +319,11 @@
                 type="button"
                 class="community-conversation__direct-avatar-button"
                 data-ui-part="direct-message-profile-action"
-                aria-label={`View ${displayedDirectMember.name}'s profile`}
-                onclick={() => onOpenProfile?.(displayedDirectMember)}
+                aria-label={`View ${displayedMember.name}'s profile`}
+                onclick={() => onOpenProfile?.(displayedMember)}
               >
                 <CommunityMemberAvatar
-                  member={displayedDirectMember}
+                  member={displayedMember}
                   size="large"
                   showPresence
                   decorative
@@ -331,15 +331,15 @@
               </button>
             {:else}
               <CommunityMemberAvatar
-                member={displayedDirectMember}
+                member={displayedMember}
                 size="large"
                 showPresence
                 decorative
               />
             {/if}
-            <h1>{displayedDirectMember.name}</h1>
+            <h1>{displayedMember.name}</h1>
             <p>
-              This is the beginning of your direct message with {displayedDirectMember.name}.
+              This is the beginning of your direct message with {displayedMember.name}.
             </p>
           </section>
           <SystemMessage variant="divider">Today</SystemMessage>
@@ -369,7 +369,7 @@
         {...presentation === undefined ? {} : { presentation }}
         {...onPresentationChange === undefined ? {} : { onPresentationChange }}
         {...directMember === undefined
-          ? { directMember: displayedDirectMember }
+          ? { directMember: displayedMember }
           : { directMember }}
         {...onSend === undefined ? {} : { onSend }}
         {...replyTarget === undefined ? {} : { replyTarget }}

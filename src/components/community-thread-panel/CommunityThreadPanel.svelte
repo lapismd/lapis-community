@@ -21,6 +21,10 @@
   import CommunityThreadPanelComposer from "./CommunityThreadPanelComposer.svelte";
   import CommunityThreadTreeRow from "./CommunityThreadTreeRow.svelte";
   import {
+    firstUnreadMessageId,
+    isMessageContinuation,
+  } from "../community-message/grouping.js";
+  import {
     memberById,
     type CommunityMemberModel,
     type CommunityRoomModel,
@@ -113,6 +117,14 @@
     projectThreadTree(transcriptMessages, thread.rootMessageId),
   );
   const messages = $derived(threadTree.messages);
+  const firstUnreadId = $derived(
+    firstUnreadMessageId(messages, history?.unreadEventIds),
+  );
+  function threadMessageIsContinuation(index: number): boolean {
+    return isMessageContinuation(messages, index, {
+      startsNewGroup: messages[index]?.id === firstUnreadId,
+    });
+  }
   const latestArrivalId = $derived(
     transcriptMessages.findLast(
       (message) =>
@@ -150,6 +162,7 @@
     messages: () => messages,
     rooms: () => rooms,
     rootId: () => thread.rootMessageId,
+    isContinuation: (_message, index) => threadMessageIsContinuation(index),
   });
 
   function startEditing(messageId: string): void {
@@ -173,8 +186,7 @@
     <CommunityThreadTreeRow
       panel={panelProps}
       {message}
-      {messages}
-      {index}
+      isContinuation={threadMessageIsContinuation(index)}
       {members}
       {focused}
       treeRow={threadTree.rowsById.get(message.id)}

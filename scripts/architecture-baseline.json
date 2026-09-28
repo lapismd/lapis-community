@@ -4058,13 +4058,13 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-message/grouping.test.ts": {
-      "countedLines": 50,
-      "physicalLines": 58,
+      "countedLines": 77,
+      "physicalLines": 89,
       "forbiddenImportCount": 0
     },
     "src/components/community-message/grouping.ts": {
-      "countedLines": 27,
-      "physicalLines": 29,
+      "countedLines": 42,
+      "physicalLines": 46,
       "forbiddenImportCount": 0
     },
     "src/components/community-message/implicit-mentions.test.ts": {
@@ -5339,8 +5339,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanel.svelte": {
-      "countedLines": 285,
-      "physicalLines": 290,
+      "countedLines": 291,
+      "physicalLines": 296,
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanelAgent.stories.svelte": {

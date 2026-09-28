@@ -12,8 +12,7 @@
   let {
     panel,
     message,
-    messages,
-    index,
+    isContinuation,
     members,
     focused,
     treeRow,
@@ -23,13 +22,12 @@
   }: {
     panel: ThreadPanelProps;
     message: CommunityMessageModel;
-    messages: readonly CommunityMessageModel[];
-    index: number;
+    isContinuation: boolean;
     members: readonly CommunityMemberModel[];
-    focused?: string;
-    treeRow?: ThreadTreeRow;
+    focused?: string | undefined;
+    treeRow?: ThreadTreeRow | undefined;
     transcriptComment: boolean;
-    roomId?: string;
+    roomId?: string | undefined;
     startEditing(id: string): void;
   } = $props();
 </script>
@@ -72,8 +70,7 @@
       <CommunityThreadMessage
         {panel}
         {message}
-        {messages}
-        {index}
+        {isContinuation}
         {members}
         {focused}
         {startEditing}

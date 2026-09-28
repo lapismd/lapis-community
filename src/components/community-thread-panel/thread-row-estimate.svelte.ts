@@ -7,12 +7,12 @@ import { useAgentConversation } from "../community-agent-conversation/context.sv
 import { estimateAgentThreadContextHeight } from "../community-agent-thread-context/height-estimate.js";
 import { projectAgentThreadContext } from "../community-agent-thread-context/context-projection.js";
 import { estimateCommunityMessageRow } from "../community-conversation/message-row-estimate.js";
-import { isMessageContinuation } from "../community-message/grouping.js";
 
 export function createThreadRowEstimate(owner: {
   messages(): readonly CommunityMessageModel[];
   rooms(): readonly CommunityRoomModel[];
   rootId(): string;
+  isContinuation(message: CommunityMessageModel, index: number): boolean;
 }) {
   const conversation = useAgentConversation();
   const activityOwner = useAgentComposerActivity();
@@ -38,7 +38,7 @@ export function createThreadRowEstimate(owner: {
       });
       return estimateCommunityMessageRow(message, {
         density: "compact",
-        continuation: isMessageContinuation(messages, index),
+        continuation: owner.isContinuation(message, index),
         supplementHeight: estimateAgentThreadContextHeight(projection),
       });
     };

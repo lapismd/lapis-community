@@ -1,6 +1,5 @@
 <script lang="ts">
   import CommunityMessage from "../community-message/CommunityMessage.svelte";
-  import { isMessageContinuation } from "../community-message/grouping.js";
   import {
     memberById,
     type CommunityMessageModel,
@@ -11,16 +10,14 @@
   let {
     panel,
     message,
-    messages,
-    index,
+    isContinuation,
     members,
     focused,
     startEditing,
   }: {
     panel: ThreadPanelProps;
     message: CommunityMessageModel;
-    messages: readonly CommunityMessageModel[];
-    index: number;
+    isContinuation: boolean;
     members: readonly CommunityMemberModel[];
     focused?: string | undefined;
     startEditing(id: string): void;
@@ -31,7 +28,7 @@
 <CommunityMessage
   {message}
   highlighted={message.id === focused}
-  isContinuation={isMessageContinuation(messages, index)}
+  {isContinuation}
   author={memberById(members, message.authorId)}
   {members}
   rooms={panel.rooms ?? []}
