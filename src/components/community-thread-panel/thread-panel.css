@@ -86,3 +86,68 @@
 .community-thread-panel [data-ui-component="ai-chat-composer"] {
   --ui-ai-chat-composer-radius: 0.75rem;
 }
+
+.community-thread-tree-row {
+  --community-thread-avatar-center: 1.125rem;
+  --community-thread-guide-bleed: 0.25rem;
+  --community-thread-guide-color: color-mix(
+    in srgb,
+    var(--border) 58%,
+    transparent
+  );
+
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding-inline-start: var(--community-thread-indent);
+}
+
+.community-thread-tree-row__content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.community-thread-tree-row__guide,
+.community-thread-tree-row__connector,
+.community-thread-tree-row__descendant-guide {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.community-thread-tree-row__guide {
+  inset-block: calc(-1 * var(--community-thread-guide-bleed));
+  inset-inline-start: calc(
+    var(--community-thread-guide-indent) + var(--community-thread-avatar-center)
+  );
+  border-inline-start: 1.5px solid var(--community-thread-guide-color);
+}
+
+.community-thread-tree-row__connector {
+  inset-block-start: calc(-1 * var(--community-thread-guide-bleed));
+  inset-inline-start: calc(
+    var(--community-thread-connector-indent) +
+      var(--community-thread-avatar-center)
+  );
+  width: calc(
+    var(--community-thread-indent) - var(--community-thread-connector-indent) -
+      var(--community-thread-avatar-center) - 0.25rem
+  );
+  height: calc(
+    var(--community-thread-avatar-center) + var(--community-thread-guide-bleed)
+  );
+  border-block-end: 1.5px solid var(--community-thread-guide-color);
+  border-inline-start: 1.5px solid var(--community-thread-guide-color);
+  border-end-start-radius: 1rem;
+}
+
+.community-thread-tree-row__descendant-guide {
+  inset-block-start: var(--community-thread-avatar-center);
+  inset-block-end: calc(-1 * var(--community-thread-guide-bleed));
+  inset-inline-start: calc(
+    var(--community-thread-indent) + var(--community-thread-avatar-center)
+  );
+  border-inline-start: 1.5px solid var(--community-thread-guide-color);
+}

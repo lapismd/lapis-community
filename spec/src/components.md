@@ -1177,6 +1177,15 @@ Checkpoint Request navigation MUST resolve a follow-up message through the verif
 
 The original request sidebar MUST render nested native replies with their checkpoint Thinking and tool context, rather than limiting the view to direct children of the request.
 
+For LC-UI-049, channel thread panels MUST match Buzz Desktop
+`ef2aa1ae38fadcc0bc22b8bf6ed96b35933146be`: direct replies remain aligned
+with the thread root, while a reply to another reply follows its parent subtree
+and moves one avatar column inward for each visible depth. Nested branches MUST
+retain their immediate parent relationship and render a subtle continuous rail
+with a curved connector into each child. Deep branches MAY cap their visual
+indent while retaining their full logical depth. Changed stories remain
+`visual-pending`.
+
 LC-UI-049 agent replies and commit discussions MUST compose the ordinary message
 hover menu, including author-only editing and deletion and message, signed-event,
 and permalink copying. Edits use the existing channel edit events and preserve

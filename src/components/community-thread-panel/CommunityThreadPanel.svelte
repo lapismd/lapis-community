@@ -1,7 +1,6 @@
 <script lang="ts">
   import { threadTranscriptMessages } from "./thread-transcript-messages.js";
-  import CommunityTranscriptCommentMessage from "../community-transcript-comment-message/CommunityTranscriptCommentMessage.svelte";
-  import CommunityAgentThreadContext from "../community-agent-thread-context/CommunityAgentThreadContext.svelte";
+  import { projectThreadTree } from "./thread-tree-layout.js";
   import { createThreadRowEstimate } from "./thread-row-estimate.svelte.js";
   import { createThreadDraft } from "./thread-draft.svelte.js";
   import { focusReply } from "./focus-reply.js";
@@ -20,7 +19,7 @@
     CommunityTimelinePosition,
   } from "../../community/index.js";
   import CommunityThreadPanelComposer from "./CommunityThreadPanelComposer.svelte";
-  import CommunityThreadMessage from "./CommunityThreadMessage.svelte";
+  import CommunityThreadTreeRow from "./CommunityThreadTreeRow.svelte";
   import {
     memberById,
     type CommunityMemberModel,
@@ -102,7 +101,7 @@
   const channelId = $derived(
     thread.messages[0]?.sourceEvent?.tags.find(([key]) => key === "h")?.[1],
   );
-  const messages = $derived(
+  const transcriptMessages = $derived(
     threadTranscriptMessages(
       thread.messages,
       conversation,
@@ -110,8 +109,12 @@
       channelId,
     ),
   );
+  const threadTree = $derived(
+    projectThreadTree(transcriptMessages, thread.rootMessageId),
+  );
+  const messages = $derived(threadTree.messages);
   const latestArrivalId = $derived(
-    messages.findLast(
+    transcriptMessages.findLast(
       (message) =>
         message.authorId !== currentMemberId &&
         (!message.sourceEvent ||
@@ -167,26 +170,17 @@
     message: import("../community-workspace/model.js").CommunityMessageModel,
     index: number,
   )}
-    {#if transcriptComments.has(message.id)}
-      <CommunityTranscriptCommentMessage
-        {message}
-        highlighted={message.id === focused}
-      />
-    {:else}
-      <CommunityThreadMessage
-        panel={panelProps}
-        {message}
-        {messages}
-        {index}
-        {members}
-        {focused}
-        {startEditing}
-      />
-    {/if}
-    <CommunityAgentThreadContext
-      messageId={message.id}
-      rootId={thread.rootMessageId}
+    <CommunityThreadTreeRow
+      panel={panelProps}
+      {message}
+      {messages}
+      {index}
+      {members}
+      {focused}
+      treeRow={threadTree.rowsById.get(message.id)}
+      transcriptComment={transcriptComments.has(message.id)}
       roomId={threadRows.roomId(message)}
+      {startEditing}
     />
   {/snippet}
   <Layout
