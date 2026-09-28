@@ -566,7 +566,7 @@ kind `3903` named by the latest kind `3904` `metadata.ended_at_ms`, or the
 newest `3903` when no native operation time is present. Historical views stay
 in the work-item stream as published evidence and MUST NOT seed rows or
 workspace chips. One row per `change_id` keeps the commit the current view
-names. Abandoned empty working copies are omitted. Ancestor traversal MUST visit each native commit at most once and count only unique revisions against the history limit. Parent remapping through same-change rewrites and omitted empty commits MUST preserve first-occurrence order and emit each retained parent once, so shared ancestry cannot create duplicate graph lanes. Published event content MUST remain unchanged. The Log `ColumnCanvas` MUST fill the remaining tab body and style
+names. Abandoned empty working copies are omitted. Ancestor traversal MUST visit each native commit at most once and count only unique revisions against the history limit. Parent remapping through same-change rewrites and omitted empty commits MUST preserve first-occurrence order and emit each retained parent once, so shared ancestry cannot create duplicate graph lanes. Active graph lanes MUST retain their horizontal slot until they converge; ending an inner lane MUST NOT shift an unrelated outer lane between adjacent rows. Published event content MUST remain unchanged. The Log `ColumnCanvas` MUST fill the remaining tab body and style
 only the canvas root so column headers stay on the column chrome. The Log-tab
 `AppShell.Body` MUST use `layout="regions"` so the shell body does not scroll;
 column bodies MUST scroll through their Design Core ScrollAreas and MUST

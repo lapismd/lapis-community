@@ -2,6 +2,8 @@ import type {
   RepositoryLogDevice,
   RepositoryLogRevision,
 } from "./repository-log.js";
+import * as laneState from "./repository-log-lanes.js";
+export type { RepositoryLogGraphLane } from "./repository-log-lanes.js";
 
 export const REPOSITORY_LOG_ROW_HEIGHT = 76;
 export const REPOSITORY_LOG_LANE_WIDTH = 12;
@@ -20,15 +22,10 @@ export const REPOSITORY_LOG_LANE_COLORS = [
   "var(--ui-log-lane-8, #65a30d)",
 ] as const;
 
-export type RepositoryLogGraphLane = {
-  hash: string;
-  color: string;
-};
-
 export type RepositoryLogGraphRow = {
   revision: RepositoryLogRevision;
   commitLane: number;
-  lanes: RepositoryLogGraphLane[];
+  lanes: laneState.RepositoryLogGraphLane[];
   mergeFromLanes: number[];
   convergingLanes: number[];
   splitFromLane: number | null;
@@ -112,6 +109,7 @@ export function repositoryLogLaneStem(
   lane: number,
   rowHeight = REPOSITORY_LOG_ROW_HEIGHT,
 ): { y1: number; y2: number } {
+  if (row.lanes[lane]?.hash == null) return { y1: 0, y2: 0 };
   const center = rowHeight / 2;
   const isSplitCommitLane =
     row.splitFromLane != null && lane === row.commitLane;
@@ -185,7 +183,7 @@ export function buildRepositoryLogGraph(
   revisions: readonly RepositoryLogRevision[],
   devices: readonly RepositoryLogDevice[] = [],
 ): RepositoryLogGraphRow[] {
-  const lanes: RepositoryLogGraphLane[] = [];
+  const lanes: laneState.RepositoryLogGraphLane[] = [];
   let colorIndex = 0;
   const rows: RepositoryLogGraphRow[] = [];
   const tips = new Set(tipRevisionIds(revisions));
@@ -210,14 +208,13 @@ export function buildRepositoryLogGraph(
     let commitStartsLane = false;
     if (commitLane === -1) {
       commitStartsLane = true;
-      commitLane = lanes.length;
-      lanes.push({
-        hash: revision.eventId,
-        color:
-          REPOSITORY_LOG_LANE_COLORS[
-            colorIndex++ % REPOSITORY_LOG_LANE_COLORS.length
-          ] ?? REPOSITORY_LOG_LANE_COLORS[0],
-      });
+      commitLane = laneState.occupyRepositoryLogLane(
+        lanes,
+        revision.eventId,
+        REPOSITORY_LOG_LANE_COLORS[
+          colorIndex++ % REPOSITORY_LOG_LANE_COLORS.length
+        ] ?? REPOSITORY_LOG_LANE_COLORS[0],
+      );
     }
 
     const currentLanes = lanes.map((lane) => ({ ...lane }));
@@ -230,25 +227,26 @@ export function buildRepositoryLogGraph(
       ? currentLanes.findIndex((lane) => lane.hash === firstParent)
       : -1;
     const splitFromLane =
-      commitLane === currentLanes.length - 1 &&
+      commitStartsLane &&
       firstParentLane !== -1 &&
       firstParentLane !== commitLane
         ? firstParentLane
         : null;
     const currentColor =
       lanes[commitLane]?.color ?? REPOSITORY_LOG_LANE_COLORS[0];
-    let continueLane = commitLane;
+    const continueLane = commitLane;
     for (let index = lanes.length - 1; index >= 0; index -= 1) {
       if (index !== continueLane && lanes[index]?.hash === revision.eventId) {
-        lanes.splice(index, 1);
-        if (index < continueLane) continueLane -= 1;
+        laneState.vacateRepositoryLogLane(lanes, index);
       }
     }
     if (firstParent) {
       lanes[continueLane] = { hash: firstParent, color: currentColor };
     } else {
-      lanes.splice(continueLane, 1);
+      laneState.vacateRepositoryLogLane(lanes, continueLane);
     }
+
+    laneState.trimRepositoryLogLanes(lanes);
 
     const mergeFromLanes: number[] = [];
     for (const parent of otherParents) {
@@ -257,14 +255,14 @@ export function buildRepositoryLogGraph(
         mergeFromLanes.push(existing);
         continue;
       }
-      mergeFromLanes.push(lanes.length);
-      lanes.push({
-        hash: parent,
-        color:
-          REPOSITORY_LOG_LANE_COLORS[
-            colorIndex++ % REPOSITORY_LOG_LANE_COLORS.length
-          ] ?? REPOSITORY_LOG_LANE_COLORS[0],
-      });
+      const parentLane = laneState.occupyRepositoryLogLane(
+        lanes,
+        parent,
+        REPOSITORY_LOG_LANE_COLORS[
+          colorIndex++ % REPOSITORY_LOG_LANE_COLORS.length
+        ] ?? REPOSITORY_LOG_LANE_COLORS[0],
+      );
+      mergeFromLanes.push(parentLane);
     }
 
     rows.push({

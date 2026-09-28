@@ -208,7 +208,9 @@ beside the timestamp. `createdAt` MUST use
 `CommunityRelativeTime`. Rows MUST NOT render a Snapshot chip. A blank `description`
 MUST render as `(empty) (no description set)`. The mapped DAG MUST
 keep a forked lane open until its shared parent so the branch edge meets
-the main line with a cubic join from the top of the parent row. Selecting a mapped
+the main line with a cubic join from the top of the parent row. Removing an
+inner lane MUST preserve the horizontal slot of every still-active outer lane
+until that lane reaches its own convergence. Selecting a mapped
 revision MAY load dest-Git changed-file stats for that commit ID only; the
 Log host MUST render those stats with Design Core `FileListing` and
 `FileListingViewModeToggle` in the compact bordered History host chrome.
