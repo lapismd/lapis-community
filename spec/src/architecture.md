@@ -803,7 +803,7 @@ unread event IDs, never resizing or pagination geometry, and counts with
 incomplete coverage remain lower bounds. The transition inventory tracks the
 remaining cross-application and scale acceptance work.
 
-Member-search results, transient operation state and saved timeline positions remain independently reactive, so they do not invalidate the composed conversation state. Sign-out invalidates pending signer lookups before anonymous synchronization; stale successes, failures and subscriptions cannot restore the previous identity. Cache schema upgrades retain existing message and agent records and populate missing room indexes additively.
+Member-search results, transient operation state and saved timeline positions remain independently reactive, so they do not invalidate the composed conversation state. Position-only timeline updates MUST persist the latest reading anchor without invalidating the mounted application or conversation tree; draft and identity/reset changes remain reactive. Sign-out invalidates pending signer lookups before anonymous synchronization; stale successes, failures and subscriptions cannot restore the previous identity. Cache schema upgrades retain existing message and agent records and populate missing room indexes additively.
 
 For LC-ARCH-011, the 64 MiB event-and-page cache budget MUST use byte accounting
 updated with its writes. Metadata-only restoration MUST report the entire

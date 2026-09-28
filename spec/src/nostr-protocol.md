@@ -1,5 +1,7 @@
 # Nostr Protocol and Trust
 
+For LC-ARCH-008, saved timeline positions are local presentation state. Updating a reading anchor MUST NOT publish a Nostr event or invalidate the mounted application or conversation tree; drafts remain independently reactive.
+
 For LC-UI-036, selecting a review activity card resolves `review:`, `review-update:`, and `review-comment:` ids back to the pull request that already owns those events.
 
 For LC-UI-037, agent `runtime_set` thinking is taken only from advertised catalog options, including `xhigh` when a harness lists it, and is omitted when the selected model advertises none. The editor lists only the selected harness catalog after the Command View Filters tabs choose that harness.

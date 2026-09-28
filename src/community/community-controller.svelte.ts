@@ -974,6 +974,10 @@ export function createCommunityController(
         JSON.stringify(current.position) === JSON.stringify(next.position)
       )
         return;
+      if (current.draft === next.draft) {
+        current.position = next.position;
+        return;
+      }
       timelinePresentations.set(key, next);
       presentationRevision++;
     },

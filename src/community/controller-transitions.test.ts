@@ -127,6 +127,7 @@ describe("controller transition guards", () => {
     const { controller, project } = await setup();
     const state = controller.state;
     const messages = state.workspace.messages;
+    const presentation = state.timelinePresentation;
     project.mockClear();
     await controller.actions.searchMembers("member");
     controller.actions.updateTimelinePresentation!(
@@ -146,6 +147,12 @@ describe("controller transition guards", () => {
     expect(controller.state.timelinePresentation?.position?.messageId).toBe(
       "anchor",
     );
+    expect(controller.state.timelinePresentation).toBe(presentation);
+    controller.actions.updateTimelinePresentation!(
+      state.timelinePresentation!.key,
+      { draft: "Reactive draft" },
+    );
+    expect(controller.state.timelinePresentation).not.toBe(presentation);
   });
 
   it("keeps the latest member query after stale results, errors, and cleanup", async () => {
