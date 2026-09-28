@@ -27,7 +27,7 @@ describe("estimateCommunityMessageRow", () => {
         reactions: [{ emoji: "👍", count: 2 }],
         replyCount: 3,
       },
-      { hasSupplement: true },
+      { supplementHeight: 56 },
     );
     expect(rich).toBeGreaterThan(plain + 120);
   });

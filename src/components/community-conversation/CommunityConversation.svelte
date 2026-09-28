@@ -184,14 +184,11 @@
 
   const density = $derived(room.kind === "forum" ? "spacious" : "compact");
   const composerRooms = $derived(rooms.length > 0 ? rooms : [room]);
-  function estimateMessageRow(
-    message: CommunityMessageModel,
-    index: number,
-  ): number {
+  function estimateMessageRow(message: CommunityMessageModel, index: number) {
     return estimateCommunityMessageRow(message, {
       density,
       continuation: isMessageContinuation(messages, index),
-      hasSupplement: messageSupplement !== undefined,
+      supplementHeight: communityMessageStartsDay(messages, index) ? 54 : 0,
     });
   }
   const displayedDirectMember = $derived(
@@ -279,7 +276,8 @@
   {/snippet}
   <Layout
     {density}
-    scrollMode={history ? "history" : "stream"} scrollAreaStrategy={virtualize ? "native" : "auto"}
+    scrollMode={history ? "history" : "stream"}
+    scrollAreaStrategy={virtualize ? "native" : "auto"}
     conversationKey={presentation?.key ?? draftKey}
     {...history?.unreadEventIds
       ? { hasNewMessages: history.unreadEventIds.length > 0 }

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sourceCommit": "30d3d9b5434434c2c32d1533cf09cd7b77f11ac2",
+  "sourceCommit": "541bf826ac793fa077c5d3766c9ef9448c7d26a6",
   "limits": {
     "newProductionCountedLines": 300,
     "newTestCountedLines": 500,
@@ -2317,8 +2317,23 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-thread-context/CommunityAgentThreadContext.svelte": {
-      "countedLines": 132,
-      "physicalLines": 133,
+      "countedLines": 102,
+      "physicalLines": 103,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-thread-context/context-projection.ts": {
+      "countedLines": 73,
+      "physicalLines": 75,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-thread-context/height-estimate.test.ts": {
+      "countedLines": 96,
+      "physicalLines": 102,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-agent-thread-context/height-estimate.ts": {
+      "countedLines": 79,
+      "physicalLines": 85,
       "forbiddenImportCount": 0
     },
     "src/components/community-agent-thread-context/native-projection.test.ts": {
@@ -3518,8 +3533,8 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/components/community-conversation/CommunityConversation.svelte": {
-      "countedLines": 602,
-      "physicalLines": 641,
+      "countedLines": 600,
+      "physicalLines": 639,
       "forbiddenImportCount": 0,
       "kind": "legacy",
       "justification": "Existing file above the new-file counted-line limit; do not grow"
@@ -3572,6 +3587,11 @@
     "src/components/community-conversation/message-row-estimate.ts": {
       "countedLines": 45,
       "physicalLines": 51,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-conversation/message-row-rendered-supplement.test.ts": {
+      "countedLines": 12,
+      "physicalLines": 14,
       "forbiddenImportCount": 0
     },
     "src/components/community-custom-emoji-settings/CommunityCustomEmojiSettings.stories.svelte": {
@@ -5319,8 +5339,8 @@
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanel.svelte": {
-      "countedLines": 295,
-      "physicalLines": 300,
+      "countedLines": 285,
+      "physicalLines": 290,
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/CommunityThreadPanelAgent.stories.svelte": {
@@ -5351,6 +5371,11 @@
     "src/components/community-thread-panel/CommunityThreadPanelPersistedComposer.svelte": {
       "countedLines": 125,
       "physicalLines": 129,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-thread-panel/CommunityThreadPanelVirtualTranscript.stories.svelte": {
+      "countedLines": 127,
+      "physicalLines": 132,
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/focus-reply.ts": {
@@ -5391,6 +5416,11 @@
     "src/components/community-thread-panel/thread-panel-composer-props.ts": {
       "countedLines": 49,
       "physicalLines": 49,
+      "forbiddenImportCount": 0
+    },
+    "src/components/community-thread-panel/thread-row-estimate.svelte.ts": {
+      "countedLines": 60,
+      "physicalLines": 63,
       "forbiddenImportCount": 0
     },
     "src/components/community-thread-panel/thread-transcript-messages.test.ts": {

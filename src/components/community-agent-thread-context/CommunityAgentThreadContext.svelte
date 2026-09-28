@@ -11,11 +11,7 @@
     CommunityAgentActivityItem,
     CommunityAgentIdentity,
   } from "../../community/agent-contracts.js";
-  import {
-    checkpointThreadComments,
-    ownerThreadActivity,
-    threadContextSegments,
-  } from "./projection.js";
+  import { projectAgentThreadContext } from "./context-projection.js";
   let {
     messageId,
     rootId,
@@ -37,61 +33,32 @@
     conversation?.rooms.find((room) => room.id === roomId)?.groupId ?? roomId,
   );
   watchAgentConversationChannel(() => channel, conversation);
-  const segments = $derived(
-    threadContextSegments(
-      conversation?.checkpoints ?? [],
-      conversation?.events ?? [],
+  const ownerModel = $derived(activityOwner?.model());
+  const projection = $derived(
+    projectAgentThreadContext({
+      activity: activity ?? ownerModel?.activity ?? [],
+      ...(activityContext ? { activityContext } : {}),
+      ...(channel ? { channel } : {}),
+      checkpoints: conversation?.checkpoints ?? [],
+      events: conversation?.events ?? [],
       rootId,
       messageId,
-    ),
-  );
-  const comments = $derived(
-    messageId === rootId
-      ? checkpointThreadComments(
-          conversation?.checkpoints ?? [],
-          conversation?.events ?? [],
-          rootId,
-          channel,
-        )
-      : [],
-  );
-  const threadContext = $derived(
-    activityContext ??
-      (channel
-        ? ({
-            kind: "thread",
-            channelId: channel,
-            threadRootId: rootId,
-          } satisfies CommunityAgentActivityContext)
-        : undefined),
-  );
-  const ownerModel = $derived(activityOwner?.model());
-  const ownerActivity = $derived(
-    segments.length
-      ? []
-      : ownerThreadActivity(
-          activity ?? ownerModel?.activity ?? [],
-          threadContext,
-          messageId,
-          conversation?.events ?? [],
-        ),
+    }),
   );
   const ownerAgents = $derived(
-    [...new Set(ownerActivity.map((item) => item.agentPubkey))].map(
-      (pubkey) => ({
-        agent:
-          (agents ?? ownerModel?.agents ?? []).find(
-            (candidate) => candidate.pubkey === pubkey,
-          ) ??
-          ({
-            pubkey,
-            name:
-              conversation?.members.find((member) => member.id === pubkey)
-                ?.name ?? "Agent",
-          } satisfies Pick<CommunityAgentIdentity, "pubkey" | "name">),
-        activity: ownerActivity.filter((item) => item.agentPubkey === pubkey),
-      }),
-    ),
+    projection.owners.map(({ agentPubkey, activity }) => ({
+      agent:
+        (agents ?? ownerModel?.agents ?? []).find(
+          (candidate) => candidate.pubkey === agentPubkey,
+        ) ??
+        ({
+          pubkey: agentPubkey,
+          name:
+            conversation?.members.find((member) => member.id === agentPubkey)
+              ?.name ?? "Agent",
+        } satisfies Pick<CommunityAgentIdentity, "pubkey" | "name">),
+      activity,
+    })),
   );
 </script>
 
@@ -101,11 +68,11 @@
       {...ownerModel ? { execution: ownerModel } : {}}
       activity={owner.activity}
       agent={owner.agent}
-      {...threadContext ? { context: threadContext } : {}}
+      {...projection.context ? { context: projection.context } : {}}
       members={conversation?.members ?? []}
     />
   {/each}
-  {#each segments as segment (segment.checkpoint.eventId)}
+  {#each projection.segments as segment (segment.checkpoint.eventId)}
     {#if segment.activity.length}
       <CommunityAgentTranscript
         {...ownerModel ? { execution: ownerModel } : {}}
@@ -129,5 +96,8 @@
         repositoryAddress={segment.checkpoint.repositoryAddress}
       />{/if}
   {/each}
-  {#if comments.length}<CommunityCommitDiscussion {comments} inThread />{/if}
+  {#if projection.comments.length}<CommunityCommitDiscussion
+      comments={projection.comments}
+      inThread
+    />{/if}
 </div>

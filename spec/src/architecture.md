@@ -75,7 +75,12 @@ For LC-UI-040, virtualized conversation estimates live in the extracted
 and `topic-row-estimate`, and the small production/story host wiring budgets are
 recorded in `scripts/architecture-baseline.json`. Latency-sensitive conversation
 scroll strategy is passed through the existing Design Core Layout boundary
-without adding a Community scroll owner. Project growth-surface virtualization
+without adding a Community scroll owner. Channel estimates include rendered date
+dividers without reserving height for dormant conditional supplements. Thread
+estimates reuse the same checkpoint and owner-activity projection as the rendered
+context, including collapsed reasoning, grouped tools, resolved permissions,
+usage, checkpoint dividers, and comments, so offscreen agent transcripts do not
+revise the native scroll range only after they mount. Project growth-surface virtualization
 lives in `CommunityProjectsVirtualRows` and `virtual-project-row-estimates`; the
 task list and repository-view query target are extracted owners so the project
 composition root and repository-view query stay below their current budgets.

@@ -1072,6 +1072,11 @@ indexes use a Community-owned virtual topic-row stream. Unpaged workspace
 consumers retain their
 existing `latestUnreadEventId` read-boundary callbacks; the history opt-in uses
 the displayed root/thread head and the corresponding scoped read receipt.
+Conversation estimates MUST include rendered date dividers and conditional
+supplements rather than reserving dormant space. Thread estimates MUST project
+the same owner activity, transcript rows, checkpoint dividers, and comments as
+the rendered agent context, and replacing that projection MUST refresh
+unmounted estimates while retaining mounted measurements and the reading anchor.
 `CommunityHistoryEdge` composes the shared
 Button and Spinner for accessible earlier-page loading and retry in forum and
 Inbox lists, with one load per boundary crossing and no resize-driven cascade.

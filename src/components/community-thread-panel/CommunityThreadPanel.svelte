@@ -2,6 +2,7 @@
   import { threadTranscriptMessages } from "./thread-transcript-messages.js";
   import CommunityTranscriptCommentMessage from "../community-transcript-comment-message/CommunityTranscriptCommentMessage.svelte";
   import CommunityAgentThreadContext from "../community-agent-thread-context/CommunityAgentThreadContext.svelte";
+  import { createThreadRowEstimate } from "./thread-row-estimate.svelte.js";
   import { createThreadDraft } from "./thread-draft.svelte.js";
   import { focusReply } from "./focus-reply.js";
   import { observeReadEnd } from "../community-workspace/observe-read-end.js";
@@ -20,8 +21,6 @@
   } from "../../community/index.js";
   import CommunityThreadPanelComposer from "./CommunityThreadPanelComposer.svelte";
   import CommunityThreadMessage from "./CommunityThreadMessage.svelte";
-  import { isMessageContinuation } from "../community-message/grouping.js";
-  import { estimateCommunityMessageRow } from "../community-conversation/message-row-estimate.js";
   import {
     memberById,
     type CommunityMemberModel,
@@ -144,16 +143,11 @@
       ? undefined
       : memberById(members, rootMessage.authorId),
   );
-  function estimateMessageRow(
-    message: import("../community-workspace/model.js").CommunityMessageModel,
-    index: number,
-  ): number {
-    return estimateCommunityMessageRow(message, {
-      density: "compact",
-      continuation: isMessageContinuation(messages, index),
-      hasSupplement: true,
-    });
-  }
+  const threadRows = createThreadRowEstimate({
+    messages: () => messages,
+    rooms: () => rooms,
+    rootId: () => thread.rootMessageId,
+  });
 
   function startEditing(messageId: string): void {
     const message = thread.messages.find(
@@ -192,11 +186,7 @@
     <CommunityAgentThreadContext
       messageId={message.id}
       rootId={thread.rootMessageId}
-      roomId={rooms.find(
-        (room) =>
-          (room.groupId ?? room.id) ===
-          message.sourceEvent?.tags.find(([key]) => key === "h")?.[1],
-      )?.id}
+      roomId={threadRows.roomId(message)}
     />
   {/snippet}
   <Layout
@@ -258,7 +248,7 @@
             items: messages,
             row: messageRow,
             virtualize: true,
-            estimateSize: estimateMessageRow,
+            estimateSize: threadRows.estimate,
             ...(focused
               ? {
                   initialPosition: {

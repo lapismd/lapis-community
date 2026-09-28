@@ -4,7 +4,7 @@ import type { CommunityMessageModel } from "../community-workspace/model.js";
 export interface CommunityMessageRowEstimateContext {
   density?: Density;
   continuation?: boolean;
-  hasSupplement?: boolean;
+  supplementHeight?: number;
 }
 
 const densityBase: Record<Density, number> = {
@@ -28,7 +28,7 @@ export function estimateCommunityMessageRow(
   const reactions = message.reactions?.length ? 34 : 0;
   const replies =
     message.replyCount || message.replyParticipantIds?.length ? 38 : 0;
-  const supplement = context.hasSupplement ? 56 : 0;
+  const supplement = context.supplementHeight ?? 0;
   const continuationAdjustment = context.continuation ? -28 : 0;
   const markdownAdjustment = codeBlocks * 86 + Math.max(hardLines - 1, 0) * 10;
 
