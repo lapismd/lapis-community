@@ -34,6 +34,9 @@ import {
 } from "./event-store.js";
 import { isVerifiedNostrEvent, verifiedNostrEvent } from "./verified-events.js";
 import { createTursoAgentActivityStore } from "./agent-archive-turso.js";
+import { canUseTursoCommunityEventStore } from "./turso-browser-capabilities.js";
+
+export { canUseTursoCommunityEventStore };
 
 interface TursoEventRow extends Record<string, unknown> {
   raw_json: string;
@@ -56,17 +59,6 @@ export interface TursoCommunityEventStoreOptions
 }
 
 const DEFAULT_MAX_BYTES = 64 * 1_024 * 1_024;
-
-export function canUseTursoCommunityEventStore(): boolean {
-  return (
-    typeof navigator !== "undefined" &&
-    typeof navigator.storage?.getDirectory === "function" &&
-    typeof navigator.locks?.request === "function" &&
-    typeof SharedArrayBuffer !== "undefined" &&
-    typeof Atomics !== "undefined" &&
-    globalThis.crossOriginIsolated === true
-  );
-}
 
 export function createTursoCommunityEventStore(
   options: TursoCommunityEventStoreOptions = {},

@@ -347,7 +347,11 @@ The disposable browser event cache does not alter those protocol semantics.
 When its Turso-WASM/OPFS implementation is available, the browser owner context
 opens the cache through the driver's self-contained browser bundle so it can own
 its complete worker pool; verified event envelopes remain the only values passed
-into the shared runtime projection.
+into the shared runtime projection. Availability requires shared WebAssembly
+memory to cross a `MessageChannel`; browsers that expose OPFS and shared memory
+but reject that structured clone MUST use IndexedDB or memory instead.
+Requests sent to the dedicated Community worker MUST copy reactive event and
+projection values into plain cloneable data before calling `postMessage`.
 Multiple Community runtimes in that owner context share the same disposable
 cache connection and cannot change event authority or verification semantics.
 If that driver import or connect does not become ready within a bounded wait,

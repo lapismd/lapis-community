@@ -18,6 +18,7 @@ import type {
   CommunityAgentArchiveRequest,
 } from "./agent-contracts.js";
 import { dispatchAgentArchive } from "./agent-archive.js";
+import { copyCommunityWorkerPayload } from "./community-worker-payload.js";
 
 interface WorkerLike {
   postMessage(value: unknown): void;
@@ -42,8 +43,8 @@ export function createBrowserCommunityEventRuntime(
   options: BrowserCommunityEventRuntimeOptions = {},
 ): CommunityEventRuntime {
   // Turso's browser driver owns a WASM worker pool. Opening it from this
-  // runtime's application worker would create a nested worker graph and can
-  // leave the driver's pthread registry incomplete. Keep the database in the
+  // runtime's application worker can leave the driver's pthread registry
+  // incomplete. Keep the database in the
   // browser owner context, matching the Lapis app database integration.
   if (canUseTursoCommunityEventStore()) {
     return createInlineBrowserCommunityEventRuntime(options);
@@ -113,7 +114,6 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
       )) as T;
     return this.#request({ method: "archive", request });
   }
-  readonly #options: BrowserCommunityEventRuntimeOptions;
   readonly #pending = new Map<
     number,
     { resolve: (value: unknown) => void; reject: (cause: unknown) => void }
@@ -127,9 +127,7 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
   #restoreOptions: { metadataOnly?: boolean } = {};
   #restoring: Promise<void> | undefined;
 
-  constructor(options: BrowserCommunityEventRuntimeOptions) {
-    this.#options = options;
-  }
+  constructor(private readonly options: BrowserCommunityEventRuntimeOptions) {}
 
   async restore(
     scopes: readonly CommunityScope[],
@@ -234,14 +232,14 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
         resolve: (value) => resolve(value as T),
         reject,
       });
-      worker.postMessage({ id, ...request });
+      worker.postMessage(copyCommunityWorkerPayload({ id, ...request }));
     });
   }
 
   #ensureWorker(): WorkerLike {
     if (this.#worker !== undefined) return this.#worker;
     const worker =
-      this.#options.workerFactory?.() ??
+      this.options.workerFactory?.() ??
       new Worker(new URL("./community-event-worker.js", import.meta.url), {
         type: "module",
         name: "lapis-community-events",
@@ -291,10 +289,10 @@ class BrowserCommunityEventRuntime implements CommunityEventRuntime {
 
   async #activateFallback(): Promise<void> {
     if (this.#fallback !== undefined) return;
-    this.#options.onDegraded?.(
+    this.options.onDegraded?.(
       "Community worker failed repeatedly; using the inline runtime",
     );
-    const fallback = createInlineBrowserCommunityEventRuntime(this.#options);
+    const fallback = createInlineBrowserCommunityEventRuntime(this.options);
     this.#fallback = fallback;
     if (this.#scopes.length > 0) {
       await fallback.restore(
