@@ -104,6 +104,11 @@ The package manifest exposes the production NIP-29 catalog source through a
 lightweight `registry/nip29` subpath so Notes can reuse protocol and proof
 policy without importing Community's presentation barrel.
 
+For LC-SPEC-002, the package manifest exposes `CommunityMessage` and
+`CommunityChatComposer` through focused component subpaths with their public
+presentation types. Consumers that need either component MUST be able to avoid
+the aggregate component barrel and its unrelated browser-runtime graph.
+
 The package manifest exposes NIP-34 project collaboration through the
 lightweight `projects` subpath. The canonical protocol and architecture
 chapters own that source, event-builder, deterministic-reducer, pagination,
