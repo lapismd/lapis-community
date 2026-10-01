@@ -1005,3 +1005,7 @@ LC-NOSTR-042 runtime administration and snapshot state have dedicated community
 modules. Profile refresh presentation has its own component. Controller, session,
 profile and application composition budgets shrink; bounded public contract and
 subscription additions update their path budgets under LC-ARCH-028.
+
+The shared edit-composer preview is owned by `CommunityComposerEditContext`;
+its extraction lowers the CommunityChatComposer hotspot budget without changing
+edit submission or persistence ownership (LC-ARCH-028).

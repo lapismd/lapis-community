@@ -3,6 +3,11 @@ the component, formatter, unit test, and focused Storybook budgets in
 `scripts/architecture-baseline.json`; registry materialization and publication
 behavior are unchanged.
 
+For LC-UI-029, the shared edit-context owner records the original message
+preview and lowers the composer architecture budget in
+`scripts/architecture-baseline.json`. Registry discussion editing uses the
+public composer context; the preview is independent of the submitted draft.
+
 For LC-UI-053, restoring the shared registry media viewer fullscreen lightbox
 and ButtonGroup mode controls changes only Community presentation components,
 stories, UI exceptions, and architecture budgets. Registry ingestion, release
