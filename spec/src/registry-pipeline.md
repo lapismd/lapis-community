@@ -418,3 +418,10 @@ Specification publication builds only the canonical book. Registry tooling
 still uses the existing architecture checker; documentation preparation
 reconciles the controller and transitions-test baseline records to their exact
 current source counts without changing runtime code or import boundaries.
+
+Registry materialization commands and resource-verification guidance live in
+`docs/registry.md`. Local application, authentication and Storybook instructions
+live in `docs/development.md`, which links the existing disposable relay-to-site
+acceptance guide. Production site publication remains documented separately in
+`docs/publishing.md`; reorganizing the README does not activate a release or
+change any signer, relay or deployment gate.

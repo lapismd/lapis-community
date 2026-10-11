@@ -1019,3 +1019,10 @@ Spec-site preparation reconciles two existing source count records: the
 controller contains 4,271 counted lines and its transitions test contains 339.
 Only those exact baseline records change; new-file limits and import boundaries
 remain enforced, and neither source file changes in the documentation slice.
+
+Package documentation keeps the README as the concise overview and installation
+entry point. Detailed public-import and lifetime examples live in
+`docs/usage.md`; registry source layout and materialization live in
+`docs/registry.md`; development-host and Storybook configuration live in
+`docs/development.md`. This reorganization changes no package exports,
+dependency ranges or runtime ownership boundaries.
