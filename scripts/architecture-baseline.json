@@ -1035,7 +1035,7 @@
       "justification": "Existing file above the new-file counted-line limit; do not grow"
     },
     "src/community/community-controller.svelte.ts": {
-      "countedLines": 4267,
+      "countedLines": 4271,
       "physicalLines": 4351,
       "forbiddenImportCount": 0,
       "kind": "legacy",
@@ -1144,7 +1144,7 @@
       "forbiddenImportCount": 0
     },
     "src/community/controller-transitions.test.ts": {
-      "countedLines": 332,
+      "countedLines": 339,
       "physicalLines": 343,
       "forbiddenImportCount": 0
     },

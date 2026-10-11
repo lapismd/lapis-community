@@ -1009,3 +1009,13 @@ subscription additions update their path budgets under LC-ARCH-028.
 The shared edit-composer preview is owned by `CommunityComposerEditContext`;
 its extraction lowers the CommunityChatComposer hotspot budget without changing
 edit submission or persistence ownership (LC-ARCH-028).
+
+Public README examples import declared protocol, Nostr and registry subpaths.
+The host supplies public trust configuration and owns source disposal.
+The specification workflow publishes canonical contracts without starting
+relay or application services.
+
+Spec-site preparation reconciles two existing source count records: the
+controller contains 4,271 counted lines and its transitions test contains 339.
+Only those exact baseline records change; new-file limits and import boundaries
+remain enforced, and neither source file changes in the documentation slice.

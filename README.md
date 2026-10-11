@@ -1,9 +1,45 @@
 # Lapis Community
 
+[![npm version](https://img.shields.io/npm/v/%40lapismd%2Flapis-community)](https://www.npmjs.com/package/@lapismd/lapis-community)
+
 `@lapismd/lapis-community` is the single shared package for the Nostr-first
 Lapis community and plugin registry. It is the complete path from signed Nostr
 events to the verified projection and discussion components rendered by
 `community.lapis.md`.
+
+## Install
+
+```sh
+npm install @lapismd/lapis-community svelte
+# or
+pnpm add @lapismd/lapis-community svelte
+```
+
+Use Svelte 5 or newer for the component exports. The package ships ESM and
+TypeScript declarations. Protocol, relay and registry subpaths can be used
+without importing the component barrel. Your host supplies relay addresses,
+trusted public keys, authentication and application lifetime.
+
+| Import                                                        | Purpose                                                               |
+| ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `@lapismd/lapis-community/protocol`                           | Event contracts, templates, verification and deterministic projection |
+| `@lapismd/lapis-community/nostr`                              | Relay transports, queries and WebSocket relay factory                 |
+| `@lapismd/lapis-community/auth`                               | Explicit signer and relay authentication adapters                     |
+| `@lapismd/lapis-community/registry/nip29`                     | Live verified NIP-29 plugin catalog source                            |
+| `@lapismd/lapis-community/community`                          | Community controller, event storage and conversation contracts        |
+| `@lapismd/lapis-community/projects`                           | NIP-34 project collaboration                                          |
+| `@lapismd/lapis-community/components`                         | Composable Svelte Community components                                |
+| `@lapismd/lapis-community/components/community-message`       | Focused message component                                             |
+| `@lapismd/lapis-community/components/community-chat-composer` | Focused Markdown composer                                             |
+
+The library is separate from the first-party `@lapis-notes/community` plugin.
+Install that plugin through your Lapis host when you want the integrated
+workspace experience rather than building your own host.
+
+Read the [published specification](https://lapismd.github.io/lapis-community/),
+the [public UI catalog](src/components/ui-catalog.json), and the
+[component contracts](spec/src/components.md) before composing an application.
+GitHub Actions builds the spec site from `spec/src` and deploys it on `main`.
 
 ## Active components
 
@@ -57,12 +93,32 @@ community component. The renderer consumes this directory through
 ## Render Community directly from Nostr
 
 ```ts
-const source = createNip29RegistryCatalogDataSource({
-  relays,
-  authorities: { curatorPubkeys, publisherPubkeysByPlugin },
-  relayFactory: createWebSocketCommunityRelayFactory(),
-});
+import { createNip29RegistryCatalogDataSource } from "@lapismd/lapis-community/registry/nip29";
+import { createWebSocketCommunityRelayFactory } from "@lapismd/lapis-community/nostr";
+import type { Nip29RegistryAuthorities } from "@lapismd/lapis-community/protocol";
+
+export async function loadCatalog(
+  relays: readonly string[],
+  authorities: Nip29RegistryAuthorities,
+) {
+  const source = createNip29RegistryCatalogDataSource({
+    relays,
+    authorities,
+    relayFactory: createWebSocketCommunityRelayFactory(),
+  });
+  try {
+    return await source.loadIndex();
+  } finally {
+    source.dispose();
+  }
+}
 ```
+
+Supply actual relay URLs, a `Set` of curator public keys and a `Map` from plugin
+IDs to authorized publisher-key sets. Obtain them from your deployment's public
+trust configuration; do not substitute fixture keys for production authority.
+For a live application, retain the source, subscribe to its changes, and dispose
+it only when its owning application lifetime ends.
 
 The host maps deployment configuration into this source; the package does not
 read server environment variables. An injected reader signer is optional, and

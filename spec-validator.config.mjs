@@ -50,6 +50,10 @@ export default defineConfig(tableRequirements(), {
       ],
       rules: [
         {
+          pattern: "^\\.github/workflows/publish-spec-pages\\.yml$",
+          chapters: ["spec/src/spec-governance.md"],
+        },
+        {
           pattern: "^docs/plans/",
           chapters: ["spec/src/architecture.md"],
         },
@@ -81,6 +85,7 @@ export default defineConfig(tableRequirements(), {
         },
       ],
       protected: [
+        "^\\.github/workflows/publish-spec-pages\\.yml$",
         "^(?:package\\.json$|pnpm-(?:lock\\.yaml$|workspace\\.yaml$)|src/|dev/|deploy/|scripts/|docs/|\\.storybook/|vite(?:\\.community)?\\.config\\.ts$|tsconfig|AGENTS\\.md$|README\\.md$|spec-validator\\.config\\.mjs$)",
       ],
     },

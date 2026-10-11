@@ -413,3 +413,8 @@ budget. Decoded progress remains owner-local and does not enter registry
 materialization, search, or public event projections.
 Reply-delivery and checkpoint-sync presentation is likewise an owner-local
 Activity projection with no registry effect.
+
+Specification publication builds only the canonical book. Registry tooling
+still uses the existing architecture checker; documentation preparation
+reconciles the controller and transitions-test baseline records to their exact
+current source counts without changing runtime code or import boundaries.
