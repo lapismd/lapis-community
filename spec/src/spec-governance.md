@@ -100,8 +100,10 @@ cache uses `idb` for its durable fallback and lazily loads
 `@tursodatabase/database-wasm` browser bundle only when the host meets the OPFS
 isolation requirements. The package-owned chat authoring surface uses the published
 `@lapismd/mira` package and its public CodeMirror peer APIs for live Markdown,
-completion, selection, and keyboard behavior; Design Core remains the owner of
-the surrounding buttons, dialogs, inputs, progress, and application chrome.
+completion, selection, and keyboard behavior. The direct dependency range is
+`~0.1.2`, and the committed lock resolves published npm `0.1.2`. Design Core
+remains the owner of the surrounding buttons, dialogs, inputs, progress, and
+application chrome.
 The package manifest exposes the production NIP-29 catalog source through a
 lightweight `registry/nip29` subpath so Notes can reuse protocol and proof
 policy without importing Community's presentation barrel.
