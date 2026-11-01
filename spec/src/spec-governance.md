@@ -1,5 +1,9 @@
 # Specification Governance
 
+<!-- dependency-automation-policy -->
+
+Dependency update PRs from the trusted LapisMD App, Dependabot or Renovate MAY skip specification checks using the PR author rather than the rerun actor. Functional checks remain required. The shared `lapismd/dependency-automation` coordinator proposes published first-party npm updates with Changeset release intent where required; it does not merge, publish, sign or deploy. This CI policy changes no runtime or public contract in this chapter.
+
 Published UI dependency refreshes update the portable manifest and committed
 lockfile together while retaining the existing package-ownership boundary.
 Local packed-package validation of a sibling Design Core source fix MAY refresh

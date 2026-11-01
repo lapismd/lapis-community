@@ -7,7 +7,7 @@ items are removed from this table in the same change that adds their normative
 requirement and verification evidence. The sibling relay's detailed native Git
 roadmap remains authoritative for relay implementation details; the Forge rows
 below track the corresponding Community product boundary. The sibling
-[controller deferred-work specification](../../../nostr-agent-controller/spec/src/deferred-work.md)
+controller deferred-work specification (`nostr-agent-controller/spec/src/deferred-work.md` in the controller checkout)
 owns runtime exit conditions; the Agent rows below track the matching Community
 product boundary.
 
@@ -69,7 +69,7 @@ States have precise meanings:
 
 <!-- deferred-work:end -->
 
-The relay's [Deferred forge work](../../../nostr-relay/spec/src/roadmap/deferred-forge-work.md)
+The relay's [Deferred forge work](https://github.com/lapismd/nostr-relay/blob/main/spec/src/roadmap/deferred-forge-work.md)
 contains the lower-level acceptance details for automatic revisions,
 merge-queue leftover, repository retirement, and provider coverage. Live
 default-branch protection, additive `protected-ref` patterns, required-approval
