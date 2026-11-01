@@ -1,12 +1,12 @@
 For LC-UI-035, the CommunityRelativeTime time-ago label regression records only
-the component, formatter, unit test, and focused Storybook budgets in
-`scripts/architecture-baseline.json`; registry materialization and publication
-behavior are unchanged.
 
-For LC-UI-029, the shared edit-context owner records the original message
-preview and lowers the composer architecture budget in
-`scripts/architecture-baseline.json`. Registry discussion editing uses the
-public composer context; the preview is independent of the submitted draft.
+<!-- dependency-automation-policy -->
+
+Dependency update PRs from the trusted LapisMD App, Dependabot or Renovate MAY skip specification checks using the PR author rather than the rerun actor. Functional checks remain required. The shared `lapismd/dependency-automation` coordinator proposes published first-party npm updates with Changeset release intent where required; it does not merge, publish, sign or deploy. This CI policy changes no runtime or public contract in this chapter.
+
+the component, formatter, unit test, and focused Storybook budgets in `scripts/architecture-baseline.json`; registry materialization and publication behavior are unchanged.
+
+For LC-UI-029, the shared edit-context owner records the original message preview and lowers the composer architecture budget in `scripts/architecture-baseline.json`. Registry discussion editing uses the public composer context; the preview is independent of the submitted draft.
 
 For LC-UI-053, restoring the shared registry media viewer fullscreen lightbox
 and ButtonGroup mode controls changes only Community presentation components,
