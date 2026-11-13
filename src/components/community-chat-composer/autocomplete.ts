@@ -1,4 +1,3 @@
-import data from "@emoji-mart/data";
 import { init, SearchIndex } from "emoji-mart";
 
 import type { CommunityCustomEmoji } from "../../community/index.js";
@@ -209,7 +208,7 @@ export async function communityEmojiAutocompleteItems(
     }));
 
   try {
-    emojiIndexReady ??= init({ data });
+    emojiIndexReady ??= import("@emoji-mart/data", { with: { type: "json" } }).then(({ default: data }) => init({ data }));
     await emojiIndexReady;
     const results = (await SearchIndex.search(normalized, {
       caller: "community-chat-composer",

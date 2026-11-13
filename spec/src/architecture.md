@@ -1033,3 +1033,13 @@ entry point. Detailed public-import and lifetime examples live in
 `docs/registry.md`; development-host and Storybook configuration live in
 `docs/development.md`. This reorganization changes no package exports,
 dependency ranges or runtime ownership boundaries.
+
+The dependency audit exception is development-only: the published runtime graph
+must have no audit findings. Raw full and production reports remain visible in
+CI logs; the audit wrapper must reject any finding outside the exact reviewed
+Svelte development-tooling path. It introduces no runtime dependency or API.
+
+Community now resolves published Design Core `^0.13.0` through the registry to
+provide the public dialog and transcript tool-target APIs already required by
+its catalog and components. The runtime uses the owning package exports; no
+local shim, package patch or copied shared implementation is permitted.

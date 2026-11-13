@@ -210,3 +210,11 @@ registry architecture and materialization; `docs/development.md` owns local
 application, authentication, Storybook and UI-pattern guidance. README guide
 links use GitHub URLs so the npm-rendered README can reach repository-only docs. The independent specification workflow builds canonical
 mdBook source without runtime dependencies or relay/application activation.
+
+The operator approved only development advisory GHSA-gcqx-w48m-w2h4 on
+2026-11-13. The audit gate MUST accept only deepmerge 4.3.1 on the exact root
+Svelte Vite plugin path, at LOW severity with no available patched version.
+Production audits MUST remain clean; additional advisories, paths, versions,
+muted or malformed reports and audit process failures MUST fail. An available
+fix ends the exception. The Node-only spec-validator 0.2 tooling and local
+search/index commands retain the existing canonical and runtime contracts.

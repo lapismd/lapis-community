@@ -425,3 +425,9 @@ live in `docs/development.md`, which links the existing disposable relay-to-site
 acceptance guide. Production site publication remains documented separately in
 `docs/publishing.md`; reorganizing the README does not activate a release or
 change any signer, relay or deployment gate.
+
+Dependency-candidate CI runs the audit-policy regression tests and both raw full
+and production audits before qualification. Only the operator-approved
+GHSA-gcqx-w48m-w2h4 deepmerge 4.3.1 development path may be accepted; production,
+additional or unreviewed findings remain blocking. Registry signing and release
+authority are unchanged.

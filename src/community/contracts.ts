@@ -482,7 +482,7 @@ export interface CommunityTimelinePosition {
 export interface CommunityTimelinePresentation {
   key: string;
   draft: string;
-  position?: CommunityTimelinePosition;
+  position?: CommunityTimelinePosition | undefined;
 }
 
 export interface CommunityHistoryState {

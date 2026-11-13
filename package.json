@@ -140,14 +140,18 @@
     "test:agents:archive:browser": "node scripts/test-agent-archive-browser.mjs",
     "build:tools": "tsc --declaration --target es2022 --module esnext --moduleResolution bundler --skipLibCheck --outDir dist/build scripts/vite-turso-bundle.ts",
     "changeset": "changeset",
-    "release:version": "node scripts/dependency-automation/version.mjs"
+    "release:version": "node scripts/dependency-automation/version.mjs",
+    "spec:search": "spec-validator search",
+    "spec:index": "spec-validator index",
+    "audit:check": "node scripts/check-dependency-audit.mjs",
+    "test:audit": "vitest run --project unit scripts/check-dependency-audit.test.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/state": "^6.7.2",
     "@codemirror/view": "^6.43.10",
     "@emoji-mart/data": "^1.2.1",
-    "@lapismd/design-core": "^0.1.2",
+    "@lapismd/design-core": "^0.13.0",
     "@lapismd/mira": "~0.1.2",
     "@lucide/svelte": "^1.21.0",
     "@noble/curves": "^2.0.1",
@@ -167,7 +171,8 @@
     "svelte": "^5.0.0"
   },
   "devDependencies": {
-    "@lapismd/spec-validator": "0.1.0",
+    "@changesets/cli": "3.0.3",
+    "@lapismd/spec-validator": "0.2.0",
     "@sovit.xyz/keytr": "0.8.0",
     "@storybook/addon-a11y": "10.6.3",
     "@storybook/addon-docs": "10.6.3",
@@ -201,7 +206,6 @@
     "typescript": "~5.8.3",
     "vite": "6.4.5",
     "vitest": "4.1.12",
-    "ws": "8.21.3",
-    "@changesets/cli": "3.0.3"
+    "ws": "8.21.3"
   }
 }

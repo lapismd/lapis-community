@@ -29,7 +29,7 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-pnpmfile
       - run: pnpm exec playwright install --with-deps chromium
       - name: Audit dependencies
-        run: pnpm audit
+        run: pnpm test:audit && pnpm audit:check
       - name: Enforce specification-first changes
         if: github.event_name == 'pull_request'
         env:
