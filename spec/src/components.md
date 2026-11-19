@@ -1080,6 +1080,9 @@ unmounted estimates while retaining mounted measurements and the reading anchor.
 `CommunityHistoryEdge` composes the shared
 Button and Spinner for accessible earlier-page loading and retry in forum and
 Inbox lists, with one load per boundary crossing and no resize-driven cascade.
+The History pattern example imports `CommunityHistoryState` from the source
+`community` barrel rather than the published package path so `svelte-check`
+resolves without a prior `dist` build.
 
 Application-to-workspace and workspace-to-conversation optional props MUST be
 memoized by their reactive dependencies. A child reading an unrelated callback
@@ -1278,3 +1281,11 @@ its full-date tooltip, with the snapshot observation time converted to seconds.
 | ID        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | LC-UI-055 | Personal settings MUST expose a Media destination that lists the connected owner's avatar and custom-emoji uploads, marks profile or signed emoji references as in use, omits ordinary deletion for those current references, and confirms deletion of unreferenced assets with an awaited, retryable shared confirmation. HTTP conflict reasons MUST remain visible for retry. The destination MUST show append-only lifecycle history and MUST load the manager report queue only on request, rendering relay `403` as a manager-access-required state. Initial loading MUST use representative shared skeletons; empty, error, retry, content-preserving refresh, and successful deletion states MUST remain explicit. Changed stories MUST remain `visual-pending`. |
+
+Standard emoji autocomplete MUST share CommunityEmojiPicker's bare
+`@emoji-mart/data` import so packaged consumers keep one consistent module
+graph. Node unit acceptance remaps that package through the Vitest unit plugin
+to `createRequire`, preserving SearchIndex coverage without import attributes.
+Community timeline presentation may contain an absent or explicitly undefined
+saved position; consumers treat both as no saved scroll anchor. This preserves
+existing position-only controller updates.

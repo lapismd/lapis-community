@@ -10,6 +10,25 @@ import { tursoBundleBuildPlugin } from "./scripts/vite-turso-bundle.js";
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url));
 
+/** Node unit tests cannot load @emoji-mart/data's JSON main without attributes. */
+function emojiMartDataNodePlugin() {
+  const resolved = "\0lapis-community-emoji-mart-data";
+  return {
+    name: "lapis-community-emoji-mart-data-node",
+    enforce: "pre" as const,
+    resolveId(id: string) {
+      return id === "@emoji-mart/data" ? resolved : undefined;
+    },
+    load(id: string) {
+      if (id !== resolved) return undefined;
+      return `import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+export default require("@emoji-mart/data/sets/15/native.json");
+`;
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   plugins: [
     tursoBundleBuildPlugin(),
@@ -54,7 +73,7 @@ export default defineConfig(({ command }) => ({
   test: {
     projects: [
       {
-        plugins: [svelte()],
+        plugins: [emojiMartDataNodePlugin(), svelte()],
         test: {
           name: "unit",
           environment: "node",

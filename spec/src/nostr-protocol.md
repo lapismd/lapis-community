@@ -1,6 +1,6 @@
 # Nostr Protocol and Trust
 
-For LC-ARCH-008, saved timeline positions are local presentation state. Updating a reading anchor MUST NOT publish a Nostr event or invalidate the mounted application or conversation tree; drafts remain independently reactive.
+For LC-ARCH-008, saved timeline positions are local presentation state. Updating a reading anchor MUST NOT publish a Nostr event or invalidate the mounted application or conversation tree; drafts remain independently reactive. `CommunityTimelinePresentation.position` remains an exact optional field (`CommunityTimelinePosition | undefined`) so TypeScript exactOptionalPropertyTypes consumers can omit or clear the anchor without inventing a protocol payload.
 
 For LC-UI-036, selecting a review activity card resolves `review:`, `review-update:`, and `review-comment:` ids back to the pull request that already owns those events.
 
