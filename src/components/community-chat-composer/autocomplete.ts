@@ -10,6 +10,7 @@ import {
   compactEmojiShortcode,
 } from "./autocomplete-rank.js";
 import { detectComposerSlash } from "./composer-slash.js";
+import { loadEmojiMartData } from "./emoji-mart-data.js";
 import { isSafeCommunityEmojiUrl } from "./model.js";
 
 export type CommunityComposerAutocompleteKind =
@@ -208,7 +209,7 @@ export async function communityEmojiAutocompleteItems(
     }));
 
   try {
-    emojiIndexReady ??= import("@emoji-mart/data", { with: { type: "json" } }).then(({ default: data }) => init({ data }));
+    emojiIndexReady ??= loadEmojiMartData().then((data) => init({ data }));
     await emojiIndexReady;
     const results = (await SearchIndex.search(normalized, {
       caller: "community-chat-composer",
