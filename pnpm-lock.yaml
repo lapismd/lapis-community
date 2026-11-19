@@ -14,8 +14,6 @@ overrides:
   '@vitest/mocker@>=4.0.0 <4.1.12': 4.1.12
   '@lapismd/design-core>minimatch': 11.0.3
 
-pnpmfileChecksum: sha256-ff1a4RpSRZZHhoClB8kOHBOvbr6XGNwi/8YSm/PDJNs=
-
 importers:
 
   .:
