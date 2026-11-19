@@ -1282,10 +1282,12 @@ its full-date tooltip, with the snapshot observation time converted to seconds.
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | LC-UI-055 | Personal settings MUST expose a Media destination that lists the connected owner's avatar and custom-emoji uploads, marks profile or signed emoji references as in use, omits ordinary deletion for those current references, and confirms deletion of unreferenced assets with an awaited, retryable shared confirmation. HTTP conflict reasons MUST remain visible for retry. The destination MUST show append-only lifecycle history and MUST load the manager report queue only on request, rendering relay `403` as a manager-access-required state. Initial loading MUST use representative shared skeletons; empty, error, retry, content-preserving refresh, and successful deletion states MUST remain explicit. Changed stories MUST remain `visual-pending`. |
 
-Standard emoji autocomplete MUST load its JSON data using an explicit JSON
-import attribute, with a Node `createRequire` fallback when the host loader
-rejects import attributes, so the same public autocomplete owner works in
-Node-based acceptance and browser builds. Community timeline presentation may
-contain an absent or explicitly undefined saved position; consumers treat both
-as no saved scroll anchor. This preserves existing position-only controller
-updates.
+Standard emoji autocomplete MUST load its JSON data through a dedicated
+`emoji-mart-data` owner using an explicit JSON import attribute, with a Node
+`createRequire` fallback when the host loader rejects import attributes, so the
+same public autocomplete owner works in Node-based acceptance and browser
+builds. The UI catalog exception for `@emoji-mart/data` binds that loader file;
+`CommunityEmojiPicker` remains the only interactive emoji UI. Community
+timeline presentation may contain an absent or explicitly undefined saved
+position; consumers treat both as no saved scroll anchor. This preserves
+existing position-only controller updates.

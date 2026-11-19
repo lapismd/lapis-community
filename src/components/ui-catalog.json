@@ -551,10 +551,10 @@
       "requirement": "LC-UI-038"
     },
     {
-      "file": "src/components/community-chat-composer/autocomplete.ts",
+      "file": "src/components/community-chat-composer/emoji-mart-data.ts",
       "rule": "emoji",
       "symbol": "@emoji-mart/data",
-      "reason": "Headless shortcode completion uses SearchIndex, not a picker UI. CommunityEmojiPicker owns interactive emoji selection.",
+      "reason": "Headless shortcode completion loads the shared emoji dataset for SearchIndex, not a picker UI. CommunityEmojiPicker owns interactive emoji selection.",
       "story": "community-channels-chat-composer--command-autocomplete",
       "requirement": "LC-UI-038"
     },
