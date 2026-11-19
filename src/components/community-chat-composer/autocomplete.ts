@@ -1,3 +1,4 @@
+import data from "@emoji-mart/data";
 import { init, SearchIndex } from "emoji-mart";
 
 import type { CommunityCustomEmoji } from "../../community/index.js";
@@ -10,7 +11,6 @@ import {
   compactEmojiShortcode,
 } from "./autocomplete-rank.js";
 import { detectComposerSlash } from "./composer-slash.js";
-import { loadEmojiMartData } from "./emoji-mart-data.js";
 import { isSafeCommunityEmojiUrl } from "./model.js";
 
 export type CommunityComposerAutocompleteKind =
@@ -209,7 +209,7 @@ export async function communityEmojiAutocompleteItems(
     }));
 
   try {
-    emojiIndexReady ??= loadEmojiMartData().then((data) => init({ data }));
+    emojiIndexReady ??= init({ data });
     await emojiIndexReady;
     const results = (await SearchIndex.search(normalized, {
       caller: "community-chat-composer",

@@ -2,4 +2,4 @@
 "@lapismd/lapis-community": patch
 ---
 
-Use published Design Core 0.13 public dialog and transcript helpers required by Community.
+Adopt published Design Core 0.13.6 for Community dialog, transcript, and hover contracts.
