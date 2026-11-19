@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ScrollArea } from "@lapismd/design-core/shadcn/scroll-area";
   import { CommunityHistoryEdge } from "@lapismd/lapis-community/components";
-  import type { CommunityHistoryState } from "@lapismd/lapis-community/community";
+  import type { CommunityHistoryState } from "../../../community/index.js";
   let viewport = $state<HTMLElement | null>(null);
   let requests = $state(0);
   let history = $state<CommunityHistoryState>({

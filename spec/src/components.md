@@ -1080,6 +1080,9 @@ unmounted estimates while retaining mounted measurements and the reading anchor.
 `CommunityHistoryEdge` composes the shared
 Button and Spinner for accessible earlier-page loading and retry in forum and
 Inbox lists, with one load per boundary crossing and no resize-driven cascade.
+The History pattern example imports `CommunityHistoryState` from the source
+`community` barrel rather than the published package path so `svelte-check`
+resolves without a prior `dist` build.
 
 Application-to-workspace and workspace-to-conversation optional props MUST be
 memoized by their reactive dependencies. A child reading an unrelated callback
